@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         f?.url && f.dead !== 1 &&
         (!f.language || f.language.toLowerCase().startsWith("en"))
       );
-      const best = en.map((f: any) => ({ f, s: score(f) }))
+      const best = en.map((f: any) => ({ f, s: score(f, name) }))
         .sort((a: any, b: any) => b.s - a.s)[0];
       if (!best) {
         perName.push({ name, found: false });
