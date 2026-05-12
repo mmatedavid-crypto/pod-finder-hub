@@ -21,16 +21,26 @@ const EXAMPLES = [
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
-function scorePodcast(p: any, terms: string[]): number {
+function scorePodcast(p: any, terms: string[], fullPhrase: string): number {
   let s = 0;
   const title = (p.title || "").toLowerCase();
+  const displayTitle = (p.display_title || "").toLowerCase();
   const summary = (p.summary || "").toLowerCase();
   const desc = (p.description || "").toLowerCase();
   const cat = (p.category || "").toLowerCase();
+  const phrase = fullPhrase.toLowerCase().trim();
+  // Full-phrase title hit: huge boost (e.g. "joe rogan" -> "the joe rogan experience")
+  if (phrase && phrase.length >= 3) {
+    if (title === phrase || displayTitle === phrase) s += 400;
+    else if (title.includes(phrase) || displayTitle.includes(phrase)) s += 200;
+    else if (summary.includes(phrase)) s += 30;
+    else if (desc.includes(phrase)) s += 15;
+  }
   terms.forEach((term) => {
     const t = term.toLowerCase();
     if (title === t) s += 50;
     if (title.includes(t)) s += 25;
+    if (displayTitle.includes(t)) s += 20;
     if (cat.includes(t)) s += 8;
     if (summary.includes(t)) s += 6;
     if (desc.includes(t)) s += 3;
@@ -161,20 +171,26 @@ export default function SearchPage() {
         }).then(() => {}, () => {});
       }
 
-      // Podcasts query (separate, simpler).
+      // Podcasts query (separate, simpler). Includes full-phrase title hit (e.g. "Joe Rogan").
       const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
+      const fullPhrase = initial.trim();
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
+      // Full-phrase OR group first (catches "joe rogan" -> "The Joe Rogan Experience")
+      if (fullPhrase.length >= 3) {
+        const fp = `%${escapeIlike(fullPhrase)}%`;
+        pq = pq.or([`title.ilike.${fp}`, `display_title.ilike.${fp}`, `description.ilike.${fp}`, `summary.ilike.${fp}`].join(","));
+      }
       terms.forEach((t) => {
         const v = `%${escapeIlike(t)}%`;
-        pq = pq.or([`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
+        pq = pq.or([`title.ilike.${v}`, `display_title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
       });
       const { data: ps } = await pq;
       const visiblePs = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
       const rankedPs = visiblePs
-        .map((p) => ({ p, s: scorePodcast(p, terms) + ((p.podiverzum_rank ?? 0) * 0.5) }))
+        .map((p) => ({ p, s: scorePodcast(p, terms, fullPhrase) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
         .slice(0, 18)
@@ -350,8 +366,20 @@ export default function SearchPage() {
           </div>
         )}
 
-        {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (
-          <div className="mt-8 space-y-10">
+        {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (() => {
+          const phrase = initial.trim().toLowerCase();
+          const topPodcastTitleHit = podcasts.length > 0 && phrase.length >= 3 &&
+            (((podcasts[0].title || "").toLowerCase().includes(phrase)) ||
+             (((podcasts[0] as any).display_title || "").toLowerCase().includes(phrase)));
+          const podcastsSection = podcasts.length > 0 && (
+            <section>
+              <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+              </div>
+            </section>
+          );
+          const episodesSection = (
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
                 Matching episodes ({episodes.length})
@@ -373,16 +401,13 @@ export default function SearchPage() {
               </h2>
               <EpisodeList items={episodes} terms={flatTerms} showEntities />
             </section>
-            {podcasts.length > 0 && (
-              <section>
-                <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
+          );
+          return (
+            <div className="mt-8 space-y-10">
+              {topPodcastTitleHit ? <>{podcastsSection}{episodesSection}</> : <>{episodesSection}{podcastsSection}</>}
+            </div>
+          );
+        })()}
 
         <p className="text-xs text-muted-foreground mt-10">
           Indexed from public RSS feeds. Ranked by query relevance, freshness, feed health and Podiverzum Rank.
