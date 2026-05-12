@@ -63,6 +63,7 @@ export default function SearchPage() {
   const [suggestion, setSuggestion] = useState<string>("");
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
+  const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
 
@@ -80,6 +81,7 @@ export default function SearchPage() {
     setSemanticUsed(false);
     setSuggestion("");
     setAiAnswer("");
+    setPiFallback(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
 
@@ -196,6 +198,19 @@ export default function SearchPage() {
         .slice(0, 18)
         .map((x) => x.p);
       setPodcasts(rankedPs);
+
+      // PodcastIndex live fallback: if local DB has 0 podcast title matches and the
+      // query looks like a name, ask PI byterm. The fallback fn also stages the
+      // best matches into pi_feed_staging so the pipeline ingests them in minutes.
+      const looksLikeName = fullPhrase.length >= 3 && /[a-zA-Z]/.test(fullPhrase);
+      if (rankedPs.length === 0 && looksLikeName) {
+        supabase.functions.invoke("search-pi-fallback", {
+          body: { query: fullPhrase, maxStage: 5 },
+        }).then(({ data, error }) => {
+          if (cancelled || error || !data?.candidates?.length) return;
+          setPiFallback({ candidates: data.candidates, staged: data.staged || 0 });
+        }, () => { /* ignore */ });
+      }
 
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 3) {
@@ -348,6 +363,50 @@ export default function SearchPage() {
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
             No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+          </div>
+        )}
+
+        {initial && !loading && piFallback && piFallback.candidates.length > 0 && podcasts.length === 0 && (
+          <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                {piFallback.staged > 0 ? "Indexing now" : "Found via PodcastIndex"}
+              </span>
+              {piFallback.staged > 0 && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+              )}
+            </div>
+            <p className="text-sm text-foreground/80 mb-3">
+              We didn't have these in our index yet. {piFallback.staged > 0
+                ? `We just queued ${piFallback.staged} for ingestion — episodes should appear within a few minutes.`
+                : "They're already in the queue."}
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {piFallback.candidates.slice(0, 6).map((c, i) => {
+                const inner = (
+                  <div className="flex gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/40 transition-colors h-full">
+                    {c.image_url && (
+                      <img src={c.image_url} alt={c.title} loading="lazy"
+                        className="w-14 h-14 rounded-md object-cover shrink-0 border border-border/60" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm leading-tight line-clamp-2">{c.title}</div>
+                      {c.author && <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{c.author}</div>}
+                      <div className="text-[10px] mt-1.5 inline-flex items-center gap-1">
+                        {c.status === "indexed" && <span className="text-primary font-medium">In index →</span>}
+                        {c.status === "staged" && <span className="text-muted-foreground">Queued</span>}
+                        {c.status === "new" && <span className="text-primary">Indexing…</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+                return c.status === "indexed" && c.podcast_slug ? (
+                  <Link key={i} to={`/podcast/${c.podcast_slug}`}>{inner}</Link>
+                ) : (
+                  <div key={i}>{inner}</div>
+                );
+              })}
+            </div>
           </div>
         )}
 
