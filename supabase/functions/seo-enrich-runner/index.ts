@@ -45,6 +45,25 @@ Deno.serve(async (req) => {
     // Validated 480 jobs/105s @ conc 12; bumped to 16, then 20 after Cloud upgrade.
     const concurrency = Math.max(1, Math.min(28, Number(body.concurrency) || 20));
 
+    // FAN-OUT (2026-05-12): observed only ~250 jobs/min with single runner per cron tick
+    // → 460k backlog = 30+ hours. Fire N-1 sibling invocations in parallel (fire-and-forget)
+    // so each cron tick produces ~3x throughput without raising concurrency (avoids 429s).
+    // Children pass `child:true` to skip further fan-out.
+    const isChild = Boolean(body.child);
+    const fanout = Math.max(1, Math.min(5, Number(body.fanout) || (isChild ? 1 : 3)));
+    if (!isChild && fanout > 1) {
+      const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/seo-enrich-runner`;
+      const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      for (let i = 1; i < fanout; i++) {
+        // fire-and-forget; do not await
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, apikey: key },
+          body: JSON.stringify({ batch, concurrency, child: true }),
+        }).catch(() => {});
+      }
+    }
+
     // Reap stale processing locks before claiming. Best-effort.
     let reaped_stale_locks = 0;
     try {
