@@ -171,20 +171,26 @@ export default function SearchPage() {
         }).then(() => {}, () => {});
       }
 
-      // Podcasts query (separate, simpler).
+      // Podcasts query (separate, simpler). Includes full-phrase title hit (e.g. "Joe Rogan").
       const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
+      const fullPhrase = initial.trim();
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
         .limit(60);
+      // Full-phrase OR group first (catches "joe rogan" -> "The Joe Rogan Experience")
+      if (fullPhrase.length >= 3) {
+        const fp = `%${escapeIlike(fullPhrase)}%`;
+        pq = pq.or([`title.ilike.${fp}`, `display_title.ilike.${fp}`, `description.ilike.${fp}`, `summary.ilike.${fp}`].join(","));
+      }
       terms.forEach((t) => {
         const v = `%${escapeIlike(t)}%`;
-        pq = pq.or([`title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
+        pq = pq.or([`title.ilike.${v}`, `display_title.ilike.${v}`, `description.ilike.${v}`, `summary.ilike.${v}`, `category.ilike.${v}`].join(","));
       });
       const { data: ps } = await pq;
       const visiblePs = (ps || []).filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"));
       const rankedPs = visiblePs
-        .map((p) => ({ p, s: scorePodcast(p, terms) + ((p.podiverzum_rank ?? 0) * 0.5) }))
+        .map((p) => ({ p, s: scorePodcast(p, terms, fullPhrase) + ((p.podiverzum_rank ?? 0) * 0.5) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
         .slice(0, 18)
