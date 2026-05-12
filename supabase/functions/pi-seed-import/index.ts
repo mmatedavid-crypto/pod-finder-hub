@@ -98,8 +98,14 @@ Deno.serve(async (req) => {
       );
       const best = en.map((f: any) => ({ f, s: score(f, name) }))
         .sort((a: any, b: any) => b.s - a.s)[0];
-      if (!best) {
-        perName.push({ name, found: false });
+      // Confidence threshold: only accept high-confidence picks (exact/strong title match).
+      // Anything below skips staging — better to leave a gap than pollute the queue.
+      const MIN_SCORE = 200;
+      if (!best || best.s < MIN_SCORE) {
+        perName.push({
+          name, found: !!best, low_confidence: true,
+          best_title: best?.f?.title, best_score: best?.s ?? 0,
+        });
         continue;
       }
       perName.push({
