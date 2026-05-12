@@ -21,16 +21,26 @@ const EXAMPLES = [
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
-function scorePodcast(p: any, terms: string[]): number {
+function scorePodcast(p: any, terms: string[], fullPhrase: string): number {
   let s = 0;
   const title = (p.title || "").toLowerCase();
+  const displayTitle = (p.display_title || "").toLowerCase();
   const summary = (p.summary || "").toLowerCase();
   const desc = (p.description || "").toLowerCase();
   const cat = (p.category || "").toLowerCase();
+  const phrase = fullPhrase.toLowerCase().trim();
+  // Full-phrase title hit: huge boost (e.g. "joe rogan" -> "the joe rogan experience")
+  if (phrase && phrase.length >= 3) {
+    if (title === phrase || displayTitle === phrase) s += 400;
+    else if (title.includes(phrase) || displayTitle.includes(phrase)) s += 200;
+    else if (summary.includes(phrase)) s += 30;
+    else if (desc.includes(phrase)) s += 15;
+  }
   terms.forEach((term) => {
     const t = term.toLowerCase();
     if (title === t) s += 50;
     if (title.includes(t)) s += 25;
+    if (displayTitle.includes(t)) s += 20;
     if (cat.includes(t)) s += 8;
     if (summary.includes(t)) s += 6;
     if (desc.includes(t)) s += 3;
