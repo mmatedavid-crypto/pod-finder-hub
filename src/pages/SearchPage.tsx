@@ -351,6 +351,41 @@ export default function SearchPage() {
           </div>
         )}
 
+        {(() => {
+          const phrase = initial.trim().toLowerCase();
+          const heroPodcast = !loading && phrase.length >= 2 && podcasts.find((p) => {
+            const t = (p.title || "").toLowerCase();
+            const d = ((p as any).display_title || "").toLowerCase();
+            return t.includes(phrase) || d.includes(phrase);
+          });
+          if (!heroPodcast) return null;
+          const title = (heroPodcast as any).display_title || heroPodcast.title;
+          return (
+            <div className="mt-8">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">Top podcast match</div>
+              <Link
+                to={`/podcast/${heroPodcast.slug}`}
+                className="flex gap-4 p-4 rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card hover:border-primary/70 transition-colors"
+              >
+                {heroPodcast.image_url && (
+                  <img src={heroPodcast.image_url} alt={title} loading="lazy"
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 border border-border/60" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-base sm:text-lg leading-tight line-clamp-2">{title}</div>
+                  {heroPodcast.category && <div className="text-xs text-muted-foreground mt-1">{heroPodcast.category}</div>}
+                  {(heroPodcast.seo_description || heroPodcast.summary || heroPodcast.description) && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1.5">
+                      {heroPodcast.seo_description || heroPodcast.summary || heroPodcast.description}
+                    </p>
+                  )}
+                  <div className="text-[11px] text-primary font-medium mt-2">View podcast →</div>
+                </div>
+              </Link>
+            </div>
+          );
+        })()}
+
         {initial && !loading && (aiAnswer || aiAnswerLoading) && (
           <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <div className="flex items-center gap-2 mb-2">
@@ -368,14 +403,18 @@ export default function SearchPage() {
 
         {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (() => {
           const phrase = initial.trim().toLowerCase();
-          const topPodcastTitleHit = podcasts.length > 0 && phrase.length >= 3 &&
-            (((podcasts[0].title || "").toLowerCase().includes(phrase)) ||
-             (((podcasts[0] as any).display_title || "").toLowerCase().includes(phrase)));
-          const podcastsSection = podcasts.length > 0 && (
+          const heroId = phrase.length >= 2 ? podcasts.find((p) => {
+            const t = (p.title || "").toLowerCase();
+            const d = ((p as any).display_title || "").toLowerCase();
+            return t.includes(phrase) || d.includes(phrase);
+          })?.id : undefined;
+          const podcastsList = heroId ? podcasts.filter((p) => p.id !== heroId) : podcasts;
+          const topPodcastTitleHit = !!heroId;
+          const podcastsSection = podcastsList.length > 0 && (
             <section>
-              <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
+              <h2 className="font-semibold mb-3">{heroId ? "More matching podcasts" : "Matching podcasts"} ({podcastsList.length})</h2>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+                {podcastsList.map((p) => <PodcastCard key={p.id} p={p} />)}
               </div>
             </section>
           );
