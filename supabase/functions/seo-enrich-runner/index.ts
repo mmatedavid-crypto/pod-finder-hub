@@ -219,10 +219,7 @@ Deno.serve(async (req) => {
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
         const toolName = isPodcast ? "podcast_seo" : "episode_seo";
-        const ai = await callAI(model, [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ], [tool], toolName);
+        const ai = await callAI(model, SYSTEM_PROMPT, prompt, tool, toolName, maxRps);
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
