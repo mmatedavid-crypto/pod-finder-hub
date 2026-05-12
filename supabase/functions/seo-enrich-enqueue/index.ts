@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       .in("rank_label", allowedTiers)
       .in("rss_status", ["active", "not_checked"])
       .order("podiverzum_rank", { ascending: false })
-      .limit(2000);
+      .limit(20000);
     if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
     const { data: epPodsRaw, error: epPErr } = await epPq;
     if (epPErr) throw epPErr;
