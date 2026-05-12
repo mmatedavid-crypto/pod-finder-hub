@@ -49,8 +49,11 @@ Deno.serve(async (req) => {
     // → 460k backlog = 30+ hours. Fire N-1 sibling invocations in parallel (fire-and-forget)
     // so each cron tick produces ~3x throughput without raising concurrency (avoids 429s).
     // Children pass `child:true` to skip further fan-out.
+    // FAN-OUT (2026-05-12): tested fanout=3 with EdgeRuntime.waitUntil — children
+    // collided on AI rate limit, throughput DROPPED to 100/min. Reverted to 1.
+    // Real bottleneck is per-key Lovable AI rate limit, not edge concurrency.
     const isChild = Boolean(body.child);
-    const fanout = Math.max(1, Math.min(5, Number(body.fanout) || (isChild ? 1 : 3)));
+    const fanout = Math.max(1, Math.min(5, Number(body.fanout) || 1));
     if (!isChild && fanout > 1) {
       const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/seo-enrich-runner`;
       const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -60,7 +63,6 @@ Deno.serve(async (req) => {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, apikey: key },
           body: JSON.stringify({ batch, concurrency, child: true }),
         }).catch(() => {});
-        // Keep request alive past parent response so the child invocation actually fires.
         try { (globalThis as any).EdgeRuntime?.waitUntil?.(p); } catch { /* noop */ }
       }
     }
