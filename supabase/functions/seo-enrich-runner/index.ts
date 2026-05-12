@@ -18,7 +18,79 @@ const json = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, h
 const PRICE_IN_PER_1K = 0.000075;
 const PRICE_OUT_PER_1K = 0.0003;
 
-async function callAI(model: string, messages: any[], tools: any[], toolName: string) {
+// Google Gemini direct API key — when present, bypass Lovable Gateway entirely
+// (separate rate-limit pool: free tier ~4000 RPM / 4M TPM on flash-lite).
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+// Map a runner model id to direct Gemini model name (strip provider prefix +
+// drop the "-preview" suffix that the Gateway uses for the 3.1 lite preview).
+function directModelName(model: string): string {
+  let m = model.replace(/^google\//, "");
+  // 3.1 flash-lite preview → fall back to stable 2.5-flash-lite via direct API
+  // (the 3.1 preview is gateway-only). Same prompt cost; same quality tier.
+  if (m === "gemini-3.1-flash-lite-preview") m = "gemini-2.5-flash-lite";
+  if (m === "gemini-3-flash-preview") m = "gemini-2.5-flash";
+  return m;
+}
+
+// Token-bucket rate limiter: cap ~60 req/sec across all in-flight workers
+// inside a single edge invocation (3600 RPM target, safety margin under 4000).
+let __rateBucket: { window: number; count: number } = { window: 0, count: 0 };
+async function rateGate(maxPerSec: number) {
+  while (true) {
+    const now = Date.now();
+    const w = Math.floor(now / 1000);
+    if (w !== __rateBucket.window) { __rateBucket = { window: w, count: 0 }; }
+    if (__rateBucket.count < maxPerSec) { __rateBucket.count++; return; }
+    await new Promise((r) => setTimeout(r, 1000 - (now % 1000) + 5));
+  }
+}
+
+// Convert OpenAI-style tool to Gemini native function declaration.
+function toGeminiTool(openAiTool: any) {
+  const f = openAiTool.function;
+  // Strip "additionalProperties" — Gemini's schema validator rejects it.
+  const stripExtras = (s: any): any => {
+    if (!s || typeof s !== "object") return s;
+    const { additionalProperties, ...rest } = s;
+    if (rest.properties) {
+      const np: any = {};
+      for (const [k, v] of Object.entries(rest.properties)) np[k] = stripExtras(v);
+      rest.properties = np;
+    }
+    return rest;
+  };
+  return { functionDeclarations: [{ name: f.name, description: f.description, parameters: stripExtras(f.parameters) }] };
+}
+
+// Direct Gemini API call. Returns a faked OpenAI-shaped response so the rest
+// of the runner code (which reads choices[0].message.tool_calls[0]…) works
+// unchanged. Throws "rate_limited" on 429, "ai_5xx" on transient server errors.
+async function callAIDirect(model: string, systemPrompt: string, userPrompt: string, openAiTool: any, toolName: string) {
+  const m = directModelName(model);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_API_KEY}`;
+  const tool = toGeminiTool(openAiTool);
+  const body = {
+    systemInstruction: { role: "system", parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+    tools: [tool],
+    toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [toolName] } },
+  };
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.status === 429) throw new Error("rate_limited");
+  if (res.status >= 500) throw new Error(`ai_${res.status}`);
+  if (!res.ok) throw new Error(`ai_${res.status}`);
+  const j = await res.json();
+  const fc = j.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
+  if (!fc) throw new Error("no_tool_call");
+  // Re-shape into OpenAI completion format
+  return {
+    choices: [{ message: { tool_calls: [{ function: { name: fc.name, arguments: JSON.stringify(fc.args || {}) } }] } }],
+    usage: { prompt_tokens: j.usageMetadata?.promptTokenCount || 0, completion_tokens: j.usageMetadata?.candidatesTokenCount || 0 },
+  };
+}
+
+async function callAIGateway(model: string, messages: any[], tools: any[], toolName: string) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`, "Content-Type": "application/json" },
@@ -28,6 +100,28 @@ async function callAI(model: string, messages: any[], tools: any[], toolName: st
   if (res.status === 402) throw new Error("budget_exhausted_provider");
   if (!res.ok) throw new Error(`ai_${res.status}`);
   return res.json();
+}
+
+// Unified entry: prefer direct Gemini, fall back to Gateway on 5xx.
+async function callAI(model: string, systemPrompt: string, userPrompt: string, openAiTool: any, toolName: string, maxRps: number) {
+  if (GEMINI_API_KEY) {
+    await rateGate(maxRps);
+    try {
+      return await callAIDirect(model, systemPrompt, userPrompt, openAiTool, toolName);
+    } catch (e: any) {
+      const msg = e?.message || "";
+      // Only fall back to Gateway on transient server errors, not on 429/no_tool_call
+      if (msg.startsWith("ai_5")) {
+        return await callAIGateway(model, [
+          { role: "system", content: systemPrompt }, { role: "user", content: userPrompt },
+        ], [openAiTool], toolName);
+      }
+      throw e;
+    }
+  }
+  return await callAIGateway(model, [
+    { role: "system", content: systemPrompt }, { role: "user", content: userPrompt },
+  ], [openAiTool], toolName);
 }
 
 Deno.serve(async (req) => {
@@ -40,10 +134,12 @@ Deno.serve(async (req) => {
     const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-runner");
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(150, Number(body.batch) || 100));
-    // 2026-05-12: switched to gemini-3.1-flash-lite-preview which has higher rate limits.
-    // Validated 480 jobs/105s @ conc 12; bumped to 16, then 20 after Cloud upgrade.
-    const concurrency = Math.max(1, Math.min(28, Number(body.concurrency) || 20));
+    const batch = Math.max(1, Math.min(200, Number(body.batch) || 100));
+    // 2026-05-12: with direct Gemini API (GEMINI_API_KEY) we have a 4000 RPM
+    // free-tier ceiling. Bump cap to 80 and keep token-bucket gate at 60 RPS
+    // (3600 RPM) to leave safety margin.
+    const concurrency = Math.max(1, Math.min(80, Number(body.concurrency) || (GEMINI_API_KEY ? 50 : 20)));
+    const maxRps = Math.max(1, Math.min(120, Number(body.max_rps) || 60));
 
     // FAN-OUT (2026-05-12): observed only ~250 jobs/min with single runner per cron tick
     // → 460k backlog = 30+ hours. Fire N-1 sibling invocations in parallel (fire-and-forget)
@@ -123,10 +219,7 @@ Deno.serve(async (req) => {
         }
         const tool = isPodcast ? PODCAST_SEO_TOOL : EPISODE_SEO_TOOL;
         const toolName = isPodcast ? "podcast_seo" : "episode_seo";
-        const ai = await callAI(model, [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ], [tool], toolName);
+        const ai = await callAI(model, SYSTEM_PROMPT, prompt, tool, toolName, maxRps);
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
