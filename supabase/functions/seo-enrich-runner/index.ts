@@ -166,7 +166,14 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
-        if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
+        if (msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
+        else if (msg === "rate_limited") {
+          rate_limited++;
+          // Don't kill the whole drain — only stop when rate-limit storm is severe.
+          // Lite-preview returns sporadic 429s under high concurrency; treating each
+          // one as fatal wasted ~80% of the claimed batch.
+          if (rate_limited > concurrency * 3) stop = true;
+        }
         const giveUp = (job.attempts || 0) >= maxAttempts;
         await admin.from("ai_enrichment_jobs").update({
           status: giveUp ? "failed" : "pending",
