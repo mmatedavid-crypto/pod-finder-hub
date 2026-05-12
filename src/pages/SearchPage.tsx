@@ -199,6 +199,19 @@ export default function SearchPage() {
         .map((x) => x.p);
       setPodcasts(rankedPs);
 
+      // PodcastIndex live fallback: if local DB has 0 podcast title matches and the
+      // query looks like a name, ask PI byterm. The fallback fn also stages the
+      // best matches into pi_feed_staging so the pipeline ingests them in minutes.
+      const looksLikeName = fullPhrase.length >= 3 && /[a-zA-Z]/.test(fullPhrase);
+      if (rankedPs.length === 0 && looksLikeName) {
+        supabase.functions.invoke("search-pi-fallback", {
+          body: { query: fullPhrase, maxStage: 5 },
+        }).then(({ data, error }) => {
+          if (cancelled || error || !data?.candidates?.length) return;
+          setPiFallback({ candidates: data.candidates, staged: data.staged || 0 });
+        }, () => { /* ignore */ });
+      }
+
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 3) {
         setAiAnswerLoading(true);
