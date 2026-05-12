@@ -81,6 +81,7 @@ export default function SearchPage() {
     setSemanticUsed(false);
     setSuggestion("");
     setAiAnswer("");
+    setPiFallback(null);
     answerAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
 
