@@ -134,10 +134,12 @@ Deno.serve(async (req) => {
     const __guard = await checkBackgroundJobsAllowed(admin, "seo-enrich-runner");
     if (__guard.blocked) return new Response(JSON.stringify({ ok: true, skipped: true, reason: __guard.reason }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const body = await req.json().catch(() => ({}));
-    const batch = Math.max(1, Math.min(150, Number(body.batch) || 100));
-    // 2026-05-12: switched to gemini-3.1-flash-lite-preview which has higher rate limits.
-    // Validated 480 jobs/105s @ conc 12; bumped to 16, then 20 after Cloud upgrade.
-    const concurrency = Math.max(1, Math.min(28, Number(body.concurrency) || 20));
+    const batch = Math.max(1, Math.min(200, Number(body.batch) || 100));
+    // 2026-05-12: with direct Gemini API (GEMINI_API_KEY) we have a 4000 RPM
+    // free-tier ceiling. Bump cap to 80 and keep token-bucket gate at 60 RPS
+    // (3600 RPM) to leave safety margin.
+    const concurrency = Math.max(1, Math.min(80, Number(body.concurrency) || (GEMINI_API_KEY ? 50 : 20)));
+    const maxRps = Math.max(1, Math.min(120, Number(body.max_rps) || 60));
 
     // FAN-OUT (2026-05-12): observed only ~250 jobs/min with single runner per cron tick
     // → 460k backlog = 30+ hours. Fire N-1 sibling invocations in parallel (fire-and-forget)
