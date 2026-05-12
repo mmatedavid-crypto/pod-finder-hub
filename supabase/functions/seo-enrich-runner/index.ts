@@ -232,8 +232,9 @@ Deno.serve(async (req) => {
       // every-minute cadence as long as there's any meaningful backlog. Old thresholds
       // (>500 → *, 100–500 → */2) wasted time idling whenever backlog dipped under 500.
       if (rate_limited > 0) {
-        // Gentle stepdown on rate limits, but still keep cadence proportional.
-        if (p > 100) next_schedule = "*/2 * * * *";
+        // Gentle stepdown on rate limits, but never below */1 while backlog is huge.
+        if (p > 1000) next_schedule = "* * * * *";
+        else if (p > 100) next_schedule = "*/2 * * * *";
         else if (p >= 10) next_schedule = "*/5 * * * *";
         else if (p >= 1) next_schedule = "*/10 * * * *";
         else next_schedule = "*/30 * * * *";
