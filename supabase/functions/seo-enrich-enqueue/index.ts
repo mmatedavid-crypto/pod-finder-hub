@@ -101,16 +101,24 @@ Deno.serve(async (req) => {
     // which filtered to podcasts still missing SEO. Since podcast SEO is ~92%
     // complete, this starved the episode queue (~590 podcasts only). Now we
     // enqueue episodes from ALL eligible S/A/B/C podcasts independently.
-    let epPq = admin.from("podcasts")
-      .select("id, title, display_title, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
-      .in("rank_label", allowedTiers)
-      .in("rss_status", ["active", "not_checked"])
-      .order("podiverzum_rank", { ascending: false })
-      .limit(20000);
-    if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
-    const { data: epPodsRaw, error: epPErr } = await epPq;
-    if (epPErr) throw epPErr;
-    const epPods = (epPodsRaw || []).filter(isHealthy);
+    // Page through PostgREST default 1000-row cap to fetch all eligible pods.
+    const epPodsRaw: any[] = [];
+    const PAGE = 1000;
+    for (let from = 0; from < 20000; from += PAGE) {
+      let epPq = admin.from("podcasts")
+        .select("id, title, display_title, podiverzum_rank, rank_label, shadow_rank_components, full_backfill_completed_at, rss_status")
+        .in("rank_label", allowedTiers)
+        .in("rss_status", ["active", "not_checked"])
+        .order("podiverzum_rank", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (requireBackfill) epPq = epPq.not("full_backfill_completed_at", "is", null);
+      const { data, error } = await epPq;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      epPodsRaw.push(...data);
+      if (data.length < PAGE) break;
+    }
+    const epPods = epPodsRaw.filter(isHealthy);
     const epPodIds = epPods.map((p) => p.id);
     const podPriById = new Map(epPods.map((p) => [p.id, podPriority(p)]));
     const podNameById = new Map(epPods.map((p) => [p.id, (p as any).display_title || (p as any).title || ""]));
