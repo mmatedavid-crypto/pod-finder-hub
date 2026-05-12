@@ -21,15 +21,26 @@ async function sha1Hex(input: string) {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function score(p: any): number {
+function score(p: any, queryName: string): number {
   let s = 0;
-  if (p.url) s += 30;
-  if (p.image || p.artwork) s += 20;
+  if (p.url) s += 20;
+  if (p.image || p.artwork) s += 10;
   const last = p.newestItemPublishTime ? p.newestItemPublishTime * 1000 : 0;
-  if (last && Date.now() - last < 90 * 24 * 3600 * 1000) s += 25;
-  if ((p.episodeCount || 0) >= 50) s += 15;
-  if ((p.language || "").toLowerCase().startsWith("en")) s += 15;
-  if (p.dead === 1) s -= 100;
+  if (last && Date.now() - last < 90 * 24 * 3600 * 1000) s += 20;
+  if ((p.episodeCount || 0) >= 1000) s += 30;
+  else if ((p.episodeCount || 0) >= 300) s += 20;
+  else if ((p.episodeCount || 0) >= 100) s += 10;
+  if ((p.language || "").toLowerCase().startsWith("en")) s += 10;
+  if (p.dead === 1) s -= 200;
+
+  // Title match — heavy weight to defeat ties on generic signals.
+  const title = String(p.title || "").toLowerCase().trim();
+  const q = queryName.toLowerCase().trim();
+  if (title === q) s += 250;
+  else if (title.startsWith(q + " ") || title.startsWith(q + ":") || title.startsWith(q + " -")) s += 180;
+  else if (title.includes(q)) s += 80;
+  // Penalize obvious knockoffs: "<query> AI", "<query> Fan", "Honestly <query>"
+  if (/\b(fan|recap|breakdown|unofficial|ai)\b/.test(title) && title !== q) s -= 60;
   return s;
 }
 
