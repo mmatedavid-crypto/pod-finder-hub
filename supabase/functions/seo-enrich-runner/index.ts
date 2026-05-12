@@ -55,12 +55,13 @@ Deno.serve(async (req) => {
       const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/seo-enrich-runner`;
       const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       for (let i = 1; i < fanout; i++) {
-        // fire-and-forget; do not await
-        fetch(url, {
+        const p = fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, apikey: key },
           body: JSON.stringify({ batch, concurrency, child: true }),
         }).catch(() => {});
+        // Keep request alive past parent response so the child invocation actually fires.
+        try { (globalThis as any).EdgeRuntime?.waitUntil?.(p); } catch { /* noop */ }
       }
     }
 
