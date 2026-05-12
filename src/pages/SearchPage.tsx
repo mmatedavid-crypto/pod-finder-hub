@@ -366,8 +366,20 @@ export default function SearchPage() {
           </div>
         )}
 
-        {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (
-          <div className="mt-8 space-y-10">
+        {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (() => {
+          const phrase = initial.trim().toLowerCase();
+          const topPodcastTitleHit = podcasts.length > 0 && phrase.length >= 3 &&
+            (((podcasts[0].title || "").toLowerCase().includes(phrase)) ||
+             (((podcasts[0] as any).display_title || "").toLowerCase().includes(phrase)));
+          const podcastsSection = podcasts.length > 0 && (
+            <section>
+              <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+              </div>
+            </section>
+          );
+          const episodesSection = (
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
                 Matching episodes ({episodes.length})
@@ -389,16 +401,13 @@ export default function SearchPage() {
               </h2>
               <EpisodeList items={episodes} terms={flatTerms} showEntities />
             </section>
-            {podcasts.length > 0 && (
-              <section>
-                <h2 className="font-semibold mb-3">Matching podcasts ({podcasts.length})</h2>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
+          );
+          return (
+            <div className="mt-8 space-y-10">
+              {topPodcastTitleHit ? <>{podcastsSection}{episodesSection}</> : <>{episodesSection}{podcastsSection}</>}
+            </div>
+          );
+        })()}
 
         <p className="text-xs text-muted-foreground mt-10">
           Indexed from public RSS feeds. Ranked by query relevance, freshness, feed health and Podiverzum Rank.
