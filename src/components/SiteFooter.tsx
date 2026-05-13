@@ -4,7 +4,7 @@ import { BrandMark } from "./Brand";
 const EXPLORE = [
   { to: "/categories", label: "Categories" },
   { to: "/search", label: "Search" },
-  { to: "/new", label: "New" },
+  { to: "/new", label: "New shows" },
   { to: "/methodology", label: "How we rank" },
 ];
 
