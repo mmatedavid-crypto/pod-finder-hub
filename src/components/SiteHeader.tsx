@@ -67,14 +67,16 @@ export function SiteHeader() {
           <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
         </nav>
-        <NavLink
-          to="/categories"
-          className="ml-auto sm:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <LayoutGrid className="h-4 w-4" />
-          Categories
-        </NavLink>
-        <div ref={wrapRef} className={`ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
+        {isHome && (
+          <NavLink
+            to="/categories"
+            className="ml-auto sm:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Categories
+          </NavLink>
+        )}
+        <div ref={wrapRef} className={`ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "block sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submit(q); }}
             className="relative focus-brand rounded-md transition-shadow"
