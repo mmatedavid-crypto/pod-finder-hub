@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, LayoutGrid } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
@@ -67,7 +67,14 @@ export function SiteHeader() {
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
           <NavLink to="/search" className={linkCls}>Search</NavLink>
         </nav>
-        <div ref={wrapRef} className="ml-auto relative w-full max-w-sm">
+        <NavLink
+          to="/categories"
+          className="ml-auto sm:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <LayoutGrid className="h-4 w-4" />
+          Categories
+        </NavLink>
+        <div ref={wrapRef} className="ml-auto relative w-full max-w-sm hidden sm:block">
           <form
             onSubmit={(e) => { e.preventDefault(); submit(q); }}
             className="relative focus-brand rounded-md transition-shadow"
