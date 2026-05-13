@@ -108,9 +108,9 @@ Deno.serve(async (req) => {
     const { data: cand, error: candErr } = await sb
       .from("episodes")
       .select(`id,title,display_title,summary,ai_summary,published_at,${col},podcasts!inner(title,display_title,rss_status)`)
-      .not(col, "is", null)
+      .not(col, "eq", "{}")
       .order("published_at", { ascending: false, nullsFirst: false })
-      .limit(400);
+      .limit(2000);
     if (candErr) throw candErr;
 
     let displayName = slug;
