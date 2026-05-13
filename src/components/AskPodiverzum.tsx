@@ -14,21 +14,39 @@ const QUESTIONS = [
 ];
 
 const ROTATE_MS = 3500;
+// Clockwise slot order in a 2x2 grid (rendered row-by-row: 0=TL, 1=TR, 2=BL, 3=BR)
+const CLOCKWISE = [0, 1, 3, 2];
 
 export function AskPodiverzum() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
-  const [idx, setIdx] = useState(0);
+  const [slots, setSlots] = useState<string[]>(() => QUESTIONS.slice(0, 4));
+  const [keys, setKeys] = useState<number[]>(() => [0, 1, 2, 3]);
   const [paused, setPaused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const tickRef = useRef({ next: 4, cw: 0, k: 4 });
 
   useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % QUESTIONS.length), ROTATE_MS);
+    const t = setInterval(() => {
+      const { next, cw, k } = tickRef.current;
+      const slot = CLOCKWISE[cw % CLOCKWISE.length];
+      setSlots((prev) => {
+        const copy = prev.slice();
+        copy[slot] = QUESTIONS[next % QUESTIONS.length];
+        return copy;
+      });
+      setKeys((prev) => {
+        const copy = prev.slice();
+        copy[slot] = k;
+        return copy;
+      });
+      tickRef.current = { next: next + 1, cw: cw + 1, k: k + 1 };
+    }, ROTATE_MS);
     return () => clearInterval(t);
   }, [paused]);
 
-  const visible = Array.from({ length: 4 }, (_, k) => QUESTIONS[(idx + k) % QUESTIONS.length]);
+  const visible = slots;
 
   const go = (query: string) => {
     if (!query.trim()) return;
@@ -79,12 +97,12 @@ export function AskPodiverzum() {
             Try
           </div>
           <div className="grid sm:grid-cols-2 gap-2.5">
-            {visible.map((question) => (
+            {visible.map((question, i) => (
               <button
-                key={question}
+                key={`${i}-${keys[i]}`}
                 type="button"
                 onClick={() => go(question)}
-                className="group text-left flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-all duration-300 animate-fade-up"
+                className="group text-left flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-all duration-300 animate-fade-in"
               >
                 <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0 transition-transform group-hover:scale-110" />
                 <span className="text-sm font-medium leading-snug">{question}</span>
