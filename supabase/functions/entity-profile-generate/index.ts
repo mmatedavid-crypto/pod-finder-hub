@@ -172,7 +172,7 @@ Call write_entity_profile.
       { role: "user", content: user },
     ]);
 
-    const episode_ids = matched.slice(0, 100).map((e: any) => e.id);
+    const episode_ids = matched.slice(0, 300).map((e: any) => e.id);
     const { error: upErr } = await sb.from("entity_profiles").upsert({
       kind, slug, display_name: displayName,
       bio: out.bio || null,
