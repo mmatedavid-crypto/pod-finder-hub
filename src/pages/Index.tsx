@@ -375,7 +375,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
               </div>
             </div>
-            <EpisodeList items={evergreenEps} />
+            <EpisodeList items={evergreenEps} scrollOnMobile />
           </section>
         )}
 
