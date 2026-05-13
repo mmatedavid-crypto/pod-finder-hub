@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
     let mustGateRelaxed = false;
     // Graceful fallback: if MUST gate zeroed out results, retry without required_terms
     // (entity boost + dynamic alpha still applied).
-    if ((rows?.length || 0) === 0 && mustGateApplied) {
+    if ((rows?.length || 0) < 5 && mustGateApplied) {
       const retry = await supa.rpc("search_episodes_hybrid", {
         q: q,
         q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
