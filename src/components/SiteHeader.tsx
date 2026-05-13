@@ -63,8 +63,9 @@ export function SiteHeader() {
     <header className="border-b border-border/70 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
         <BrandMark />
-        <nav className="hidden sm:flex items-center gap-6 ml-2">
+        <nav className="hidden sm:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
         </nav>
         {isHome && (
