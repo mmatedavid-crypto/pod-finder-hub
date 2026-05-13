@@ -13,6 +13,8 @@ import { compareByScore, episodeScore } from "@/lib/episodeRank";
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
 
+type EntityProfile = { display_name: string; bio: string | null; episodes_summary: string | null; updated_at: string };
+
 export default function EntityPage({ kind }: { kind: EntityKind }) {
   const { slug = "" } = useParams();
   const decoded = useMemo(() => decodeURIComponent(slug), [slug]);
@@ -21,6 +23,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>(decoded);
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
+  const [profile, setProfile] = useState<EntityProfile | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -94,6 +97,31 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     })();
   }, [kind, slug, decoded]);
 
+  // Fetch (or trigger generation of) the AI bio + episode summary.
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("entity_profiles")
+        .select("display_name,bio,episodes_summary,updated_at")
+        .eq("kind", kind)
+        .eq("slug", decoded.toLowerCase())
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setProfile(data as EntityProfile);
+        const ageDays = (Date.now() - new Date(data.updated_at).getTime()) / 86400_000;
+        if (ageDays > 30) {
+          supabase.functions.invoke("entity-profile-generate", { body: { kind, slug: decoded.toLowerCase() } }).catch(() => {});
+        }
+      } else {
+        supabase.functions.invoke("entity-profile-generate", { body: { kind, slug: decoded.toLowerCase() } }).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [kind, slug, decoded]);
+
   const total = eps.length;
   const noindex = total > 0 && total < NOINDEX_BELOW;
   const entityType =
@@ -135,13 +163,14 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             "@type": "CollectionPage",
             name: `Podcast episodes about ${displayName}`,
             url: pageUrl,
-            about: { "@type": entityType, name: displayName },
+            about: { "@type": entityType, name: displayName, ...(profile?.bio ? { description: profile.bio } : {}) },
           },
           {
             "@context": "https://schema.org",
             "@type": entityType,
             name: displayName,
             url: pageUrl,
+            ...(profile?.bio ? { description: profile.bio } : {}),
           },
         ]}
       />
@@ -151,14 +180,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         <div className="container mx-auto py-12 sm:py-14 max-w-5xl relative">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
-          <p className="text-muted-foreground mt-3 max-w-2xl">
-            Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
-          </p>
+          {profile?.bio ? (
+            <p className="text-foreground/90 mt-4 max-w-2xl text-[15px] leading-relaxed">
+              {profile.bio}
+            </p>
+          ) : (
+            <p className="text-muted-foreground mt-3 max-w-2xl">
+              Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap gap-3">
             <Stat label="Episodes indexed" value={total} />
             <Stat label="Last 30 days" value={last30Count} />
             <Stat label="Podcasts" value={pods.length} />
           </div>
+          {profile?.episodes_summary && (
+            <div className="mt-7 max-w-3xl rounded-2xl border border-border/70 bg-card/60 p-5 sm:p-6">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-primary mb-1.5">What these episodes cover</div>
+              <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/85">{profile.episodes_summary}</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-3">AI-generated summary based on indexed episodes</p>
+            </div>
+          )}
         </div>
       </section>
 
