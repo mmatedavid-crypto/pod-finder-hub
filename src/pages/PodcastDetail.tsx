@@ -12,6 +12,8 @@ import { PodcastDetailSkeleton } from "@/components/Skeletons";
 import { SimilarPodcasts } from "@/components/SimilarPodcasts";
 import { SharePanel } from "@/components/SharePanel";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { TrendingEntities } from "@/components/TrendingEntities";
+import { topEntitiesFrom } from "@/lib/aggregateEntities";
 
 export default function PodcastDetail() {
   const { podcastSlug } = useParams();
@@ -29,7 +31,7 @@ export default function PodcastDetail() {
       if (data) {
         const { data: e } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url")
+          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
           .eq("podcast_id", data.id)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(60);
@@ -123,6 +125,26 @@ export default function PodcastDetail() {
             </div>
           </div>
         </div>
+
+        {(() => {
+          const epsLite = eps as any[];
+          const people = topEntitiesFrom(epsLite, "people", "person", 8);
+          const companies = topEntitiesFrom(epsLite, "companies", "company", 8);
+          const topics = topEntitiesFrom(epsLite, "topics", "topic", 8);
+          const all = [
+            people.length ? { eyebrow: "People", title: "People mentioned in this show", items: people, icon: "person" as const } : null,
+            companies.length ? { eyebrow: "Companies", title: "Companies discussed", items: companies, icon: "company" as const } : null,
+            topics.length ? { eyebrow: "Topics", title: "Recurring topics", items: topics, icon: "topic" as const } : null,
+          ].filter(Boolean) as Array<{ eyebrow: string; title: string; items: any[]; icon: "person" | "company" | "topic" }>;
+          if (!all.length) return null;
+          return (
+            <div className="mt-10 grid gap-6">
+              {all.map((s) => (
+                <TrendingEntities key={s.eyebrow} eyebrow={s.eyebrow} title={s.title} items={s.items} icon={s.icon} />
+              ))}
+            </div>
+          );
+        })()}
 
         <h2 className="text-xl font-semibold mt-10 mb-4">Episodes</h2>
         {eps.length === 0 ? (
