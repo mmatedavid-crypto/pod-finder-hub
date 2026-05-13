@@ -37,9 +37,9 @@ export default function NotFound() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-4">
             <Compass className="h-3 w-3" /> 404
           </div>
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">Lost in the podiverse</h1>
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">Page not found</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            That page doesn't exist — but try a search, or pick from popular listening below.
+            The page may have moved, or the link may no longer be available. Try searching for a podcast, topic or episode.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -58,7 +58,7 @@ export default function NotFound() {
             </button>
           </form>
           <div className="flex flex-wrap gap-3 justify-center text-sm">
-            <Link to="/" className="px-4 py-2 rounded-md bg-primary text-primary-foreground">Go home</Link>
+            <Link to="/" className="px-4 py-2 rounded-md bg-primary text-primary-foreground">Back to homepage</Link>
             <Link to="/categories" className="px-4 py-2 rounded-md border border-border hover:border-foreground/40">Browse categories</Link>
           </div>
         </div>
