@@ -179,27 +179,64 @@ Deno.serve(async (req) => {
       supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
     }
 
-    // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic).
-    // Curated synonyms (typos, category synonyms) appended to lexical side; AI expansion on top.
-    const aiExpanded = buildExpandedQuery(q, understanding);
+    // 4) Hybrid RPC.
+    // Lexical side: use the RAW user query. websearch_to_tsquery AND-s tokens together,
+    //   so adding AI/curated expansion shrinks recall to ~0 for entity queries. The expansion
+    //   value is captured by the semantic side (vectors) instead.
+    // Semantic side: original q_embedding (built from raw q).
+    const aiExpanded = buildExpandedQuery(q, understanding); // kept for cache/debug only
     const expanded = curated.expansions.length
       ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
       : aiExpanded;
-    const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
-      q: expanded,
+
+    // Industry-standard hybrid tuning (Supabase/Vespa/Weaviate recipe):
+    // - required_terms: rare-token MUST gate. Entities from query MUST appear in search_text.
+    // - entity_terms: same set, used for exact-match boost on episode entity arrays.
+    // - alpha_lex: dynamic lex/sem weight. Entity-rich → 0.65, broad topical → 0.45.
+    const rawEntities = (understanding?.entities || [])
+      .map((s) => String(s || "").trim())
+      .filter((s) => s.length >= 3 && s.length <= 60);
+    const requiredTerms = rawEntities
+      .slice()
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 3);
+    const entityTerms = rawEntities.slice(0, 8);
+    const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
+
+    let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
+      q: q, // RAW query for lexical, not expanded
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
+      required_terms: requiredTerms.length ? requiredTerms : null,
+      entity_terms: entityTerms.length ? entityTerms : null,
+      alpha_lex: alphaLex,
     });
     if (error) {
       console.error("rpc err", error);
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    let mustGateApplied = requiredTerms.length > 0;
+    let mustGateRelaxed = false;
+    // Graceful fallback: if MUST gate zeroed out results, retry without required_terms
+    // (entity boost + dynamic alpha still applied).
+    if ((rows?.length || 0) === 0 && mustGateApplied) {
+      const retry = await supa.rpc("search_episodes_hybrid", {
+        q: q,
+        q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+        limit_n: Math.max(limit, 50),
+        lang,
+        required_terms: null,
+        entity_terms: entityTerms.length ? entityTerms : null,
+        alpha_lex: alphaLex,
+      });
+      if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+    }
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -263,6 +300,9 @@ Deno.serve(async (req) => {
         reranked: !!rerankResult,
         rerank_cache_hit: rerankCacheHit,
         cache_hit: cacheHit,
+        must_gate: mustGateApplied,
+        must_gate_relaxed: mustGateRelaxed,
+        alpha_lex: alphaLex,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
