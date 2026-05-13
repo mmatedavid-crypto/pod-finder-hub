@@ -305,7 +305,7 @@ const Index = () => {
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
-      <div className="container mx-auto pt-4 pb-8 sm:pt-8 sm:pb-12 space-y-8 sm:space-y-10">
+      <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <AskPodiverzum />
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
