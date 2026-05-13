@@ -185,11 +185,33 @@ Deno.serve(async (req) => {
     const expanded = curated.expansions.length
       ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
       : aiExpanded;
+
+    // Industry-standard hybrid tuning (Supabase/Vespa/Weaviate recipe):
+    // - required_terms: rare-token MUST gate. Entities from query MUST appear in search_text.
+    //   Skip when AI returned no entities OR query is very short (<3 chars per token).
+    //   Cap at 3 terms; very long entity strings get split (multi-word entities stay whole).
+    // - entity_terms: same set, used for exact-match boost on episode entity arrays.
+    // - alpha_lex: dynamic lex/sem weight. Entity-rich query → lean lexical (0.65),
+    //   broad topical query → lean semantic (0.45). Default 0.50.
+    const rawEntities = (understanding?.entities || [])
+      .map((s) => String(s || "").trim())
+      .filter((s) => s.length >= 3 && s.length <= 60);
+    // For required_terms we use the LONGEST entities (most discriminative); cap 3
+    const requiredTerms = rawEntities
+      .slice()
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 3);
+    const entityTerms = rawEntities.slice(0, 8);
+    const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
+
     const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q: expanded,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
+      required_terms: requiredTerms.length ? requiredTerms : null,
+      entity_terms: entityTerms.length ? entityTerms : null,
+      alpha_lex: alphaLex,
     });
     if (error) {
       console.error("rpc err", error);
