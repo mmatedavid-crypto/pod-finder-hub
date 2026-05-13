@@ -1572,20 +1572,38 @@ export type Database = {
         Args: { _batch?: number; _table: string }
         Returns: number
       }
-      search_episodes_hybrid: {
-        Args: {
-          lang?: string
-          limit_n?: number
-          q: string
-          q_embedding?: string
-        }
-        Returns: {
-          episode_id: string
-          lex_rank: number
-          score: number
-          sem_rank: number
-        }[]
-      }
+      search_episodes_hybrid:
+        | {
+            Args: {
+              lang?: string
+              limit_n?: number
+              q: string
+              q_embedding?: string
+            }
+            Returns: {
+              episode_id: string
+              lex_rank: number
+              score: number
+              sem_rank: number
+            }[]
+          }
+        | {
+            Args: {
+              alpha_lex?: number
+              entity_terms?: string[]
+              lang?: string
+              limit_n?: number
+              q: string
+              q_embedding?: string
+              required_terms?: string[]
+            }
+            Returns: {
+              episode_id: string
+              lex_rank: number
+              score: number
+              sem_rank: number
+            }[]
+          }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {
