@@ -12,11 +12,12 @@ import { episodeScore } from "@/lib/episodeRank";
 type SortKey = "best" | "newest" | "rank";
 
 const EXAMPLES = [
-  "AI healthcare",
-  "Italy food",
-  "testosterone sleep",
-  "asparagus cooking",
+  "AI regulation",
   "Nvidia data centers",
+  "GLP-1 drugs",
+  "sleep and recovery",
+  "European politics",
+  "founder interviews",
 ];
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
@@ -287,20 +288,28 @@ export default function SearchPage() {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Type words separated by spaces, e.g. <em>Italy food</em>. Use <code className="px-1 bg-secondary rounded">+</code> to require all terms strictly.
+          Search by topic, guest, company, show, ticker or idea.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Italy food"
+            placeholder="e.g. Nvidia data centers"
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
             Search
           </button>
         </form>
+        <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
+          <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
+          <p className="mt-2">
+            Use <code className="px-1 bg-secondary rounded">+</code> before a word to require it,
+            for example <code className="px-1 bg-secondary rounded">+Nvidia GPU</code>.
+            Use quotes for exact phrases.
+          </p>
+        </details>
 
         <div className="flex flex-wrap gap-2 mt-3">
           {EXAMPLES.map((ex) => (
@@ -349,7 +358,7 @@ export default function SearchPage() {
               <div className="text-sm">
                 <div className="font-medium">Searching for “{initial}”…</div>
                 <div className="text-muted-foreground text-xs mt-0.5">
-                  Combining keyword, semantic and AI re-ranking. This usually takes 2–4 seconds.
+                  Generating a quick overview…
                 </div>
               </div>
             </div>
@@ -363,7 +372,7 @@ export default function SearchPage() {
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+            No matches yet. Try a broader phrase, a person's name, a company or a topic.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)}
           </div>
         )}
 
