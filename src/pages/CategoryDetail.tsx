@@ -126,8 +126,28 @@ export default function CategoryDetail() {
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!cat) return <NotFoundState title="Category not found" message="That category doesn't exist or has been removed." />;
 
+  const catUrl = `${siteOrigin()}/category/${cat.slug || slug}`;
   return (
     <Layout>
+      <Seo
+        title={cat.seo_title || `${cat.name} podcast episodes — Podiverzum`}
+        description={cat.seo_description || `Discover the latest podcast episodes in ${cat.name}, ranked by relevance, freshness and Podiverzum Rank.`}
+        canonical={catUrl}
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `${cat.name} podcast episodes`,
+            about: { "@type": "Thing", name: cat.name },
+            url: catUrl,
+          },
+          breadcrumbJsonLd([
+            { name: "Home", url: `${siteOrigin()}/` },
+            { name: "Categories", url: `${siteOrigin()}/categories` },
+            { name: cat.name, url: catUrl },
+          ]),
+        ]}
+      />
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         <p className="text-muted-foreground mt-1">
