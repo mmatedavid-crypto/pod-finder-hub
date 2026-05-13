@@ -70,12 +70,10 @@ export function MoodCollections() {
 
   if (!statics.length && dyn === null) return null;
 
-  // Target 6 cards on tablet/desktop. Prefer up to 4 AI moods, fill rest with statics.
+  // Target 6 cards. Show all statics, then fill with as many AI moods as needed.
+  const staticShown = statics;
   const dynList = dyn ?? [];
-  const dynCount = Math.min(dynList.length, 4);
-  const staticCount = Math.min(Math.max(6 - dynCount, 0), statics.length);
-  const dynShown = dynList.slice(0, dynCount);
-  const staticShown = statics.slice(0, staticCount);
+  const dynShown = dynList.slice(0, Math.max(6 - staticShown.length, 0));
 
   return (
     <section>
