@@ -3,18 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight, Search, Cpu, Pill, Landmark, Mic, Moon, TrendingUp, Activity, Brain } from "lucide-react";
 
 const QUESTIONS: { text: string; Icon: typeof Sparkles }[] = [
-  { text: "Nvidia and data centers", Icon: Cpu },
-  { text: "GLP-1 drugs and long-term health", Icon: Pill },
-  { text: "AI regulation", Icon: Brain },
-  { text: "founder interviews", Icon: Mic },
-  { text: "sleep and recovery", Icon: Moon },
-  { text: "European politics", Icon: Landmark },
-  { text: "Warren Buffett and Apple", Icon: TrendingUp },
-  { text: "longevity science", Icon: Activity },
+  { text: "Episodes about Nvidia and data centers", Icon: Cpu },
+  { text: "Why are GLP-1 drugs changing healthcare?", Icon: Pill },
+  { text: "What are people saying about AI regulation?", Icon: Brain },
+  { text: "Founder interviews about building with AI", Icon: Mic },
+  { text: "Sleep and recovery without bro-science", Icon: Moon },
+  { text: "What does Warren Buffett think about Apple?", Icon: TrendingUp },
+  { text: "European politics this week", Icon: Landmark },
+  { text: "Longevity science, evidence-based", Icon: Activity },
 ];
 
 const ROTATE_MS = 5200;
-// Clockwise slot order in a 2x2 grid (rendered row-by-row: 0=TL, 1=TR, 2=BL, 3=BR)
 const CLOCKWISE = [0, 1, 3, 2];
 
 export function AskPodiverzum() {
@@ -23,8 +22,22 @@ export function AskPodiverzum() {
   const [slots, setSlots] = useState<typeof QUESTIONS>(() => QUESTIONS.slice(0, 4));
   const [keys, setKeys] = useState<number[]>(() => [0, 1, 2, 3]);
   const [paused, setPaused] = useState(false);
+  const [placeholder, setPlaceholder] = useState(
+    typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
+      ? "e.g. podcasts about Nvidia and data centers"
+      : "e.g. Nvidia and data centers"
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const tickRef = useRef({ next: 4, cw: 0, k: 4 });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setPlaceholder(mq.matches ? "e.g. podcasts about Nvidia and data centers" : "e.g. Nvidia and data centers");
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (paused) return;
@@ -68,11 +81,14 @@ export function AskPodiverzum() {
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">
-          Search the way <span className="text-brand-gradient">you think.</span>
+          Ask in <span className="text-brand-gradient">your own words.</span>
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Try a person, a company, a topic or an idea. Podiverzum finds relevant podcast episodes across shows — and shows why they match.
+          Describe what you want to hear about. Podiverzum looks beyond titles and finds episodes by meaning, context and topic.
+        </p>
+        <p className="mt-1 text-xs sm:text-sm text-muted-foreground/80 max-w-2xl">
+          Results explain why they matched.
         </p>
 
         <form
@@ -84,17 +100,17 @@ export function AskPodiverzum() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. Nvidia"
-            className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+            placeholder={placeholder}
+            className="w-full pl-12 pr-20 sm:pr-28 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated text-ellipsis"
           />
           <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5">
-            Search <ArrowRight className="h-4 w-4" />
+            Ask <ArrowRight className="h-4 w-4" />
           </button>
         </form>
 
         <div className="mt-5 sm:mt-6">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-3">
-            Try
+            Try asking
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {visible.map((item, i) => {
