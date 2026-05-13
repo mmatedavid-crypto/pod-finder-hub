@@ -179,24 +179,23 @@ Deno.serve(async (req) => {
       supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
     }
 
-    // 4) Hybrid RPC with expanded query (lexical) + original embedding (semantic).
-    // Curated synonyms (typos, category synonyms) appended to lexical side; AI expansion on top.
-    const aiExpanded = buildExpandedQuery(q, understanding);
+    // 4) Hybrid RPC.
+    // Lexical side: use the RAW user query. websearch_to_tsquery AND-s tokens together,
+    //   so adding AI/curated expansion shrinks recall to ~0 for entity queries. The expansion
+    //   value is captured by the semantic side (vectors) instead.
+    // Semantic side: original q_embedding (built from raw q).
+    const aiExpanded = buildExpandedQuery(q, understanding); // kept for cache/debug only
     const expanded = curated.expansions.length
       ? `${aiExpanded} ${curated.expansions.join(" ")}`.slice(0, 700)
       : aiExpanded;
 
     // Industry-standard hybrid tuning (Supabase/Vespa/Weaviate recipe):
     // - required_terms: rare-token MUST gate. Entities from query MUST appear in search_text.
-    //   Skip when AI returned no entities OR query is very short (<3 chars per token).
-    //   Cap at 3 terms; very long entity strings get split (multi-word entities stay whole).
     // - entity_terms: same set, used for exact-match boost on episode entity arrays.
-    // - alpha_lex: dynamic lex/sem weight. Entity-rich query → lean lexical (0.65),
-    //   broad topical query → lean semantic (0.45). Default 0.50.
+    // - alpha_lex: dynamic lex/sem weight. Entity-rich → 0.65, broad topical → 0.45.
     const rawEntities = (understanding?.entities || [])
       .map((s) => String(s || "").trim())
       .filter((s) => s.length >= 3 && s.length <= 60);
-    // For required_terms we use the LONGEST entities (most discriminative); cap 3
     const requiredTerms = rawEntities
       .slice()
       .sort((a, b) => b.length - a.length)
@@ -205,7 +204,7 @@ Deno.serve(async (req) => {
     const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
 
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
-      q: expanded,
+      q: q, // RAW query for lexical, not expanded
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
