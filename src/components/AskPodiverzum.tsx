@@ -24,8 +24,8 @@ export function AskPodiverzum() {
   const [paused, setPaused] = useState(false);
   const [placeholder, setPlaceholder] = useState(
     typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
-      ? "e.g. podcasts about Nvidia and data centers"
-      : "e.g. Nvidia and data centers"
+      ? "Podcasts about Nvidia and data centers"
+      : "Nvidia and data centers"
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const tickRef = useRef({ next: 4, cw: 0, k: 4 });
@@ -33,7 +33,7 @@ export function AskPodiverzum() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 640px)");
-    const update = () => setPlaceholder(mq.matches ? "e.g. podcasts about Nvidia and data centers" : "e.g. Nvidia and data centers");
+    const update = () => setPlaceholder(mq.matches ? "Podcasts about Nvidia and data centers" : "Nvidia and data centers");
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
