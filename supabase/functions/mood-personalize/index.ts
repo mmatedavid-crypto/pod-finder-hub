@@ -188,11 +188,13 @@ Deno.serve(async (req) => {
         let episode_ids: string[] = [];
         let episodes: any[] = [];
         if (emb) {
-          const { data: matches } = await admin.rpc("match_episodes_by_embedding", {
+          const { data: matches, error: rpcErr } = await admin.rpc("match_episodes_by_embedding", {
             query_embedding: `[${emb.join(",")}]` as any,
             match_limit: 12,
             max_age_days: 30,
           });
+          if (rpcErr) console.warn("rpc err", c.title, rpcErr);
+          else console.log("rpc ok", c.title, "rows=", (matches || []).length);
           episodes = (matches || []) as any[];
           episode_ids = episodes.map((m: any) => m.episode_id);
         }
