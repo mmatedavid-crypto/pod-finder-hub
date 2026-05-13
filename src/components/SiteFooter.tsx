@@ -40,7 +40,7 @@ export function SiteFooter() {
                 ))}
               </ul>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 text-right">
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Company</div>
               <ul className="space-y-1.5">
                 {COMPANY.map((l) => (
