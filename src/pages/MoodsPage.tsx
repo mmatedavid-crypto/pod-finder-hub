@@ -38,11 +38,6 @@ export default function MoodsPage() {
         className={`group relative overflow-hidden rounded-xl border p-4 transition-colors ${dynamic ? "border-primary/30 hover:border-primary/60" : "border-border/70 hover:border-primary/40"}`}
         style={{ background: `linear-gradient(135deg, ${accent}1a, transparent 60%), hsl(var(--card) / 0.7)` }}
       >
-        {dynamic && (
-          <div className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[9px] uppercase tracking-[0.14em]">
-            <Wand2 className="h-2.5 w-2.5" /> for you
-          </div>
-        )}
         <div className="flex items-start justify-between">
           <Sparkles className="h-5 w-5" style={{ color: accent }} />
           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform mt-5" />
@@ -56,22 +51,18 @@ export default function MoodsPage() {
 
   return (
     <Layout>
-      <Seo title="All moods — podcast collections | Podiverzum" description="Browse every mood-based podcast collection on Podiverzum." />
+      <Seo title="Moods — podcast collections | Podiverzum" description="Collections of podcast episodes grouped by tone, format and listening context." />
       <div className="container mx-auto py-10 max-w-5xl">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
           <ArrowLeft className="h-3.5 w-3.5" /> Back home
         </Link>
         <div className="mt-3">
-          <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-            <Sparkles className="h-3 w-3" /> Discover by mood
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-semibold">All moods</h1>
-          <p className="text-muted-foreground mt-2 text-sm">Hand-picked and AI-curated collections — pick one that fits how you feel right now.</p>
+          <h1 className="text-3xl sm:text-4xl font-semibold">Moods</h1>
+          <p className="text-muted-foreground mt-2 text-sm">Collections of episodes grouped by tone, format and listening context.</p>
         </div>
 
         {statics.length > 0 && (
           <section className="mt-8">
-            <h2 className="text-sm uppercase tracking-[0.14em] text-muted-foreground mb-3">Curated</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
               {statics.map((m) => <Card key={m.slug} m={m} />)}
             </div>
@@ -79,10 +70,9 @@ export default function MoodsPage() {
         )}
 
         {pool.length > 0 && (
-          <section className="mt-10">
-            <h2 className="text-sm uppercase tracking-[0.14em] text-muted-foreground mb-3">Personalized picks</h2>
+          <section className="mt-6">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-              {pool.map((m) => <Card key={m.slug} m={m} dynamic />)}
+              {pool.map((m) => <Card key={m.slug} m={m} />)}
             </div>
           </section>
         )}

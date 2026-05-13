@@ -74,11 +74,8 @@ export function MoodCollections() {
     <section>
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-            <Sparkles className="h-3 w-3" /> Discover by mood
-          </div>
-          <h2 className="text-xl sm:text-2xl font-semibold">What are you in the mood for?</h2>
-          <p className="text-xs text-muted-foreground mt-1">A few picks for right now.</p>
+          <h2 className="text-xl sm:text-2xl font-semibold">Browse by mood</h2>
+          <p className="text-xs text-muted-foreground mt-1">Collections grouped by tone, format and listening context.</p>
         </div>
         <Link to="/moods" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 shrink-0">
           See all <ArrowRight className="h-3 w-3" />
@@ -125,9 +122,6 @@ export function MoodCollections() {
               className="group relative overflow-hidden rounded-xl border border-primary/30 bg-card/70 p-4 hover:border-primary/60 transition-colors"
               style={{ background: `linear-gradient(135deg, ${accent}1c, transparent 60%), hsl(var(--card) / 0.7)` }}
             >
-              <div className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[9px] uppercase tracking-[0.14em]">
-                <Wand2 className="h-2.5 w-2.5" /> for you
-              </div>
               <div className="flex items-start justify-between">
                 <Sparkles className="h-5 w-5" style={{ color: accent }} />
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform mt-5" />
