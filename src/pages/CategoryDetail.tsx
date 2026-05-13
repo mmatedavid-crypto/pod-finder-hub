@@ -255,7 +255,15 @@ export default function CategoryDetail() {
                     </span>
                   )}
                 </h2>
-                <EpisodeList items={allResults} terms={flatTerms} showEntities />
+                <div className="hidden md:grid md:grid-cols-2 gap-4">
+                  <EpisodeList items={allResults.slice(0, Math.ceil(allResults.length / 2))} terms={flatTerms} showEntities />
+                  {allResults.length > 1 && (
+                    <EpisodeList items={allResults.slice(Math.ceil(allResults.length / 2))} terms={flatTerms} showEntities />
+                  )}
+                </div>
+                <div className="md:hidden">
+                  <EpisodeList items={allResults} terms={flatTerms} showEntities />
+                </div>
               </section>
             )}
           </div>
