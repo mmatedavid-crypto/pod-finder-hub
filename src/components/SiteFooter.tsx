@@ -28,29 +28,18 @@ export function SiteFooter() {
             </p>
           </div>
 
-          {/* Mobile: 2 grouped columns. sm+: single inline row (legacy look). */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:hidden">
-            <div className="space-y-2">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Explore</div>
-              <ul className="space-y-1.5">
-                {EXPLORE.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="hover:text-foreground transition-colors">{l.label}</Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="space-y-2 text-right">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">Company</div>
-              <ul className="space-y-1.5">
-                {COMPANY.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className="hover:text-foreground transition-colors">{l.label}</Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {/* Mobile: 2 tidy rows of 4 links each, evenly spaced. */}
+          <nav className="sm:hidden grid grid-cols-4 gap-x-3 gap-y-3 text-xs">
+            {[...EXPLORE, ...COMPANY].map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="text-center hover:text-foreground transition-colors whitespace-nowrap"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
 
           <nav className="hidden sm:flex sm:flex-wrap gap-x-6 gap-y-2 text-sm">
             {[...EXPLORE, ...COMPANY].map((l) => (
