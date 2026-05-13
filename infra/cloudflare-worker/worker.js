@@ -93,6 +93,30 @@ export default {
       });
     }
 
+    // Dynamic sitemap proxy — /sitemap.xml (and /sitemap.xml?type=...) → edge fn.
+    // Static public/sitemap.xml is bypassed; Google sees live episode coverage.
+    if (request.method === "GET" && url.pathname === "/sitemap.xml") {
+      const upstreamUrl = `${SITEMAP_ENDPOINT}${url.search}`;
+      try {
+        const upstream = await fetch(upstreamUrl, {
+          cf: { cacheTtl: 3600, cacheEverything: true },
+          headers: { "User-Agent": "podiverzum-cf-worker" },
+        });
+        if (upstream.ok) {
+          const body = await upstream.text();
+          return new Response(body, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/xml; charset=utf-8",
+              "Cache-Control": "public, max-age=3600",
+              "X-Sitemap-Source": "edge-fn",
+            },
+          });
+        }
+      } catch (_) { /* fall through to origin */ }
+      return fetch(request);
+    }
+
     // Only handle GETs from bots on prerenderable paths.
     if (
       request.method !== "GET" ||
