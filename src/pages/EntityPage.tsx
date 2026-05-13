@@ -240,7 +240,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
               <h2 className="text-xl font-semibold">
                 Featuring {displayName}
                 <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">
-                  {kind === "person" ? "as host or guest" : "as primary subject"}
+                  {kind === "person" ? "as guest or main subject" : "as primary subject"}
                 </span>
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
