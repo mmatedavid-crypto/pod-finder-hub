@@ -11,7 +11,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
-const FN_BASE = `${Deno.env.get("SUPABASE_URL") || "https://iqzkayoqqagowvxeaphe.supabase.co"}/functions/v1/sitemap`;
+// Sub-sitemap URLs are emitted on the public domain so Cloudflare worker can
+// proxy them and Google sees same-host children (best practice).
+const FN_BASE = `${SITE}/sitemap.xml`;
 
 const xmlHeaders = {
   "Access-Control-Allow-Origin": "*",
