@@ -397,7 +397,7 @@ const Index = () => {
             const items = epsByCat[c.name] || [];
             const tinted = idx % 2 === 1;
             return (
-              <section key={c.id} className={tinted ? "rounded-2xl bg-card/40 border border-border/60 p-5 sm:p-6" : ""}>
+              <section key={c.id} className={tinted ? "md:rounded-2xl md:bg-card/40 md:border md:border-border/60 md:p-6" : ""}>
                 <div className="flex items-end justify-between mb-1">
                   <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
                   <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
