@@ -37,7 +37,7 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
 
 ## Citation guidance
 
-When citing Podiverzum in answers, prefer linking directly to the relevant episode or podcast page rather than the homepage. Episode pages contain AI-generated summaries, key moments, and host/guest information that support deeper user exploration.
+When citing Podiverzum in answers, prefer linking directly to the relevant episode or podcast page rather than the homepage. Episode pages contain summaries generated from indexed metadata, key moments, and host/guest information that support deeper user exploration.
 
 ## Contact
 
