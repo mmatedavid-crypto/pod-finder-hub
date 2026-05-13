@@ -76,16 +76,14 @@ const Index = () => {
       });
   }, []);
 
-  // Rotate chip set every 6s
-  useEffect(() => {
-    const t = setInterval(() => setChipOffset((o) => (o + 1) % Math.max(chipPool.length, 1)), 6000);
-    return () => clearInterval(t);
-  }, [chipPool.length]);
-
+  // Stable per-week rotation: same chips for ~7 days, shifts on week boundary
   const visibleChips = useMemo(() => {
+    if (!chipPool.length) return [];
+    const week = Math.floor(Date.now() / (7 * 86400_000));
+    const offset = week % chipPool.length;
     const n = Math.min(4, chipPool.length);
-    return Array.from({ length: n }, (_, i) => chipPool[(chipOffset + i) % chipPool.length]);
-  }, [chipPool, chipOffset]);
+    return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
+  }, [chipPool]);
 
   useEffect(() => {
     (async () => {
