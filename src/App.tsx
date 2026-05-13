@@ -64,20 +64,7 @@ const App = () => (
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
-          <Route path="/admin" element={<AdminHubPage />} />
-          <Route path="/admin/podcasts" element={<AdminPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
-          <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
-          <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
-          <Route path="/admin/autopilot" element={<AdminAutopilotPage />} />
-          <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
-          <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
-          <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
-          <Route path="/admin/growth" element={<AdminGrowthPage />} />
-          <Route path="/admin/queue" element={<AdminQueuePage />} />
-          <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
-          <Route path="/admin/social" element={<AdminSocialPostsPage />} />
-          <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
