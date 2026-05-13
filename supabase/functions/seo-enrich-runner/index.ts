@@ -208,7 +208,12 @@ Deno.serve(async (req) => {
           if (isPodcast) {
             const { data: p } = await admin.from("podcasts").select("title,display_title,description,category,language").eq("id", job.target_id).maybeSingle();
             if (!p) throw new Error("target_missing");
-            prompt = podcastUserPrompt(p as any);
+            const { data: eps } = await admin.from("episodes")
+              .select("title,description,published_at")
+              .eq("podcast_id", job.target_id)
+              .order("published_at", { ascending: false, nullsFirst: false })
+              .limit(5);
+            prompt = podcastUserPrompt({ ...(p as any), recent_episodes: (eps as any) || [] });
           } else {
             const { data: e } = await admin.from("episodes").select("title,display_title,description,podcasts!inner(title,display_title,language)").eq("id", job.target_id).maybeSingle();
             if (!e) throw new Error("target_missing");
