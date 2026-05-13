@@ -463,7 +463,7 @@ const Index = () => {
           </section>
         )}
 
-        <RecentlyAddedPodcasts limit={3} />
+        <RecentlyAddedPodcasts limit={4} />
 
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
