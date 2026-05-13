@@ -34,7 +34,6 @@ const Index = () => {
     { label: "Nvidia earnings", query: "Nvidia earnings" },
     { label: "Sam Altman", query: "Sam Altman" },
     { label: "GLP-1 drugs", query: "GLP-1 drugs" },
-    { label: "Fed rate cut", query: "Fed rate cut" },
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
