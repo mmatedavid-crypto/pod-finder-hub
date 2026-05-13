@@ -401,12 +401,12 @@ const Index = () => {
               </Link>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {topPodcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+              {topPodcasts.slice(0, 3).map((p) => <PodcastCard key={p.id} p={p} />)}
             </div>
           </section>
         )}
 
-        <RecentlyAddedPodcasts limit={6} />
+        <RecentlyAddedPodcasts limit={3} />
 
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">
