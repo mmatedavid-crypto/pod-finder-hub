@@ -288,13 +288,13 @@ const Index = () => {
               Search
             </button>
           </form>
-          <div className="mt-3 sm:mt-3 flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <div className="mt-3 sm:mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
             {visibleChips.map((c) => (
               <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip whitespace-nowrap shrink-0 animate-fade-up">
                 {c.label}
               </button>
             ))}
-            <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+            <span className="ml-auto pl-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap shrink-0">
               700,000+ indexed episodes
             </span>
           </div>
