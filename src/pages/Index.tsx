@@ -70,10 +70,22 @@ const Index = () => {
       .then(({ data }) => {
         const items = (data?.value as any)?.items;
         if (Array.isArray(items) && items.length) {
-          setChips(items.filter((c) => c?.label && c?.query).slice(0, 3));
+          const cleaned = items.filter((c: any) => c?.label && c?.query);
+          if (cleaned.length >= 4) setChipPool(cleaned);
         }
       });
   }, []);
+
+  // Rotate chip set every 6s
+  useEffect(() => {
+    const t = setInterval(() => setChipOffset((o) => (o + 1) % Math.max(chipPool.length, 1)), 6000);
+    return () => clearInterval(t);
+  }, [chipPool.length]);
+
+  const visibleChips = useMemo(() => {
+    const n = Math.min(4, chipPool.length);
+    return Array.from({ length: n }, (_, i) => chipPool[(chipOffset + i) % chipPool.length]);
+  }, [chipPool, chipOffset]);
 
   useEffect(() => {
     (async () => {
