@@ -201,7 +201,17 @@ export default function CategoryDetail() {
                     )}
                   </h2>
                   {inCat.length > 0 ? (
-                    <EpisodeList items={inCat} terms={flatTerms} showEntities />
+                    <>
+                      <div className="hidden md:grid md:grid-cols-2 gap-4">
+                        <EpisodeList items={inCat.slice(0, Math.ceil(inCat.length / 2))} terms={flatTerms} showEntities />
+                        {inCat.length > 1 && (
+                          <EpisodeList items={inCat.slice(Math.ceil(inCat.length / 2))} terms={flatTerms} showEntities />
+                        )}
+                      </div>
+                      <div className="md:hidden">
+                        <EpisodeList items={inCat} terms={flatTerms} showEntities />
+                      </div>
+                    </>
                   ) : (
                     <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
                       No matches in {cat.name}. Try “All Podiverzum” to broaden the search.
