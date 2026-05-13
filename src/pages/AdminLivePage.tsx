@@ -39,7 +39,6 @@ export default function AdminLivePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [recent, setRecent] = useState<Row[]>([]);
   const [todayCount, setTodayCount] = useState(0);
-  const [todayUnique, setTodayUnique] = useState(0);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [tick, setTick] = useState(0);
