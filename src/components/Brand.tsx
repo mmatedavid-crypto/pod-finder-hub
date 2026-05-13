@@ -15,7 +15,7 @@ export function BrandMark({
     <Link
       to="/"
       aria-label="Podiverzum — home"
-      className={`group inline-flex items-center gap-2.5 ${className}`}
+      className={`group inline-flex items-center gap-2.5 cursor-pointer ${className}`}
     >
       <span
         className="relative inline-flex items-center justify-center rounded-md overflow-hidden bg-black ring-1 ring-white/10 shadow-[0_0_0_1px_hsl(var(--brand-red)/0.0),0_8px_24px_-12px_hsl(var(--brand-red)/0.45)] transition-shadow group-hover:shadow-[0_0_0_1px_hsl(var(--brand-red)/0.4),0_8px_24px_-8px_hsl(var(--brand-red)/0.6)]"
@@ -31,7 +31,7 @@ export function BrandMark({
       </span>
       {withWordmark && (
         <span className="leading-none">
-          <span className="block font-semibold tracking-tight text-foreground text-[15px] sm:text-base">
+          <span className="block font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors text-[15px] sm:text-base">
             Podiverzum
           </span>
           {tagline && (
