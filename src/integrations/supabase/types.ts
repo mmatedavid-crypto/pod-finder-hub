@@ -1418,6 +1418,7 @@ export type Database = {
       }
       mv_homepage_feed: {
         Row: {
+          ai_summary: string | null
           audio_url: string | null
           description: string | null
           display_title: string | null
