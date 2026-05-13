@@ -155,16 +155,30 @@ const Index = () => {
         const trendingPool = hotFresh.length >= 8 ? hotFresh : eps;
         // Diversify: max 2 episodes per podcast in the trending strip so one show
         // can't dominate. Spillover is appended after if we run short of 8 items.
+        // Also softly cap divisive categories (e.g. Religion) so the homepage
+        // doesn't lead with a category that polarises new visitors.
         const sorted = trendingPool.slice().sort(compareByScore);
         const PER_PODCAST_CAP = 2;
+        const SENSITIVE_CATEGORY_CAPS: Record<string, number> = {
+          "Religion & Spirituality": 1,
+        };
         const counts = new Map<string, number>();
+        const catCounts = new Map<string, number>();
         const primary: FeedEpisode[] = [];
         const overflow: FeedEpisode[] = [];
         for (const e of sorted) {
           const key = (e.podcasts as any)?.slug || (e.podcasts as any)?.title || "_";
+          const cat = (e.podcasts as any)?.category || "_";
           const n = counts.get(key) || 0;
-          if (n < PER_PODCAST_CAP) { primary.push(e); counts.set(key, n + 1); }
-          else overflow.push(e);
+          const cn = catCounts.get(cat) || 0;
+          const catCap = SENSITIVE_CATEGORY_CAPS[cat];
+          if (n < PER_PODCAST_CAP && (catCap === undefined || cn < catCap)) {
+            primary.push(e);
+            counts.set(key, n + 1);
+            catCounts.set(cat, cn + 1);
+          } else {
+            overflow.push(e);
+          }
         }
         setTrendingEps([...primary, ...overflow].slice(0, 8));
         setAllEps(eps);
