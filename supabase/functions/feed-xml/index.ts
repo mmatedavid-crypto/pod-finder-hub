@@ -50,10 +50,10 @@ Deno.serve(async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-  <title>Podiverzum — Fresh podcast episodes</title>
+  <title>Podiverzum — Recently indexed podcast episodes</title>
   <link>${esc(SITE)}</link>
   <atom:link href="${esc(SITE)}/feed.xml" rel="self" type="application/rss+xml" />
-  <description>Hand-ranked podcast episodes from across the web. Find it. Hear it.</description>
+  <description>Recently indexed podcast episodes from across the web. Indexed from public RSS feeds.</description>
   <language>en</language>
   <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
 ${items}
