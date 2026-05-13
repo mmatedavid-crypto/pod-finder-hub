@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight, Search } from "lucide-react";
 
 const QUESTIONS = [
-  "What are economists saying about inflation?",
-  "Recent episodes about Nvidia and data centers",
+  "Nvidia and data centers",
   "GLP-1 drugs and long-term health",
-  "Interviews with founders about AI regulation",
-  "Best recent discussions on sleep and recovery",
-  "What Buffett said about Apple",
-  "European politics this month",
-  "Longevity science explained",
+  "AI regulation",
+  "founder interviews",
+  "sleep and recovery",
+  "European politics",
+  "Warren Buffett and Apple",
+  "longevity science",
 ];
 
 const ROTATE_MS = 3500;
@@ -50,11 +50,11 @@ export function AskPodiverzum() {
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">
-          Search in <span className="text-brand-gradient">natural language.</span>
+          Search the way <span className="text-brand-gradient">you think.</span>
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Describe what you want to hear about. Podiverzum searches across more than 700,000 indexed episodes and explains why each result matched.
+          Describe a topic, person, company or idea. Podiverzum finds episodes that connect — and shows why they match.
         </p>
 
         <form
@@ -66,8 +66,8 @@ export function AskPodiverzum() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. Recent episodes about Nvidia and data centers"
-            className="w-full pl-12 pr-28 sm:pr-36 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+            placeholder="e.g. Nvidia and data centers"
+            className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
           />
           <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5">
             Search <ArrowRight className="h-4 w-4" />
@@ -76,7 +76,7 @@ export function AskPodiverzum() {
 
         <div className="mt-5 sm:mt-6">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-3">
-            Try one of these
+            Try
           </div>
           <div className="grid sm:grid-cols-2 gap-2.5">
             {visible.map((question) => (
