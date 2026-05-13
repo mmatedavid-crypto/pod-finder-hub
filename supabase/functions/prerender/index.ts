@@ -148,13 +148,13 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
   };
 
   return new Response(new TextEncoder().encode(shell({
-      title: "Podiverzum — Premium podcast discovery",
+      title: "Podiverzum — search podcast episodes by what they discuss",
       description:
-        "Find the best podcast episodes by topic, person, company, ticker or ingredient. Curated, ranked and AI-summarised.",
+        "Search more than 700,000 indexed podcast episodes by topic, person, company, ticker or idea. Indexed from public RSS feeds.",
       canonical: `${SITE}/`,
       jsonLd: [website, itemList],
-      bodyHtml: `<header><h1>Podiverzum</h1><p>Premium podcast discovery — find it, hear it.</p></header>
-<main><h2>Latest episodes</h2><ul>${itemsHtml}</ul></main>`,
+      bodyHtml: `<header><h1>Podiverzum</h1><p>Search podcast episodes by what they actually discuss.</p></header>
+<main><h2>Recently indexed episodes</h2><ul>${itemsHtml}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
   );

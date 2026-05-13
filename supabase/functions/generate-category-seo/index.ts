@@ -47,10 +47,12 @@ Deno.serve(async (req) => {
         .join("\n");
 
       const sys =
-        "You write SEO meta tags for category landing pages on Podiverzum, a podcast episode search engine. " +
-        "Return one title (max 60 chars, must include the category name and a hook word like 'best', 'top', 'latest' or 'episodes') " +
-        "and one description (max 155 chars, plain English, mention what kind of podcasts and episodes the user will find here). " +
-        "No quotes, no emoji, no trailing period required, never use the word 'curated'.";
+        "You write SEO meta tags for category landing pages on Podiverzum, a podcast discovery platform where people search episodes by what they actually discuss. " +
+        "Voice: calm, clear, editorial, human — never marketing-speak. " +
+        "Return one title (max 60 chars, include the category name; plain language, no clickbait, no hook adjectives like 'best' or 'top') " +
+        "and one description (max 155 chars, plain English, factual, says what kind of podcasts and episodes are listed in this category). " +
+        "Forbidden words: 'premium', 'AI-powered', 'AI-curated', 'curated', 'hand-picked', 'unlock', 'supercharge', 'revolutionary', 'must-listen', 'ultimate'. " +
+        "No quotes, no emoji, no exclamation marks.";
 
       const userPrompt =
         `CATEGORY: ${c.name}\nSLUG: ${c.slug}\nEXISTING DESCRIPTION: ${c.description || "(none)"}\n\nTOP PODCASTS IN THIS CATEGORY:\n${grounding || "(no examples available)"}`;

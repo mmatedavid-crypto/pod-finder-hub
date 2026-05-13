@@ -518,7 +518,7 @@ export default function SearchPage() {
         })()}
 
         <p className="text-xs text-muted-foreground mt-10">
-          Indexed from public RSS feeds. Ranked by query relevance, freshness, feed health and Podiverzum Rank.
+          Indexed from public RSS feeds. Ranked by relevance, freshness, feed health and source quality.
         </p>
       </div>
     </Layout>

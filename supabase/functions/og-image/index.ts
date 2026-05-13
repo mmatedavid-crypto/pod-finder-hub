@@ -142,7 +142,7 @@ function buildSvg(opts: { kind: string; title: string; subtitle: string; coverDa
   <g transform="translate(${textX}, ${H - 90})">
     <circle cx="14" cy="14" r="5" fill="#ff2e63"/>
     <text x="32" y="20" font-family="Inter" font-weight="700" font-size="26" fill="#ffffff">PODIVERZUM</text>
-    <text x="32" y="50" font-family="Inter" font-weight="400" font-size="18" fill="#9ca3af">Find it. Hear it.</text>
+    <text x="32" y="50" font-family="Inter" font-weight="400" font-size="18" fill="#9ca3af">Search podcast episodes by what they discuss.</text>
   </g>
 </svg>`;
 }
@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
 
   const url = new URL(req.url);
   const kind = (url.searchParams.get("kind") || "site").slice(0, 20);
-  const title = (url.searchParams.get("title") || "Podiverzum — Find it. Hear it.").slice(0, 160);
+  const title = (url.searchParams.get("title") || "Podiverzum — podcast episode search").slice(0, 160);
   const subtitle = (url.searchParams.get("subtitle") || "").slice(0, 120);
   const image = url.searchParams.get("image") || "";
 
