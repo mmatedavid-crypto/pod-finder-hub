@@ -92,7 +92,7 @@ export default function MoodCollectionPage() {
     <Layout>
       <Seo
         title={`${mood.title} — podcast collection | Podiverzum`}
-        description={mood.description || `Hand-picked podcasts and episodes for ${mood.mood}.`}
+        description={mood.description || `Podcasts and episodes in the ${mood.mood} collection.`}
       />
       <div className="container mx-auto py-10 max-w-5xl">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
