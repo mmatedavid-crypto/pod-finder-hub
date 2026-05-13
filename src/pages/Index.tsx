@@ -206,7 +206,26 @@ const Index = () => {
 
   return (
     <Layout>
-      
+      <Seo
+        title="Podiverzum — Podcast episode discovery & search"
+        description="Search podcast episodes by topic, person, company, ticker, ingredient or idea."
+        canonical="https://podiverzum.com/"
+        hreflang={[
+          { lang: "en", href: "https://podiverzum.com/" },
+          { lang: "x-default", href: "https://podiverzum.com/" },
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Podiverzum",
+          url: "https://podiverzum.com",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://podiverzum.com/search?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }}
+      />
       <section className="bg-background text-foreground relative border-b border-border overflow-hidden">
         <div aria-hidden className="absolute inset-0 bg-background" />
         {/* Brand spotlight */}
