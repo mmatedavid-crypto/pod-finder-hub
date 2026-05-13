@@ -31,6 +31,7 @@ import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
+import MoodsPage from "./pages/MoodsPage.tsx";
 
 import AboutPage from "./pages/AboutPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/ingredient/:slug" element={<EntityPage kind="ingredient" />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/moods" element={<MoodsPage />} />
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
           
           <Route path="/about" element={<AboutPage />} />
