@@ -14,21 +14,39 @@ const QUESTIONS = [
 ];
 
 const ROTATE_MS = 3500;
+// Clockwise slot order in a 2x2 grid (rendered row-by-row: 0=TL, 1=TR, 2=BL, 3=BR)
+const CLOCKWISE = [0, 1, 3, 2];
 
 export function AskPodiverzum() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
-  const [idx, setIdx] = useState(0);
+  const [slots, setSlots] = useState<string[]>(() => QUESTIONS.slice(0, 4));
+  const [keys, setKeys] = useState<number[]>(() => [0, 1, 2, 3]);
   const [paused, setPaused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const tickRef = useRef({ next: 4, cw: 0, k: 4 });
 
   useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % QUESTIONS.length), ROTATE_MS);
+    const t = setInterval(() => {
+      const { next, cw, k } = tickRef.current;
+      const slot = CLOCKWISE[cw % CLOCKWISE.length];
+      setSlots((prev) => {
+        const copy = prev.slice();
+        copy[slot] = QUESTIONS[next % QUESTIONS.length];
+        return copy;
+      });
+      setKeys((prev) => {
+        const copy = prev.slice();
+        copy[slot] = k;
+        return copy;
+      });
+      tickRef.current = { next: next + 1, cw: cw + 1, k: k + 1 };
+    }, ROTATE_MS);
     return () => clearInterval(t);
   }, [paused]);
 
-  const visible = Array.from({ length: 4 }, (_, k) => QUESTIONS[(idx + k) % QUESTIONS.length]);
+  const visible = slots;
 
   const go = (query: string) => {
     if (!query.trim()) return;
