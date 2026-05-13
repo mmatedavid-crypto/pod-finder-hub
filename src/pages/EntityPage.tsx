@@ -179,14 +179,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         <div className="container mx-auto py-12 sm:py-14 max-w-5xl relative">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary">{ENTITY_LABEL[kind]}</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-2 leading-[1.05]">{displayName}</h1>
-          <p className="text-muted-foreground mt-3 max-w-2xl">
-            Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
-          </p>
+          {profile?.bio ? (
+            <p className="text-foreground/90 mt-4 max-w-2xl text-[15px] leading-relaxed">
+              {profile.bio}
+            </p>
+          ) : (
+            <p className="text-muted-foreground mt-3 max-w-2xl">
+              Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap gap-3">
             <Stat label="Episodes indexed" value={total} />
             <Stat label="Last 30 days" value={last30Count} />
             <Stat label="Podcasts" value={pods.length} />
           </div>
+          {profile?.episodes_summary && (
+            <div className="mt-7 max-w-3xl rounded-2xl border border-border/70 bg-card/60 p-5 sm:p-6">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-primary mb-1.5">What these episodes cover</div>
+              <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/85">{profile.episodes_summary}</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-3">AI-generated summary based on indexed episodes</p>
+            </div>
+          )}
         </div>
       </section>
 
