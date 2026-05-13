@@ -1,19 +1,32 @@
 import * as React from 'npm:react@18.3.1'
 import {
-  Body, Container, Head, Heading, Html, Preview, Section, Text,
+  Body, Container, Head, Heading, Html, Link, Preview, Section, Text,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'Podiverzum'
 
+interface AdminReportLink {
+  label: string
+  url: string
+  meta?: string
+}
+
+interface AdminReportLinkGroup {
+  heading?: string
+  links: AdminReportLink[]
+}
+
 interface AdminReportProps {
   title?: string
   intro?: string
   rows?: Array<{ label: string; value: string }>
+  linkGroups?: AdminReportLinkGroup[]
+  links?: AdminReportLink[]
   notes?: string
 }
 
-const AdminReport = ({ title, intro, rows, notes }: AdminReportProps) => (
+const AdminReport = ({ title, intro, rows, linkGroups, links, notes }: AdminReportProps) => (
   <Html lang="hu" dir="ltr">
     <Head />
     <Preview>{title || `${SITE_NAME} admin riport`}</Preview>
