@@ -124,6 +124,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   return (
     <Layout>
+      <Seo
+        title={`Podcast episodes about ${displayName} — Podiverzum`}
+        description={`Discover podcast episodes about ${displayName}, ranked by relevance, freshness and Podiverzum Rank.`}
+        canonical={pageUrl}
+        noindex={noindex}
+        jsonLd={noindex ? undefined : [
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `Podcast episodes about ${displayName}`,
+            url: pageUrl,
+            about: { "@type": entityType, name: displayName },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": entityType,
+            name: displayName,
+            url: pageUrl,
+          },
+        ]}
+      />
       {/* Hero */}
       <section className="border-b border-border bg-background relative overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-50" />
