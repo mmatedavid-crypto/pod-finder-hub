@@ -65,12 +65,15 @@ Deno.serve(async (req) => {
 
     const idem = `entity-report-${new Date().toISOString().slice(0, 13)}-${total}`;
 
-    console.log("invoking send-transactional-email", { recipient, total, idem });
+    const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const anon = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    console.log("invoking send-transactional-email", { recipient, total, idem, srkLen: srk.length, anonLen: anon.length });
     const sendResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-transactional-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        Authorization: `Bearer ${srk}`,
+        apikey: srk,
       },
       body: JSON.stringify({
         templateName: "admin-report",
