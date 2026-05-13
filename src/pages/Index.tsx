@@ -85,7 +85,7 @@ const Index = () => {
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .from("mv_homepage_feed" as any)
-            .select("episode_id,title,display_title,slug,summary,description,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
+            .select("episode_id,title,display_title,slug,summary,description,ai_summary,published_at,audio_url,topics,podcast_id,podcast_slug,podcast_title,podcast_display_title,podcast_image_url,podcast_category,podiverzum_rank,rank_label,rss_status,featured,featured_rank,pod_rank,freshness_bucket")
             .lte("pod_rank", 6)
             .order("published_at", { ascending: false, nullsFirst: false })
             .limit(HOMEPAGE_EPISODE_LIMIT),
@@ -129,6 +129,7 @@ const Index = () => {
           display_title: r.display_title,
           slug: r.slug,
           summary: r.summary,
+          ai_summary: r.ai_summary,
           description: r.description,
           published_at: r.published_at,
           audio_url: r.audio_url,
