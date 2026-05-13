@@ -96,10 +96,22 @@ async function generateMoods(country: string, hour: number, dow: number): Promis
 Suggest 2 personalized podcast moods. Make them feel like Podiverzum *senses* their state. One can lean topic-driven (e.g. "Tech founder stories"), one can lean tone/format-driven (e.g. "Slow conversations under an hour"). Vary across calls — do not always pick the same two.`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const stripAP = (obj: any): any => {
+    if (Array.isArray(obj)) return obj.map(stripAP);
+    if (obj && typeof obj === "object") {
+      const o: any = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (k === "additionalProperties") continue;
+        o[k] = stripAP(v);
+      }
+      return o;
+    }
+    return obj;
+  };
   const body = {
     contents: [{ role: "user", parts: [{ text: user }] }],
     systemInstruction: { parts: [{ text: sys }] },
-    tools: [{ functionDeclarations: [{ name: MOOD_TOOL.function.name, description: MOOD_TOOL.function.description, parameters: MOOD_TOOL.function.parameters }] }],
+    tools: [{ functionDeclarations: [{ name: MOOD_TOOL.function.name, description: MOOD_TOOL.function.description, parameters: stripAP(MOOD_TOOL.function.parameters) }] }],
     toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [MOOD_TOOL.function.name] } },
     generationConfig: { temperature: 0.9, topP: 0.95 },
   };
