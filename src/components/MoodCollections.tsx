@@ -81,7 +81,7 @@ export function MoodCollections() {
           See all <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
-      <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 scrollbar-none md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-3 md:gap-3">
+      <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-3 md:gap-3">
         {statics.slice(0, 2).map((m) => {
           const Icon = STATIC_ICONS[m.slug] || Sparkles;
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
