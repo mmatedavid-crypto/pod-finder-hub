@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
+import { siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
 import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
@@ -121,6 +122,15 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       });
     })();
   }, [kind, slug, decoded]);
+
+  const total = eps.length;
+  const noindex = total > 0 && total < NOINDEX_BELOW;
+  const entityType =
+    kind === "person" ? "Person" :
+    kind === "company" ? "Organization" :
+    kind === "ticker" ? "Corporation" :
+    "Thing";
+  const pageUrl = `${siteOrigin()}/${kind}/${slug}`;
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
