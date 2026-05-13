@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight, Search } from "lucide-react";
 
 const QUESTIONS = [
-  "Best founder interviews this month",
-  "What's new in GLP-1 research",
-  "Podcasts that explain the stock market",
+  "What are economists saying about inflation?",
+  "Recent episodes about Nvidia and data centers",
+  "GLP-1 drugs and long-term health",
+  "Interviews with founders about AI regulation",
+  "Best recent discussions on sleep and recovery",
   "What Buffett said about Apple",
-  "Smart takes on AI regulation",
-  "Deep dives on the Fed's next move",
-  "Episodes about longevity science",
-  "Sam Altman on the future of AI",
+  "European politics this month",
+  "Longevity science explained",
 ];
 
 const ROTATE_MS = 3500;
@@ -45,19 +45,16 @@ export function AskPodiverzum() {
       <div aria-hidden className="pointer-events-none absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-primary/10 blur-3xl" />
 
       <div className="relative">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[10px] uppercase tracking-[0.22em] text-primary">
-          <Sparkles className="h-3 w-3" />
-          Ask Podiverzum
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          Natural-language search
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">
-          Ask anything. Every result explains{" "}
-          <span className="text-brand-gradient">why it matched.</span>
+          Search in <span className="text-brand-gradient">natural language.</span>
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Natural-language discovery across hundreds of thousands of podcast episodes —
-          with one-line explanations for why each result matched.
+          Describe what you want to hear about. Podiverzum searches across more than 700,000 indexed episodes and explains why each result matched.
         </p>
 
         <form
@@ -69,11 +66,11 @@ export function AskPodiverzum() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. What's new in GLP-1 research"
+            placeholder="e.g. Recent episodes about Nvidia and data centers"
             className="w-full pl-12 pr-28 sm:pr-36 py-3.5 sm:py-4 rounded-2xl bg-card/90 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
           />
           <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5">
-            Ask <ArrowRight className="h-4 w-4" />
+            Search <ArrowRight className="h-4 w-4" />
           </button>
         </form>
 

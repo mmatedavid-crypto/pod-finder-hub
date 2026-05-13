@@ -203,8 +203,8 @@ const Index = () => {
   return (
     <Layout>
       <Seo
-        title="Podiverzum — Podcast episode discovery & search"
-        description="Search podcast episodes by topic, person, company, ticker, ingredient or idea."
+        title="Podiverzum — Search podcast episodes by topic, person or idea"
+        description="Search across more than 700,000 indexed podcast episodes and find conversations by what they actually discuss — people, companies, markets, technologies and ideas."
         canonical="https://podiverzum.com/"
         hreflang={[
           { lang: "en", href: "https://podiverzum.com/" },
@@ -229,22 +229,17 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
         <div className="relative container mx-auto pt-5 pb-6 sm:py-28">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-primary shadow-sm animate-fade-up">
-            <span className="relative inline-flex h-1.5 w-1.5">
-              <span className="pulse-red" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-            </span>
-            Live · Episode-first discovery
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-muted-foreground shadow-sm animate-fade-up">
+            Podcast discovery
           </div>
-          <h1 className="text-4xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
-            <span className="text-foreground">Find it.</span>{" "}
-            <span className="text-brand-gradient">Hear it.</span>
+          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.05] animate-fade-up">
+            Search what podcasts <span className="text-brand-gradient">actually discuss.</span>
           </h1>
           <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Search podcast episodes by what they actually discuss.
+            Podiverzum helps you search across more than 700,000 indexed podcast episodes by topic, person, company, market, technology or idea.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Ask about people, companies, markets, technologies or ideas — and find the episodes that matter.
+            Results show why they matched, so you can decide what's worth hearing.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -298,10 +293,9 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Editor's pulse</div>
-                <h2 className="text-2xl font-semibold tracking-tight">Trending episodes</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">Recent episodes worth a listen</h2>
+                <p className="text-xs text-muted-foreground mt-1">Across shows, ranked by relevance, freshness and source quality.</p>
               </div>
-              <span className="text-xs text-muted-foreground hidden sm:inline">Selected · ranked · understood</span>
             </div>
             <EpisodeList items={trendingEps} scrollOnMobile />
           </section>
@@ -311,9 +305,9 @@ const Index = () => {
 
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
-            eyebrow="By topic right now"
-            title="What podcasters are talking about"
-            subtitle="Top topics across all shows in the last 14 days. Tap to dive in."
+            eyebrow="Topics"
+            title="Frequently mentioned this week"
+            subtitle="Top topics across recent episodes."
             items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
             icon="topic"
           />
@@ -321,9 +315,9 @@ const Index = () => {
 
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
-            eyebrow="People in the news"
+            eyebrow="People"
             title="Names mentioned this week"
-            subtitle="Cross-show: founders, scientists, athletes, leaders."
+            subtitle="Across shows: founders, scientists, athletes, leaders."
             items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
             icon="person"
           />
@@ -333,9 +327,9 @@ const Index = () => {
           const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
           return companies.length ? (
             <TrendingEntities
-              eyebrow="Companies on air"
-              title="Brands & organizations"
-              subtitle="Companies showing up across recent episodes."
+              eyebrow="Companies"
+              title="Companies in recent episodes"
+              subtitle="Brands and organizations showing up across shows."
               items={companies}
               icon="company"
             />
@@ -375,14 +369,11 @@ const Index = () => {
         </div>
 
         {evergreenEps.length > 0 && (
-          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
+          <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
-                  <Sparkles className="h-3 w-3" /> Timeless
-                </div>
                 <h2 className="text-xl sm:text-2xl font-semibold">Timeless episodes</h2>
-                <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
+                <p className="text-xs text-muted-foreground mt-1">Older episodes that still hold up.</p>
               </div>
             </div>
             <EpisodeList items={evergreenEps} scrollOnMobile />
@@ -393,8 +384,8 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Quality first</div>
-                <h2 className="text-xl sm:text-2xl font-semibold">High-rank podcasts</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">Highly ranked podcasts</h2>
+                <p className="text-xs text-muted-foreground mt-1">Strong sources across recent indexing.</p>
               </div>
               <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                 Browse all <ArrowRight className="h-3.5 w-3.5" />

@@ -12,11 +12,12 @@ import { episodeScore } from "@/lib/episodeRank";
 type SortKey = "best" | "newest" | "rank";
 
 const EXAMPLES = [
-  "AI healthcare",
-  "Italy food",
-  "testosterone sleep",
-  "asparagus cooking",
+  "AI regulation",
   "Nvidia data centers",
+  "GLP-1 drugs",
+  "sleep and recovery",
+  "European politics",
+  "founder interviews",
 ];
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
@@ -287,20 +288,28 @@ export default function SearchPage() {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
         <p className="text-muted-foreground mb-4 text-sm">
-          Type words separated by spaces, e.g. <em>Italy food</em>. Use <code className="px-1 bg-secondary rounded">+</code> to require all terms strictly.
+          Search by topic, guest, company, show, ticker or idea.
         </p>
         <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Italy food"
+            placeholder="e.g. Nvidia data centers"
             className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
           />
           <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
             Search
           </button>
         </form>
+        <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
+          <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
+          <p className="mt-2">
+            Use <code className="px-1 bg-secondary rounded">+</code> before a word to require it,
+            for example <code className="px-1 bg-secondary rounded">+Nvidia GPU</code>.
+            Use quotes for exact phrases.
+          </p>
+        </details>
 
         <div className="flex flex-wrap gap-2 mt-3">
           {EXAMPLES.map((ex) => (
@@ -349,7 +358,7 @@ export default function SearchPage() {
               <div className="text-sm">
                 <div className="font-medium">Searching for “{initial}”…</div>
                 <div className="text-muted-foreground text-xs mt-0.5">
-                  Combining keyword, semantic and AI re-ranking. This usually takes 2–4 seconds.
+                  Generating a quick overview…
                 </div>
               </div>
             </div>
@@ -363,15 +372,15 @@ export default function SearchPage() {
 
         {initial && !loading && podcasts.length === 0 && episodes.length === 0 && (
           <div className="mt-10 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-            No exact episode matches yet.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)} Try a broader search or <Link to="/categories" className="underline text-foreground">browse categories</Link>.
+            No matches yet. Try a broader phrase, a person's name, a company or a topic.{suggestion && suggestion.toLowerCase() !== initial.toLowerCase() && (<> Did you mean <button onClick={() => { setQ(suggestion); setParams({ q: suggestion }); }} className="underline text-foreground font-medium">{suggestion}</button>?</>)}
           </div>
         )}
 
         {initial && !loading && piFallback && piFallback.candidates.length > 0 && podcasts.length === 0 && (
           <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                {piFallback.staged > 0 ? "Indexing now" : "Found via PodcastIndex"}
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {piFallback.staged > 0 ? "Coming soon" : "Found in external sources"}
               </span>
               {piFallback.staged > 0 && (
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
@@ -379,8 +388,8 @@ export default function SearchPage() {
             </div>
             <p className="text-sm text-foreground/80 mb-3">
               We didn't have these in our index yet. {piFallback.staged > 0
-                ? `We just queued ${piFallback.staged} for ingestion — episodes should appear within a few minutes.`
-                : "They're already in the queue."}
+                ? `We just queued ${piFallback.staged} for indexing — episodes should appear within a few minutes.`
+                : "They're already queued."}
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {piFallback.candidates.slice(0, 6).map((c, i) => {
@@ -394,9 +403,9 @@ export default function SearchPage() {
                       <div className="font-medium text-sm leading-tight line-clamp-2">{c.title}</div>
                       {c.author && <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{c.author}</div>}
                       <div className="text-[10px] mt-1.5 inline-flex items-center gap-1">
-                        {c.status === "indexed" && <span className="text-primary font-medium">In index →</span>}
-                        {c.status === "staged" && <span className="text-muted-foreground">Queued</span>}
-                        {c.status === "new" && <span className="text-primary">Indexing…</span>}
+                        {c.status === "indexed" && <span className="text-primary font-medium">Available →</span>}
+                        {c.status === "staged" && <span className="text-muted-foreground">Coming soon</span>}
+                        {c.status === "new" && <span className="text-muted-foreground">Coming soon</span>}
                       </div>
                     </div>
                   </div>

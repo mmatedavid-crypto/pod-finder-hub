@@ -203,12 +203,19 @@ export default function EpisodeDetail() {
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> NEW
             </span>
           )}
-          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && <span className="text-[10px]">· Pod {Number(p.podiverzum_rank).toFixed(1)}</span>}
+          {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
+            <span
+              className="text-[10px] text-muted-foreground"
+              title="Podiverzum's source-quality signal, based on factors such as relevance, freshness, consistency and feed health."
+            >
+              · Source {Number(p.podiverzum_rank).toFixed(1)}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5 items-center">
           {e.audio_url && <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm"><ExternalLink className="h-4 w-4" /> Listen</a>}
-          {e.episode_url && <a href={e.episode_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm">Episode page</a>}
+          {e.episode_url && <a href={e.episode_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm">Original page</a>}
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Apple className="h-4 w-4" /> Apple</a>}
           {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Music className="h-4 w-4" /> Spotify</a>}
           {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
@@ -221,8 +228,9 @@ export default function EpisodeDetail() {
 
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
-            <div className="text-xs uppercase tracking-wide text-accent mb-1">AI summary</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Summary</div>
             <p className="whitespace-pre-wrap">{summary}</p>
+            <p className="text-[10px] text-muted-foreground mt-2">Generated from indexed episode metadata.</p>
           </div>
         )}
 

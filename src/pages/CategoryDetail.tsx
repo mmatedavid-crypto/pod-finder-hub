@@ -131,7 +131,7 @@ export default function CategoryDetail() {
     <Layout>
       <Seo
         title={cat.seo_title || `${cat.name} podcast episodes — Podiverzum`}
-        description={cat.seo_description || `Discover the latest podcast episodes in ${cat.name}, ranked by relevance, freshness and Podiverzum Rank.`}
+        description={cat.seo_description || `Discover the latest podcast episodes in ${cat.name}, ranked by relevance, freshness and source quality.`}
         canonical={catUrl}
         jsonLd={[
           {
@@ -151,7 +151,7 @@ export default function CategoryDetail() {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         <p className="text-muted-foreground mt-1">
-          Latest podcast episodes in {cat.name}, ranked by relevance, freshness and Podiverzum Rank.
+          Latest podcast episodes in {cat.name}, ranked by relevance, freshness and source quality.
         </p>
 
         {/* Category-scoped search */}
@@ -248,7 +248,7 @@ export default function CategoryDetail() {
               <EpisodeList items={episodes} showTopics />
             ) : (
               <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
-                No episodes indexed in this category yet. Podiverzum is still growing automatically.
+                No podcasts indexed in this category yet.
               </div>
             )}
 

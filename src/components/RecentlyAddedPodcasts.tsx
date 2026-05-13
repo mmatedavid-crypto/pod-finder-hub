@@ -24,9 +24,6 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
     <section>
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            <Plus className="h-3 w-3" /> Fresh in the index
-          </div>
           <h2 className="text-xl sm:text-2xl font-semibold">Recently added podcasts</h2>
         </div>
         {showLink && (
