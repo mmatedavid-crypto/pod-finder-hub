@@ -12,6 +12,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [loadingSugg, setLoadingSugg] = useState(false);
   const nav = useNavigate();
+  const isHome = useLocation().pathname === "/";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
