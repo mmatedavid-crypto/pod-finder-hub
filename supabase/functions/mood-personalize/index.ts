@@ -62,8 +62,8 @@ async function fallbackGenerate(country: string, hour: number, dow: number) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
   const stripAP = (o: any): any => Array.isArray(o) ? o.map(stripAP) : (o && typeof o === "object" ? Object.fromEntries(Object.entries(o).filter(([k]) => k !== "additionalProperties").map(([k,v]) => [k, stripAP(v)])) : o);
   const body = {
-    contents: [{ role: "user", parts: [{ text: `Local: ${dayName} ${hour}:00, country ${country}. Suggest 4 distinct evergreen podcast moods for this moment.` }] }],
-    systemInstruction: { parts: [{ text: "Curate 4 podcast moods for the visitor. Distinct, evergreen, no news, no clichés." }] },
+    contents: [{ role: "user", parts: [{ text: `Local: ${dayName} ${hour}:00, country ${country}. Suggest 6 distinct evergreen podcast moods for this moment.` }] }],
+    systemInstruction: { parts: [{ text: "Curate 6 podcast moods for the visitor. Distinct, evergreen, no news, no clichés." }] },
     tools: [{ functionDeclarations: [{ name: FALLBACK_TOOL.name, parameters: stripAP(FALLBACK_TOOL.parameters) }] }],
     toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [FALLBACK_TOOL.name] } },
     generationConfig: { temperature: 0.9 },
