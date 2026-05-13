@@ -37,9 +37,12 @@ export default function MoodCollectionPage() {
             setMood({ ...m, podcast_ids: [], episode_ids: m.episode_ids || [] });
             const eps = (m.episodes || []).map((e: any) => ({
               id: e.episode_id,
+              slug: e.episode_slug,
               title: e.title,
               display_title: e.display_title,
+              ai_summary: e.ai_summary,
               published_at: e.published_at,
+              audio_url: e.audio_url,
               podcasts: {
                 slug: e.podcast_slug,
                 title: e.podcast_title,
