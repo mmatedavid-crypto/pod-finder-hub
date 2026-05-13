@@ -13,7 +13,15 @@ import { compareByScore, episodeScore } from "@/lib/episodeRank";
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
 
-type EntityProfile = { display_name: string; bio: string | null; episodes_summary: string | null; updated_at: string };
+type AppearanceStats = { host?: number; guest?: number; mentioned?: number; total?: number };
+type EntityProfile = {
+  display_name: string;
+  bio: string | null;
+  episodes_summary: string | null;
+  updated_at: string;
+  featured_episode_ids?: string[] | null;
+  appearance_stats?: AppearanceStats | null;
+};
 
 export default function EntityPage({ kind }: { kind: EntityKind }) {
   const { slug = "" } = useParams();
