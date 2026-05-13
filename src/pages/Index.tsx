@@ -34,10 +34,7 @@ const Index = () => {
     { label: "Nvidia earnings", query: "Nvidia earnings" },
     { label: "Sam Altman", query: "Sam Altman" },
     { label: "GLP-1 drugs", query: "GLP-1 drugs" },
-    { label: "Fed rate cuts", query: "Fed rate cuts" },
-    { label: "longevity research", query: "longevity research" },
-    { label: "AI regulation", query: "AI regulation" },
-    { label: "What Buffett said about Apple", query: "What Buffett said about Apple" },
+    { label: "Fed rate cut", query: "Fed rate cut" },
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -52,7 +49,7 @@ const Index = () => {
       .then(({ data }) => {
         const items = (data?.value as any)?.items;
         if (Array.isArray(items) && items.length) {
-          setChips(items.filter((c) => c?.label && c?.query).slice(0, 8));
+          setChips(items.filter((c) => c?.label && c?.query).slice(0, 4));
         }
       });
   }, []);

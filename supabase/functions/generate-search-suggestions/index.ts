@@ -100,8 +100,8 @@ Deno.serve(async (req) => {
                     required: ["label", "query"],
                     additionalProperties: false,
                   },
-                  minItems: 6,
-                  maxItems: 8,
+                  minItems: 8,
+                  maxItems: 12,
                 },
               },
               required: ["chips"],
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     if (args) {
       try {
         const parsed = JSON.parse(args);
-        chips = (parsed.chips || []).slice(0, 8).filter((c: any) => c?.label && c?.query);
+        chips = (parsed.chips || []).slice(0, 12).filter((c: any) => c?.label && c?.query);
       } catch { /* ignore */ }
     }
 
@@ -142,12 +142,38 @@ Deno.serve(async (req) => {
       .filter((c) => !GENERIC.test(c.label))
       .filter((c) => !tooShowy.test(c.label));
 
-    if (chips.length < 5) chips = FALLBACK.map((q) => ({ label: q, query: q }));
+    // Validate each chip actually returns search results in our index.
+    // Keep only those with >=3 matching English episodes from healthy podcasts.
+    const validated: { label: string; query: string }[] = [];
+    for (const c of chips) {
+      if (validated.length >= 4) break;
+      try {
+        const { data: hits } = await admin
+          .from("episodes")
+          .select("id, podcasts!inner(rss_status,language)")
+          .ilike("search_text", `%${c.query.toLowerCase()}%`)
+          .not("podcasts.rss_status", "in", "(failed,inactive)")
+          .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
+          .limit(3);
+        if ((hits?.length || 0) >= 3) validated.push(c);
+      } catch { /* skip on error */ }
+    }
 
-    const value = { items: chips, generated_at: new Date().toISOString(), model: "google/gemini-2.5-flash" };
+    let finalChips = validated;
+    if (finalChips.length < 4) {
+      // Top up with fallbacks (also validated).
+      for (const q of FALLBACK) {
+        if (finalChips.length >= 4) break;
+        if (finalChips.find((c) => c.label.toLowerCase() === q.toLowerCase())) continue;
+        finalChips.push({ label: q, query: q });
+      }
+    }
+    finalChips = finalChips.slice(0, 4);
+
+    const value = { items: finalChips, generated_at: new Date().toISOString(), model: "google/gemini-2.5-flash" };
     await admin.from("app_settings").upsert({ key: "search_suggestions", value, updated_at: new Date().toISOString() });
 
-    return json({ ok: true, count: chips.length, chips });
+    return json({ ok: true, count: finalChips.length, chips: finalChips });
   } catch (e) {
     return json({ ok: false, error: String((e as Error).message) }, 500);
   }
