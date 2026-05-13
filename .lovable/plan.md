@@ -1,77 +1,46 @@
-# Plan: Út a publikus launch felé
+## Heti AI mood-pool tanulás
 
-A backlog gyakorlatilag kész (126k/133k friss epizód AI-summary-vel, 6.6k S/A/B/C podcast SEO-val, 7.5k pod embedding, 658k epizód embedding). Innen már nem mennyiségi, hanem **minőségi és go-live** munka van hátra. A terv 4 fázisból áll, kb. 5–7 nap alatt élesedhet.
+5-10 új mood koncepciót generálunk hetente AI-val a valós keresési adatokból. Pool sapka: 20. Gyenge teljesítményűek (CTR alapján) automatikusan kiesnek. A 2 dinamikus slot ebből a poolból választ a látogató kontextusához.
 
----
+### Adatmodell (új tábla)
+- `mood_pool` (id, slug, title, mood, description, query, accent_hsl, embedding vector(768), episode_ids uuid[], episodes_refreshed_at, time_tags text[] — pl. `morning,evening,weekend,weekday,focus,wind-down,any`, country_hint text NULL = global, status `active|retired`, impressions int, clicks int, ctr numeric generated, created_at, last_shown_at, retired_at, retire_reason)
+- Index: `(status, ctr desc)`, HNSW az embeddingre (későbbi semantic dedup-hoz).
 
-## Fázis 1 — Sprint kivezetése (ma, ~1 óra)
+### RPC-k (SECURITY DEFINER, public)
+- `mood_pool_pick(p_country, p_hour, p_dow, p_k)` — visszaad `p_k` aktív moodot, szűr time_tags-re (hour/dow → matching tag-ek), véletlen tiebreak + frissesség boost. Ha kevés a találat, `any`-vel pótol.
+- `mood_pool_bump_impression(p_slug)` és `mood_pool_bump_click(p_slug)` — atomic counter.
+- `mood_pool_retire_overflow(p_keep)` — aktív sorokat tartja TOP `p_keep`-ig (impressions ≥ 50 esetén CTR alapján; friss <50 imp védve van új-grace-szel).
 
-A 48h sprint cron beállításai még "drain" módban futnak, ezeket vissza kell venni steady-state-re, különben fölöslegesen égetjük a Cloud kreditet.
+### Új edge function: `mood-pool-refresh` (heti cron)
+Folyamat:
+1. Olvas top 200 keresési query-t a `search_events` tábláb ól (utolsó 7 nap, `result_count > 0`).
+2. Lekér 8 jelenlegi pool címet (kontextusként az AI-nak: ne ismételd).
+3. Gemini 2.5 Flash → 5-10 új evergreen mood (title, mood, desc, query, accent_hsl, time_tags). System prompt hangsúlyozza: evergreen (nem napi hír), distinct a meglévőktől, természetes nyelv.
+4. Minden új mood query embed-elve → `match_episodes_by_embedding(limit 12, max_age 30)` tölti fel.
+5. Insert into `mood_pool` (slug = `dyn-{slugify(title)}`, status=active). Duplikáció (slug) → skip.
+6. `mood_pool_retire_overflow(20)` futtatása.
+7. Lock (advisory lock) hogy egyszerre csak egy fusson.
 
-- `seo-enrich-enqueue` cron: `*/5` → `*/15`
-- `seo-enrich-runner` fanout: 8 → 4, daily budget: $50 → $5
-- `deep-hydrate-runner`: `*/2` → `*/10`
-- `embed-episode` cron: `*/1` → adaptív (már az)
-- `title-cleanup`: `*/15` → `*/60`
-- AI daily budget cap visszavétele $5/day-re
-- Memory frissítése (Core rule: "sprint vége, steady state")
+### Módosított `mood-personalize`
+- Cache miss esetén már NEM generál új koncepciót — csak `mood_pool_pick(country, hour, dow, 2)` hívás, episode_ids hidratálása, payload visszaadás.
+- Ha pool < 4 aktív (hidegindítás) → fallback a régi inline AI generálás 1× (one-shot), és háttérben kéri a `mood-pool-refresh`-t (`fire-and-forget`).
+- Megtartjuk a 6h cache-t country/hour/dow szerint.
+- Impression bump: cache miss-kor minden visszaadott mood-ra `mood_pool_bump_impression`.
 
-## Fázis 2 — Tartalom-minőség audit (1–2 nap)
+### Frontend
+- `MoodCollections.tsx`: dinamikus slot kattintáskor `supabase.rpc('mood_pool_bump_click', { p_slug })` (fire-and-forget, hibát elnyel).
+- Egyébként a UI változatlan (még mindig 2 statikus + 2 dinamikus chip).
 
-A site akkor mehet publikba, ha a látogató első 3 kattintása jó élmény. Mintavételes ellenőrzés:
+### Cron
+- Új jobid heti: `0 4 * * 1` (hétfő 04:00 UTC) → `mood-pool-refresh`.
+- pg_cron `cron.schedule` az `insert` tool-lal (URL + anon key).
 
-- **Homepage feed**: 30 random epizód kézzel végignézve (cím, summary, kategória, cover) — ha >5% rossz, javítás
-- **Top 100 S-tier podcast** AI-summary-jának mintavételes review — nyelv, hossz, hallucináció
-- **Kategorizálás**: 21-slug taxonomy újrafuttatása minden S/A podcastra, ha hiányzik
-- **Search QA test set** (`mem://qa/search-issues.md`) lefuttatása, regressziók javítása
-- **Mood collections**: `mood-collections-seed` újrafuttatás friss embeddingekkel
-- **Featured / curated lists**: legalább 5 kézzel kurált "best of" lista a homepage-re
+### Bootstrap
+- A refresh függvényt egyszer manuálisan meghívjuk telepítés után, hogy a pool ne legyen üres.
 
-## Fázis 3 — SEO és indexelhetőség (1–2 nap)
+### Költség
+- Heti 1 AI hívás (Gemini Flash) ~$0.001 + 5-10 embedding ~$0.001. Elhanyagolható.
 
-A bot-prerender már él. Hátralévő:
-
-- **Sitemap regen**: friss epizódok + új podcastok bekerüljenek
-- **`seo_chat--list_findings`** lefuttatás → minden failing finding fix
-- **Meta title/description** ellenőrzés a top 200 podcast + 500 epizód oldalon
-- **JSON-LD** (Podcast, PodcastEpisode, BreadcrumbList) review
-- **`llms.txt`** és `robots.txt` átnézés
-- **Core Web Vitals**: homepage + search + podcast detail Lighthouse audit, ha <90, optimalizálás (LCP, CLS)
-- **OG image** generálás top 100 podcastra
-- **Google Search Console + Bing Webmaster** beadás, sitemap submit
-
-## Fázis 4 — Observability és launch (1 nap)
-
-- **Admin Cron Status oldal** zöld minden soron
-- **Edge function error rate** monitoring — ha bármelyik >2%, vizsgálat
-- **Search latency p95** <800ms ellenőrzés
-- **Incident kill-switch** teszt (`background_jobs.incident_mode = true` → minden async leáll)
-- **Privacy / Terms / About** oldalak végleges szöveg
-- **Feedback gomb** működik, célzott inbox
-- **Soft launch checklist**:
-  - Custom domain `podiverzum.com` aktív (már él)
-  - Publish Update gomb megnyomva
-  - 10 fős privát beta csoport meghívása 24h-ra
-  - Beta visszajelzések alapján P0 javítások
-- **Public launch**: HN Show / Product Hunt / X poszt
-
----
-
-## Mérőszámok a launch előtt (go/no-go)
-
-| Mutató | Cél |
-|---|---|
-| S+A podcast SEO coverage | ≥98% |
-| Friss epizód AI-summary coverage (30 nap) | ≥95% (most 95%) |
-| Homepage feed kattintható és nem üres | 100% |
-| Search top-10 manuális minőség | ≥8/10 random querynél jó |
-| Lighthouse Performance (mobile) | ≥85 |
-| Cloud daily spend steady state | <$10/day |
-| Edge function error rate | <2% |
-
-## Mit nem csinálunk a launch előtt (post-launch backlog)
-
-- Search ranking finomhangolás (memory szerint nem nyúlunk hozzá amíg minden zöld)
-- Multilingual / HU rollout (`mem://plans/multilingual.md`)
-- Audio transcription, Spotify download
-- User accounts / kommentek / fizetés
+### Műszaki részletek
+- `time_tag` mapping az RPC-ben: `hour 5-9 → morning`, `9-12 → mid-morning`, `12-14 → lunch`, `14-17 → afternoon`, `17-20 → evening`, `20-23 → night`, `else late-night`. `dow 0,6 → weekend` else `weekday`. Mood akkor matchel ha `'any' = ANY(time_tags)` vagy a kontextus tagek bármelyikét tartalmazza.
+- Új-grace: az első 7 napban vagy <50 impression-ig nem retire-elhető (kivéve cap overflow-nál `created_at desc` tartja a frissebbeket).
