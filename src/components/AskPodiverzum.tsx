@@ -4,13 +4,13 @@ import { Sparkles, ArrowRight, Search, Cpu, Pill, Landmark, Mic, Moon, TrendingU
 
 const QUESTIONS: { text: string; Icon: typeof Sparkles }[] = [
   { text: "Episodes about Nvidia and data centers", Icon: Cpu },
-  { text: "Why are GLP-1 drugs changing healthcare?", Icon: Pill },
-  { text: "What are people saying about AI regulation?", Icon: Brain },
+  { text: "GLP-1 drugs and weight loss", Icon: Pill },
+  { text: "AI regulation in 2026", Icon: Brain },
   { text: "Founder interviews about building with AI", Icon: Mic },
   { text: "Sleep and recovery without bro-science", Icon: Moon },
-  { text: "What does Warren Buffett think about Apple?", Icon: TrendingUp },
   { text: "European politics this week", Icon: Landmark },
   { text: "Longevity science, evidence-based", Icon: Activity },
+  { text: "Stock market outlook", Icon: TrendingUp },
 ];
 
 const ROTATE_MS = 5200;
