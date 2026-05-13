@@ -96,7 +96,7 @@ export function AskPodiverzum() {
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-3">
             Try
           </div>
-          <div className="grid sm:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {visible.map((question, i) => (
               <button
                 key={`${i}-${keys[i]}`}
