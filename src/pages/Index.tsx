@@ -42,7 +42,7 @@ const Index = () => {
     { label: "sleep science", query: "sleep science" },
     { label: "European politics", query: "European politics" },
   ]);
-  const [chipOffset, setChipOffset] = useState(0);
+  
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
@@ -76,16 +76,14 @@ const Index = () => {
       });
   }, []);
 
-  // Rotate chip set every 6s
-  useEffect(() => {
-    const t = setInterval(() => setChipOffset((o) => (o + 1) % Math.max(chipPool.length, 1)), 6000);
-    return () => clearInterval(t);
-  }, [chipPool.length]);
-
+  // Stable per-week rotation: same chips for ~7 days, shifts on week boundary
   const visibleChips = useMemo(() => {
+    if (!chipPool.length) return [];
+    const week = Math.floor(Date.now() / (7 * 86400_000));
+    const offset = week % chipPool.length;
     const n = Math.min(4, chipPool.length);
-    return Array.from({ length: n }, (_, i) => chipPool[(chipOffset + i) % chipPool.length]);
-  }, [chipPool, chipOffset]);
+    return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
+  }, [chipPool]);
 
   useEffect(() => {
     (async () => {
@@ -290,7 +288,7 @@ const Index = () => {
               Search
             </button>
           </form>
-          <div className="mt-3 sm:mt-3 flex flex-nowrap items-center gap-2 overflow-hidden">
+          <div className="mt-3 sm:mt-3 flex flex-wrap sm:flex-nowrap items-center gap-2">
             {visibleChips.map((c) => (
               <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip whitespace-nowrap shrink-0 animate-fade-up">
                 {c.label}
