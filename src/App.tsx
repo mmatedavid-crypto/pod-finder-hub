@@ -26,6 +26,19 @@ import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
+import AdminHubPage from "./pages/AdminHubPage.tsx";
+import AdminPage from "./pages/AdminPage.tsx";
+import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
+import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
+import AdminAutopilotPage from "./pages/AdminAutopilotPage.tsx";
+import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
+import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
+import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
+import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
+import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
+import AdminQueuePage from "./pages/AdminQueuePage.tsx";
+import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
+import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
 const queryClient = new QueryClient();
@@ -64,7 +77,20 @@ const App = () => (
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
+          <Route path="/admin" element={<AdminHubPage />} />
+          <Route path="/admin/podcasts" element={<AdminPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
+          <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+          <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
+          <Route path="/admin/autopilot" element={<AdminAutopilotPage />} />
+          <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
+          <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
+          <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
+          <Route path="/admin/growth" element={<AdminGrowthPage />} />
+          <Route path="/admin/queue" element={<AdminQueuePage />} />
+          <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
+          <Route path="/admin/social" element={<AdminSocialPostsPage />} />
+          <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
