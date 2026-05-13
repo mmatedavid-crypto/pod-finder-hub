@@ -436,7 +436,7 @@ const Index = () => {
         </div>
 
         {evergreenEps.length > 0 && (
-          <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
+          <section className="md:rounded-2xl md:border md:border-border/70 md:bg-card/40 md:p-6">
             <div className="flex items-end justify-between mb-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-semibold">Still worth hearing</h2>
