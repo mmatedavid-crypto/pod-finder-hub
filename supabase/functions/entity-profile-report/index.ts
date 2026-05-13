@@ -72,8 +72,8 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${srk}`,
-        apikey: srk,
+        Authorization: `Bearer ${anon}`,
+        apikey: anon,
       },
       body: JSON.stringify({
         templateName: "admin-report",
