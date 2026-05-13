@@ -307,7 +307,7 @@ const Index = () => {
               </div>
               <span className="text-xs text-muted-foreground hidden sm:inline">Selected · ranked · understood</span>
             </div>
-            <EpisodeList items={trendingEps} />
+            <EpisodeList items={trendingEps} scrollOnMobile />
           </section>
         )}
 
