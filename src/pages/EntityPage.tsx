@@ -157,13 +157,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
 
   const rich = total >= RICH_AT;
-  const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
+  const featuredIdSet = useMemo(
+    () => new Set(profile?.featured_episode_ids || []),
+    [profile?.featured_episode_ids]
+  );
+  const featuredEps = featuredIdSet.size
+    ? eps.filter((e) => featuredIdSet.has((e as any).id))
+        .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+        .slice(0, 12)
+    : [];
+  const mentionedEps = featuredIdSet.size
+    ? eps.filter((e) => !featuredIdSet.has((e as any).id))
+    : eps;
+  const newest = mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
+  const best = mentionedEps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   const last30Count = eps.filter((e) => {
     if (!e.published_at) return false;
     return Date.now() - new Date(e.published_at).getTime() < 30 * 86400_000;
   }).length;
+  const speakerStats = profile?.appearance_stats;
+  const speakerCount = (speakerStats?.host || 0) + (speakerStats?.guest || 0);
 
   return (
     <Layout>
