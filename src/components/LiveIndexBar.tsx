@@ -82,7 +82,7 @@ export default function LiveIndexBar() {
       <div className="flex items-stretch w-full">
         <div className="shrink-0 flex items-center gap-2 pl-3 sm:pl-4 pr-2.5 sm:pr-4 py-1 sm:py-1.5 border-r border-border/60 bg-card/40">
           <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Live now
+            Latest
           </span>
         </div>
 
