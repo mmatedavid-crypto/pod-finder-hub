@@ -105,24 +105,43 @@ Deno.serve(async (req) => {
     }
 
     const col = ENTITY_COLUMN[kind];
+
+    // Resolve the canonical display name. Prefer any previously-saved name; otherwise sample
+    // a few episodes that have the entity column populated and look for a slug-matching value.
+    let displayName = slug;
+    const { data: prevProfile } = await sb
+      .from("entity_profiles").select("display_name").eq("kind", kind).eq("slug", slug).maybeSingle();
+    if (prevProfile?.display_name) displayName = prevProfile.display_name;
+
+    if (displayName === slug) {
+      // Fallback discovery: scan recent episodes to find the canonical casing
+      const { data: probe } = await sb
+        .from("episodes")
+        .select(`id,${col}`)
+        .not(col, "eq", "{}")
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(5000);
+      for (const e of probe || []) {
+        const arr: string[] = (e as any)[col] || [];
+        const hit = arr.find((v) => matches(kind, v, slug));
+        if (hit) { displayName = hit; break; }
+      }
+    }
+
+    // Pull ALL episodes containing the canonical entity value (array contains).
     const { data: cand, error: candErr } = await sb
       .from("episodes")
       .select(`id,title,display_title,summary,ai_summary,published_at,${col},podcasts!inner(title,display_title,rss_status)`)
-      .not(col, "eq", "{}")
+      .contains(col, [displayName])
       .order("published_at", { ascending: false, nullsFirst: false })
-      .limit(2000);
+      .limit(1000);
     if (candErr) throw candErr;
 
-    let displayName = slug;
     const matched: any[] = [];
     for (const e of cand || []) {
-      const arr: string[] = (e as any)[col] || [];
-      const hit = arr.find((v) => matches(kind, v, slug));
-      if (!hit) continue;
       const ps = (e as any).podcasts;
       if (!ps || ps.rss_status === "failed" || ps.rss_status === "inactive") continue;
       matched.push(e);
-      if (displayName === slug) displayName = hit;
     }
     if (!matched.length) {
       return new Response(JSON.stringify({ ok: false, error: "no episodes" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
