@@ -13,7 +13,15 @@ import { compareByScore, episodeScore } from "@/lib/episodeRank";
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
 
-type EntityProfile = { display_name: string; bio: string | null; episodes_summary: string | null; updated_at: string };
+type AppearanceStats = { host?: number; guest?: number; mentioned?: number; total?: number };
+type EntityProfile = {
+  display_name: string;
+  bio: string | null;
+  episodes_summary: string | null;
+  updated_at: string;
+  featured_episode_ids?: string[] | null;
+  appearance_stats?: AppearanceStats | null;
+};
 
 export default function EntityPage({ kind }: { kind: EntityKind }) {
   const { slug = "" } = useParams();
@@ -111,7 +119,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     (async () => {
       const { data } = await supabase
         .from("entity_profiles")
-        .select("display_name,bio,episodes_summary,updated_at")
+        .select("display_name,bio,episodes_summary,updated_at,featured_episode_ids,appearance_stats")
         .eq("kind", kind)
         .eq("slug", decoded.toLowerCase())
         .maybeSingle();
@@ -149,13 +157,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
 
   const rich = total >= RICH_AT;
-  const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
+  const featuredIdSet = useMemo(
+    () => new Set(profile?.featured_episode_ids || []),
+    [profile?.featured_episode_ids]
+  );
+  const featuredEps = featuredIdSet.size
+    ? eps.filter((e) => featuredIdSet.has((e as any).id))
+        .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+        .slice(0, 12)
+    : [];
+  const mentionedEps = featuredIdSet.size
+    ? eps.filter((e) => !featuredIdSet.has((e as any).id))
+    : eps;
+  const newest = mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
+  const best = mentionedEps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   const last30Count = eps.filter((e) => {
     if (!e.published_at) return false;
     return Date.now() - new Date(e.published_at).getTime() < 30 * 86400_000;
   }).length;
+  const speakerStats = profile?.appearance_stats;
+  const speakerCount = (speakerStats?.host || 0) + (speakerStats?.guest || 0);
 
   return (
     <Layout>
@@ -212,10 +234,34 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
+        {featuredEps.length > 0 && (
+          <section className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">
+                Featuring {displayName}
+                <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">
+                  {kind === "person" ? "as guest or main subject" : "as primary subject"}
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {speakerCount > 0
+                  ? `${speakerCount} episode${speakerCount === 1 ? "" : "s"} where ${displayName} actually speaks.`
+                  : `Episodes built around ${displayName}.`}
+              </p>
+            </div>
+            <EpisodeList items={featuredEps} showEntities />
+          </section>
+        )}
+
         <section>
           <div className="flex items-end justify-between mb-3">
             <div>
-              <h2 className="text-xl font-semibold">Latest episodes</h2>
+              <h2 className="text-xl font-semibold">
+                {featuredEps.length > 0 ? `Also mentioning ${displayName}` : "Latest episodes"}
+              </h2>
+              {featuredEps.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">Episodes that discuss {displayName} but where they don't appear directly.</p>
+              )}
             </div>
           </div>
           <EpisodeList items={newest} showEntities />

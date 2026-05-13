@@ -400,11 +400,13 @@ export type Database = {
       }
       entity_profiles: {
         Row: {
+          appearance_stats: Json
           bio: string | null
           cost_usd: number | null
           display_name: string
           episode_ids: string[]
           episodes_summary: string | null
+          featured_episode_ids: string[]
           generated_at: string
           kind: string
           model: string | null
@@ -412,11 +414,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          appearance_stats?: Json
           bio?: string | null
           cost_usd?: number | null
           display_name: string
           episode_ids?: string[]
           episodes_summary?: string | null
+          featured_episode_ids?: string[]
           generated_at?: string
           kind: string
           model?: string | null
@@ -424,11 +428,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          appearance_stats?: Json
           bio?: string | null
           cost_usd?: number | null
           display_name?: string
           episode_ids?: string[]
           episodes_summary?: string | null
+          featured_episode_ids?: string[]
           generated_at?: string
           kind?: string
           model?: string | null

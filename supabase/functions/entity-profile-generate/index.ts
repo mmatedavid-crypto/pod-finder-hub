@@ -147,37 +147,102 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, error: "no episodes" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Build compact context: top 25 newest episodes, short blurbs
-    const sample = matched.slice(0, 25).map((e) => {
+    // ---- Heuristic role classifier (only meaningful for `person`) -------------------------------
+    // Goal: prefer episodes where the entity ACTUALLY SPEAKS (host/guest) over mere mentions.
+    function classifyRole(e: any): { role: "host" | "guest" | "mentioned"; score: number } {
+      if (kind !== "person") return { role: "mentioned", score: 0 };
+      const name = displayName.trim();
+      const nameLc = name.toLowerCase();
+      const firstLast = name.split(/\s+/);
+      const lastName = firstLast.length > 1 ? firstLast[firstLast.length - 1] : name;
+      const podTitle = String(e.podcasts?.display_title || e.podcasts?.title || "").toLowerCase();
+      const epTitle = String(e.display_title || e.title || "").toLowerCase();
+      const blurb = String(e.ai_summary || e.summary || "").toLowerCase();
+
+      // HOST: podcast named after the person → almost always their own show
+      if (podTitle.includes(nameLc) || (lastName.length > 3 && podTitle.includes(lastName.toLowerCase()) && podTitle.length < 60)) {
+        return { role: "host", score: 0.95 };
+      }
+      // GUEST patterns in title (cheap regex, English-first)
+      const epRx = [
+        new RegExp(`\\bwith\\s+${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\b`, "i"),
+        new RegExp(`\\b(ft\\.?|feat\\.?|featuring)\\s+${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\b`, "i"),
+        new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\s+(on|talks|joins|interview|in conversation|sits down)\\b`, "i"),
+        new RegExp(`\\b(interview|conversation|chat|q&a)\\s+with\\s+${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\b`, "i"),
+      ];
+      for (const rx of epRx) if (rx.test(epTitle)) return { role: "guest", score: 0.85 };
+
+      // GUEST patterns in description (only if name appears)
+      if (blurb.includes(nameLc)) {
+        const blurbRx = [
+          /\b(joins (us|the show|me)|our guest (today|this week)|i('m| am)? joined by|sits down with|in conversation with|spoke (with|to)|talked (with|to))\b/i,
+          /\b(welcome|welcoming)\s+[^.]{0,40}/i,
+        ];
+        for (const rx of blurbRx) {
+          const m = blurb.match(rx);
+          if (m) {
+            // Require name to appear within 80 chars of the cue
+            const idx = blurb.indexOf(m[0].toLowerCase());
+            const window = blurb.slice(Math.max(0, idx - 80), idx + m[0].length + 80);
+            if (window.includes(nameLc)) return { role: "guest", score: 0.7 };
+          }
+        }
+      }
+      return { role: "mentioned", score: 0 };
+    }
+
+    const enriched = matched.map((e) => ({ e, ...classifyRole(e) }));
+    const hosts = enriched.filter((x) => x.role === "host");
+    const guests = enriched.filter((x) => x.role === "guest");
+    const mentions = enriched.filter((x) => x.role === "mentioned");
+    const featured = [...hosts, ...guests];
+
+    // ---- AI summary input: prefer speaker episodes, fall back to mentions ------------------------
+    const summarySource = featured.length ? featured.slice(0, 25) : mentions.slice(0, 25);
+    const sample = summarySource.map(({ e, role }) => {
       const t = e.display_title || e.title || "";
       const blurb = (e.ai_summary || e.summary || "").trim().replace(/\s+/g, " ").slice(0, 280);
       const pod = (e.podcasts?.display_title || e.podcasts?.title || "").trim();
-      return `- [${pod}] ${t}${blurb ? " — " + blurb : ""}`;
+      const tag = role === "host" ? " (host)" : role === "guest" ? " (guest)" : "";
+      return `- [${pod}]${tag} ${t}${blurb ? " — " + blurb : ""}`;
     }).join("\n");
+
+    const speakerLine = featured.length
+      ? `Of ${matched.length} matched episodes, ${hosts.length} are hosted by ${displayName} and ${guests.length} feature ${displayName} as a guest.`
+      : `${matched.length} episodes mention ${displayName}, but none clearly feature them as host or guest.`;
 
     const system = `You write concise, factual entity profiles for a podcast discovery site (Podiverzum). All output in English. No marketing fluff. Never invent facts: if you don't reliably know who/what the entity is, leave bio empty.`;
     const user = `Entity: "${displayName}"
 Type: ${entityHint(kind)}
 
-Below are ${matched.length} podcast episodes from the index that mention this entity (showing up to 25 newest):
+${speakerLine}
+
+Below is a sample (showing up to 25 episodes; "(host)"/"(guest)" tags marked when ${displayName} actually speaks):
 
 ${sample}
 
 Call write_entity_profile.
-- bio: 2-4 neutral encyclopedic sentences about ${displayName} (who they are / what it is, what they're known for). English. Empty string if you're not sure.
-- episodes_summary: 3-5 sentences describing what the body of episodes above actually cover about ${displayName} — themes, recurring topics, common angles. Don't list episode titles.`;
+- bio: 2-4 neutral encyclopedic sentences about ${displayName} (who they are / what they're known for). English. Empty string if you're not sure.
+- episodes_summary: 3-5 sentences describing the body of episodes. If host/guest episodes exist, lead with what ${displayName} talks about in their own words; otherwise describe how they're discussed by others. Don't list episode titles.`;
 
     const out = await callAI([
       { role: "system", content: system },
       { role: "user", content: user },
     ]);
 
-    const episode_ids = matched.slice(0, 300).map((e: any) => e.id);
+    // Storage: featured first (host+guest, capped 100), then add mentions to fill out to 300
+    const featured_episode_ids = featured.slice(0, 100).map(({ e }) => e.id);
+    const orderedMentioned = mentions.slice(0, Math.max(0, 300 - featured_episode_ids.length)).map(({ e }) => e.id);
+    const episode_ids = [...featured_episode_ids, ...orderedMentioned];
+    const appearance_stats = { host: hosts.length, guest: guests.length, mentioned: mentions.length, total: matched.length };
+
     const { error: upErr } = await sb.from("entity_profiles").upsert({
       kind, slug, display_name: displayName,
       bio: out.bio || null,
       episodes_summary: out.episodes_summary || null,
       episode_ids,
+      featured_episode_ids,
+      appearance_stats,
       model: MODEL,
       cost_usd: out.cost_usd,
       generated_at: new Date().toISOString(),
@@ -185,9 +250,12 @@ Call write_entity_profile.
     }, { onConflict: "kind,slug" });
     if (upErr) throw upErr;
 
-    return new Response(JSON.stringify({ ok: true, displayName, bio_len: out.bio.length, summary_len: out.episodes_summary.length, episodes: matched.length, cost_usd: out.cost_usd }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      ok: true, displayName,
+      bio_len: out.bio.length, summary_len: out.episodes_summary.length,
+      episodes: matched.length, featured: featured_episode_ids.length,
+      stats: appearance_stats, cost_usd: out.cost_usd,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("entity-profile-generate", e);
     return new Response(JSON.stringify({ error: String((e as Error)?.message || e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
