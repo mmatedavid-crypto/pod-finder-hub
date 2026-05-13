@@ -434,7 +434,15 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Older episodes that hold up.</p>
               </div>
             </div>
-            <EpisodeList items={evergreenEps} scrollOnMobile />
+            <div className="hidden lg:grid lg:grid-cols-2 gap-4">
+              <EpisodeList items={evergreenEps.slice(0, Math.ceil(evergreenEps.length / 2))} />
+              {evergreenEps.length > 1 && (
+                <EpisodeList items={evergreenEps.slice(Math.ceil(evergreenEps.length / 2))} />
+              )}
+            </div>
+            <div className="lg:hidden">
+              <EpisodeList items={evergreenEps} scrollOnMobile />
+            </div>
           </section>
         )}
 
