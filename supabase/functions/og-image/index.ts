@@ -142,7 +142,7 @@ function buildSvg(opts: { kind: string; title: string; subtitle: string; coverDa
   <g transform="translate(${textX}, ${H - 90})">
     <circle cx="14" cy="14" r="5" fill="#ff2e63"/>
     <text x="32" y="20" font-family="Inter" font-weight="700" font-size="26" fill="#ffffff">PODIVERZUM</text>
-    <text x="32" y="50" font-family="Inter" font-weight="400" font-size="18" fill="#9ca3af">Find it. Hear it.</text>
+    <text x="32" y="50" font-family="Inter" font-weight="400" font-size="18" fill="#9ca3af">Search podcast episodes by what they discuss.</text>
   </g>
 </svg>`;
 }
