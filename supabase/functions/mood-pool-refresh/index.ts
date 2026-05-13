@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
         });
         episode_ids = ((matches || []) as any[]).map((m) => m.episode_id);
       }
-      const tags = Array.isArray(c.time_tags) && c.time_tags.length ? c.time_tags.filter((t: string) => TIME_TAGS.includes(t)) : ["any"];
+      const tags = Array.isArray(c.time_tags) && c.time_tags.length ? c.time_tags.filter((t: string) => ALLOWED_TAGS.has(t)) : ["any"];
       const { error } = await admin.from("mood_pool").insert({
         slug, title: c.title, mood: c.mood, description: c.description,
         query: c.query, accent_hsl: c.accent_hsl,
