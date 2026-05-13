@@ -42,7 +42,7 @@ const Index = () => {
     { label: "sleep science", query: "sleep science" },
     { label: "European politics", query: "European politics" },
   ]);
-  const [chipOffset, setChipOffset] = useState(0);
+  
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
