@@ -3,7 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, ExternalLink } from "lucide-react";
-import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
+import { ogImageUrl, breadcrumbJsonLd, siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml } from "@/lib/text";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
@@ -52,55 +53,6 @@ export default function EpisodeDetail() {
         title: e.display_title || e.title,
         podcastTitle: p.display_title || p.title,
         imageUrl: e.image_url || p.image_url,
-      });
-
-      const summary = stripHtml(e.summary);
-      const desc = stripHtml(e.description);
-      const aiSum = stripHtml(e.ai_summary);
-      const metaDesc = (e.seo_description || aiSum || summary || desc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
-      const moments = extractKeyMoments(desc || summary);
-
-      setSeo({
-        title: e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`,
-        description: metaDesc,
-        ogType: "article",
-        image: ogImageUrl({
-          kind: "episode",
-          title: e.display_title || e.title,
-          subtitle: p.display_title || p.title,
-          image: e.image_url || p.image_url,
-        }),
-        jsonLd: [
-          {
-            "@context": "https://schema.org",
-            "@type": "PodcastEpisode",
-            name: e.title,
-            description: e.seo_description || aiSum || summary || desc || undefined,
-            datePublished: e.published_at || undefined,
-            url: typeof window !== "undefined" ? window.location.href : undefined,
-            image: e.image_url || p.image_url || undefined,
-            partOfSeries: {
-              "@type": "PodcastSeries",
-              name: p.title,
-              image: p.image_url || undefined,
-              url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : undefined,
-              webFeed: p.rss_url || undefined,
-            },
-            associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
-            hasPart: moments.length
-              ? moments.map((m) => ({
-                  "@type": "Clip",
-                  name: m.label,
-                  startOffset: m.timeSec,
-                }))
-              : undefined,
-          },
-          breadcrumbJsonLd([
-            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-            { name: p.display_title || p.title, url: typeof window !== "undefined" ? `${window.location.origin}/podcast/${p.slug}` : `/podcast/${p.slug}` },
-            { name: e.display_title || e.title, url: typeof window !== "undefined" ? window.location.href : "" },
-          ]),
-        ],
       });
 
       // Related episodes by shared entity, then category, then same podcast
@@ -189,8 +141,54 @@ export default function EpisodeDetail() {
     );
   };
 
+  const aiSum = stripHtml(e.ai_summary);
+  const cleanSummary = stripHtml(e.summary);
+  const cleanDesc = stripHtml(e.description);
+  const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+  const epUrl = `${siteOrigin()}/podcast/${p.slug}/${e.slug}`;
+  const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
+
   return (
     <Layout>
+      <Seo
+        title={e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`}
+        description={metaDesc}
+        canonical={epUrl}
+        ogType="article"
+        image={ogImageUrl({
+          kind: "episode",
+          title: e.display_title || e.title,
+          subtitle: p.display_title || p.title,
+          image: e.image_url || p.image_url,
+        })}
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "PodcastEpisode",
+            name: e.title,
+            description: e.seo_description || aiSum || cleanSummary || cleanDesc || undefined,
+            datePublished: e.published_at || undefined,
+            url: epUrl,
+            image: e.image_url || p.image_url || undefined,
+            partOfSeries: {
+              "@type": "PodcastSeries",
+              name: p.title,
+              image: p.image_url || undefined,
+              url: podUrl,
+              webFeed: p.rss_url || undefined,
+            },
+            associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+            hasPart: moments.length
+              ? moments.map((m) => ({ "@type": "Clip", name: m.label, startOffset: m.timeSec }))
+              : undefined,
+          },
+          breadcrumbJsonLd([
+            { name: "Home", url: `${siteOrigin()}/` },
+            { name: p.display_title || p.title, url: podUrl },
+            { name: e.display_title || e.title, url: epUrl },
+          ]),
+        ]}
+      />
       <div className="container mx-auto py-10 max-w-3xl">
         <Link to={`/podcast/${p.slug}`} className="text-sm text-muted-foreground hover:text-accent">← {p.display_title || p.title}</Link>
         <h1 className="text-3xl font-semibold mt-2">{e.display_title || e.title}</h1>

@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Apple, Music, Youtube, Globe, Activity, AlertTriangle } from "lucide-react";
 import { PodcastCover } from "@/components/PodcastCover";
-import { setSeo, ogImageUrl, breadcrumbJsonLd } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
+import { ogImageUrl, breadcrumbJsonLd, siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
 import { stripHtml, snippet } from "@/lib/text";
 import { PodcastDetailSkeleton } from "@/components/Skeletons";
@@ -26,30 +27,6 @@ export default function PodcastDetail() {
       setP(data);
       setLoading(false);
       if (data) {
-        const cleanSummary = stripHtml(data.summary);
-        const cleanDesc = stripHtml(data.description);
-        setSeo({
-          title: data.seo_title || `${data.title} — podcast on Podiverzum`,
-          description: snippet(data.seo_description || cleanSummary || cleanDesc || `Listen to ${data.title} on Podiverzum.`, 160),
-          noindex: data.rss_status === "failed" || data.rss_status === "inactive",
-          image: ogImageUrl({ kind: "podcast", title: data.display_title || data.title, subtitle: data.category || "Podcast", image: data.image_url }),
-          jsonLd: [
-            {
-              "@context": "https://schema.org",
-              "@type": "PodcastSeries",
-              name: data.title,
-              description: data.seo_description || cleanSummary || cleanDesc || undefined,
-              image: data.image_url || undefined,
-              url: typeof window !== "undefined" ? window.location.href : undefined,
-              webFeed: data.rss_url || undefined,
-            },
-            breadcrumbJsonLd([
-              { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-              ...(data.category ? [{ name: data.category, url: typeof window !== "undefined" ? `${window.location.origin}/category/${(data.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : `/category/${data.category}` }] : []),
-              { name: data.display_title || data.title, url: typeof window !== "undefined" ? window.location.href : "" },
-            ]),
-          ],
-        });
         const { data: e } = await supabase
           .from("episodes")
           .select("id,title,display_title,slug,published_at,summary,description,audio_url")
@@ -68,8 +45,36 @@ export default function PodcastDetail() {
   const isHealthy = !healthState || healthState === "healthy" || healthState === "recovered_rss_url";
   const lastFresh = p.last_fetched_at ? relativeTime(p.last_fetched_at) : null;
 
+  const cleanSummary = stripHtml(p.summary);
+  const cleanDesc = stripHtml(p.description);
+  const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
+  const catSlug = p.category ? (p.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-") : null;
+
   return (
     <Layout>
+      <Seo
+        title={p.seo_title || `${p.title} — podcast on Podiverzum`}
+        description={(p.seo_description || cleanSummary || cleanDesc || `Listen to ${p.title} on Podiverzum.`).slice(0, 160)}
+        canonical={podUrl}
+        noindex={p.rss_status === "failed" || p.rss_status === "inactive"}
+        image={ogImageUrl({ kind: "podcast", title: p.display_title || p.title, subtitle: p.category || "Podcast", image: p.image_url })}
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "PodcastSeries",
+            name: p.title,
+            description: p.seo_description || cleanSummary || cleanDesc || undefined,
+            image: p.image_url || undefined,
+            url: podUrl,
+            webFeed: p.rss_url || undefined,
+          },
+          breadcrumbJsonLd([
+            { name: "Home", url: `${siteOrigin()}/` },
+            ...(catSlug ? [{ name: p.category, url: `${siteOrigin()}/category/${catSlug}` }] : []),
+            { name: p.display_title || p.title, url: podUrl },
+          ]),
+        ]}
+      />
       <div className="container mx-auto py-10">
         <div className="flex flex-col sm:flex-row gap-6">
           <div className="w-40 shrink-0">

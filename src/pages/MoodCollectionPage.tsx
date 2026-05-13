@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 import NotFoundState from "@/components/NotFoundState";
 import { PodcastCard } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
@@ -26,10 +26,6 @@ export default function MoodCollectionPage() {
       setMood(m);
       setLoading(false);
       if (!m) return;
-      setSeo({
-        title: `${(m as any).title} — podcast collection | Podiverzum`,
-        description: (m as any).description || `Hand-picked podcasts and episodes for ${(m as any).mood}.`,
-      });
       const ids: string[] = (m as any).podcast_ids || [];
       const epIds: string[] = (m as any).episode_ids || [];
       if (ids.length) {
@@ -64,6 +60,10 @@ export default function MoodCollectionPage() {
 
   return (
     <Layout>
+      <Seo
+        title={`${mood.title} — podcast collection | Podiverzum`}
+        description={mood.description || `Hand-picked podcasts and episodes for ${mood.mood}.`}
+      />
       <div className="container mx-auto py-10 max-w-5xl">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
           <ArrowLeft className="h-3.5 w-3.5" /> Back home

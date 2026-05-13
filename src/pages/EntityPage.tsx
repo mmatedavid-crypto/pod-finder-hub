@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
+import { siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
 import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug } from "@/lib/entity";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
@@ -90,37 +91,17 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       setRelated(co.sort((a, b) => b.n - a.n).slice(0, 16));
 
       setLoading(false);
-
-      const total = visible.length;
-      const noindex = total < NOINDEX_BELOW;
-      const entityType =
-        kind === "person" ? "Person" :
-        kind === "company" ? "Organization" :
-        kind === "ticker" ? "Corporation" :
-        "Thing";
-      const pageUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : "";
-      setSeo({
-        title: `Podcast episodes about ${exemplar} — Podiverzum`,
-        description: `Discover podcast episodes about ${exemplar}, ranked by relevance, freshness and Podiverzum Rank.`,
-        noindex,
-        jsonLd: noindex ? undefined : [
-          {
-            "@context": "https://schema.org",
-            "@type": "CollectionPage",
-            name: `Podcast episodes about ${exemplar}`,
-            url: pageUrl || undefined,
-            about: { "@type": entityType, name: exemplar },
-          },
-          {
-            "@context": "https://schema.org",
-            "@type": entityType,
-            name: exemplar,
-            url: pageUrl || undefined,
-          },
-        ],
-      });
     })();
   }, [kind, slug, decoded]);
+
+  const total = eps.length;
+  const noindex = total > 0 && total < NOINDEX_BELOW;
+  const entityType =
+    kind === "person" ? "Person" :
+    kind === "company" ? "Organization" :
+    kind === "ticker" ? "Corporation" :
+    "Thing";
+  const pageUrl = `${siteOrigin()}/${kind}/${slug}`;
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
@@ -131,7 +112,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     />
   );
 
-  const total = eps.length;
+
   const rich = total >= RICH_AT;
   const newest = eps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
   const best = eps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
@@ -143,6 +124,27 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   return (
     <Layout>
+      <Seo
+        title={`Podcast episodes about ${displayName} — Podiverzum`}
+        description={`Discover podcast episodes about ${displayName}, ranked by relevance, freshness and Podiverzum Rank.`}
+        canonical={pageUrl}
+        noindex={noindex}
+        jsonLd={noindex ? undefined : [
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `Podcast episodes about ${displayName}`,
+            url: pageUrl,
+            about: { "@type": entityType, name: displayName },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": entityType,
+            name: displayName,
+            url: pageUrl,
+          },
+        ]}
+      />
       {/* Hero */}
       <section className="border-b border-border bg-background relative overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-50" />

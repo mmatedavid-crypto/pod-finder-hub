@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
+import { breadcrumbJsonLd, siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
@@ -41,24 +42,6 @@ export default function CategoryDetail() {
       setCat(c);
       setLoading(false);
       if (!c) return;
-      setSeo({
-        title: c.seo_title || `${c.name} podcast episodes — Podiverzum`,
-        description: c.seo_description || `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
-        jsonLd: [
-          {
-            "@context": "https://schema.org",
-            "@type": "CollectionPage",
-            name: `${c.name} podcast episodes`,
-            about: { "@type": "Thing", name: c.name },
-            url: typeof window !== "undefined" ? window.location.href : undefined,
-          },
-          breadcrumbJsonLd([
-            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-            { name: "Categories", url: typeof window !== "undefined" ? `${window.location.origin}/categories` : "/categories" },
-            { name: c.name, url: typeof window !== "undefined" ? window.location.href : "" },
-          ]),
-        ],
-      });
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language")
@@ -143,8 +126,28 @@ export default function CategoryDetail() {
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
   if (!cat) return <NotFoundState title="Category not found" message="That category doesn't exist or has been removed." />;
 
+  const catUrl = `${siteOrigin()}/category/${cat.slug || slug}`;
   return (
     <Layout>
+      <Seo
+        title={cat.seo_title || `${cat.name} podcast episodes — Podiverzum`}
+        description={cat.seo_description || `Discover the latest podcast episodes in ${cat.name}, ranked by relevance, freshness and Podiverzum Rank.`}
+        canonical={catUrl}
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `${cat.name} podcast episodes`,
+            about: { "@type": "Thing", name: cat.name },
+            url: catUrl,
+          },
+          breadcrumbJsonLd([
+            { name: "Home", url: `${siteOrigin()}/` },
+            { name: "Categories", url: `${siteOrigin()}/categories` },
+            { name: cat.name, url: catUrl },
+          ]),
+        ]}
+      />
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold">{cat.name}</h1>
         <p className="text-muted-foreground mt-1">

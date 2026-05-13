@@ -5,7 +5,7 @@ import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Search, ArrowRight, Sparkles } from "lucide-react";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
@@ -58,26 +58,6 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    setSeo({
-      title: "Podiverzum — Podcast episode discovery & search",
-      description: "Search podcast episodes by topic, person, company, ticker, ingredient or idea.",
-      hreflang: [
-        { lang: "en", href: "https://podiverzum.com/" },
-        { lang: "hu", href: "https://podiverzum.com/hu" },
-        { lang: "x-default", href: "https://podiverzum.com/" },
-      ],
-      jsonLd: {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: "Podiverzum",
-        url: "https://podiverzum.com",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: "https://podiverzum.com/search?q={search_term_string}",
-          "query-input": "required name=search_term_string",
-        },
-      },
-    });
     (async () => {
       try {
         const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
@@ -226,7 +206,26 @@ const Index = () => {
 
   return (
     <Layout>
-      
+      <Seo
+        title="Podiverzum — Podcast episode discovery & search"
+        description="Search podcast episodes by topic, person, company, ticker, ingredient or idea."
+        canonical="https://podiverzum.com/"
+        hreflang={[
+          { lang: "en", href: "https://podiverzum.com/" },
+          { lang: "x-default", href: "https://podiverzum.com/" },
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Podiverzum",
+          url: "https://podiverzum.com",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://podiverzum.com/search?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }}
+      />
       <section className="bg-background text-foreground relative border-b border-border overflow-hidden">
         <div aria-hidden className="absolute inset-0 bg-background" />
         {/* Brand spotlight */}
