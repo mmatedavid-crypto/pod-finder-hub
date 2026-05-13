@@ -203,9 +203,9 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           </div>
           {profile?.episodes_summary && (
             <div className="mt-7 max-w-3xl rounded-2xl border border-border/70 bg-card/60 p-5 sm:p-6">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1.5">What these episodes cover</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1.5">Overview</div>
               <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/85">{profile.episodes_summary}</p>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-3">Based on indexed episodes that mention this topic.</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-3">Drawn from indexed episodes that mention this topic.</p>
             </div>
           )}
         </div>
@@ -224,8 +224,8 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         {rich && (
           <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
             <div className="mb-3">
-              <h2 className="text-xl font-semibold">Recommended episodes</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strong matches from highly ranked sources.</p>
+              <h2 className="text-xl font-semibold">Episodes worth hearing</h2>
+              <p className="text-xs text-muted-foreground mt-1">Strong matches across the index.</p>
             </div>
             <EpisodeList items={best} showEntities />
           </section>

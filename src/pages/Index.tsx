@@ -37,7 +37,21 @@ const Index = () => {
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [heroPlaceholder, setHeroPlaceholder] = useState(
+    typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
+      ? "Try: Nvidia earnings, GLP-1 drugs, AI regulation…"
+      : "Search topics or ideas…"
+  );
   const nav = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setHeroPlaceholder(mq.matches ? "Try: Nvidia earnings, GLP-1 drugs, AI regulation…" : "Search topics or ideas…");
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     supabase
@@ -203,8 +217,8 @@ const Index = () => {
   return (
     <Layout>
       <Seo
-        title="Podiverzum — Search podcast episodes by topic, person or idea"
-        description="Search across more than 700,000 indexed podcast episodes and find conversations by what they actually discuss — people, companies, markets, technologies and ideas."
+        title="Podiverzum — Find it. Hear it."
+        description="Search podcast episodes by what they actually discuss. People, companies, markets, technologies and ideas — and the conversations worth hearing."
         canonical="https://podiverzum.com/"
         hreflang={[
           { lang: "en", href: "https://podiverzum.com/" },
@@ -228,18 +242,18 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto pt-5 pb-6 sm:py-28">
+        <div className="relative container mx-auto pt-6 pb-8 sm:py-28">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-muted-foreground shadow-sm animate-fade-up">
             Podcast discovery
           </div>
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.05] animate-fade-up">
-            Search what podcasts <span className="text-brand-gradient">actually discuss.</span>
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight max-w-4xl mt-4 sm:mt-6 leading-[1.02] animate-fade-up">
+            Find it. <span className="text-brand-gradient">Hear it.</span>
           </h1>
-          <p className="text-foreground/85 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Podiverzum helps you search across more than 700,000 indexed podcast episodes by topic, person, company, market, technology or idea.
+          <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
+            Search podcast episodes by what they actually discuss.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Results show why they matched, so you can decide what's worth hearing.
+            Ask about people, companies, markets, technologies or ideas — and find the conversations worth hearing.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -249,19 +263,22 @@ const Index = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Try: Nvidia earnings, GLP-1 drugs, AI regulation…"
-              className="w-full pl-12 pr-28 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+              placeholder={heroPlaceholder}
+              className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
             />
             <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
               Search
             </button>
           </form>
-          <div className="mt-4 sm:mt-5 flex flex-wrap gap-2">
+          <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-2">
             {chips.map((c) => (
               <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip">
                 {c.label}
               </button>
             ))}
+            <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+              700,000+ indexed episodes
+            </span>
           </div>
         </div>
         {/* bottom rule */}
@@ -293,8 +310,8 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-semibold tracking-tight">Recent episodes worth a listen</h2>
-                <p className="text-xs text-muted-foreground mt-1">Across shows, ranked by relevance, freshness and source quality.</p>
+                <h2 className="text-2xl font-semibold tracking-tight">Worth hearing now</h2>
+                <p className="text-xs text-muted-foreground mt-1">Recent episodes across shows.</p>
               </div>
             </div>
             <EpisodeList items={trendingEps} scrollOnMobile />
@@ -306,8 +323,8 @@ const Index = () => {
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
             eyebrow="Topics"
-            title="Frequently mentioned this week"
-            subtitle="Top topics across recent episodes."
+            title="What people are talking about"
+            subtitle="Topics surfacing across recent episodes."
             items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
             icon="topic"
           />
@@ -316,8 +333,8 @@ const Index = () => {
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
             eyebrow="People"
-            title="Names mentioned this week"
-            subtitle="Across shows: founders, scientists, athletes, leaders."
+            title="Names in the conversation"
+            subtitle="Founders, scientists, leaders, athletes — who's coming up."
             items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
             icon="person"
           />
@@ -328,7 +345,7 @@ const Index = () => {
           return companies.length ? (
             <TrendingEntities
               eyebrow="Companies"
-              title="Companies in recent episodes"
+              title="Companies in the room"
               subtitle="Brands and organizations showing up across shows."
               items={companies}
               icon="company"
@@ -352,7 +369,7 @@ const Index = () => {
                     See more episodes <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
+                <p className="text-xs text-muted-foreground mb-4">Recent in {c.name}</p>
                 <EpisodeList items={items} scrollOnMobile />
               </section>
             );
@@ -372,8 +389,8 @@ const Index = () => {
           <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
             <div className="flex items-end justify-between mb-4">
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Timeless episodes</h2>
-                <p className="text-xs text-muted-foreground mt-1">Older episodes that still hold up.</p>
+                <h2 className="text-xl sm:text-2xl font-semibold">Still worth hearing</h2>
+                <p className="text-xs text-muted-foreground mt-1">Older episodes that hold up.</p>
               </div>
             </div>
             <EpisodeList items={evergreenEps} scrollOnMobile />
@@ -384,8 +401,8 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Highly ranked podcasts</h2>
-                <p className="text-xs text-muted-foreground mt-1">Strong sources across recent indexing.</p>
+                <h2 className="text-xl sm:text-2xl font-semibold">Strong sources</h2>
+                <p className="text-xs text-muted-foreground mt-1">Shows that consistently land.</p>
               </div>
               <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                 Browse all <ArrowRight className="h-3.5 w-3.5" />

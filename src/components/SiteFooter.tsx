@@ -10,7 +10,7 @@ export function SiteFooter() {
           <div className="space-y-4 max-w-sm">
             <BrandMark size={28} />
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Podcast discovery built around episodes, topics and ideas.
+              Episodes. Topics. Ideas.
             </p>
           </div>
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -27,7 +27,7 @@ export function SiteFooter() {
         <div className="mt-10 pt-6 border-t border-border/70 flex flex-wrap gap-2 items-center justify-between text-xs">
           <span>© {new Date().getFullYear()} Podiverzum</span>
           <span className="opacity-70">
-            Indexed from public RSS feeds. Ranked using freshness, relevance and source-quality signals.
+            Indexed from public RSS feeds.
           </span>
         </div>
       </div>
