@@ -47,7 +47,7 @@ function computeHealth(lastRun: any, lastSuccess: any): Health {
 }
 
 export default function GrowthStatusPage() {
-  useNoindex("Growth status — Podiverzum");
+  
   const [loading, setLoading] = useState(true);
   const [lastRun, setLastRun] = useState<any>(null);
   const [lastSuccess, setLastSuccess] = useState<any>(null);
