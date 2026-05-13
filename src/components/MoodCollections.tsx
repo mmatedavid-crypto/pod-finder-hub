@@ -107,8 +107,8 @@ export function MoodCollections() {
           <>
             <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
             <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
-            <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
-            <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
+            <div className="hidden md:block h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
+            <div className="hidden md:block h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
           </>
         )}
         {dyn?.slice(0, 4).map((m, idx) => {
