@@ -20,7 +20,7 @@ const CLOCKWISE = [0, 1, 3, 2];
 export function AskPodiverzum() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
-  const [slots, setSlots] = useState<string[]>(() => QUESTIONS.slice(0, 4));
+  const [slots, setSlots] = useState<typeof QUESTIONS>(() => QUESTIONS.slice(0, 4));
   const [keys, setKeys] = useState<number[]>(() => [0, 1, 2, 3]);
   const [paused, setPaused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
