@@ -438,10 +438,33 @@ async function buildEntity(
   });
   if (!rows.length) return null;
 
-  const human = slug.replace(/-/g, " ");
-  const title = `${human} — episodes on Podiverzum`;
-  const desc = `Podcast episodes that discuss ${human}. Curated and AI-summarised on Podiverzum.`;
+  // Pick an exemplar value from the matched episode arrays for proper casing.
+  let exemplar: string | null = null;
+  for (const r of rows) {
+    const arr: string[] | null = (r as any)[arrayCol];
+    const hit = arr?.find((v) => slugify(v, kind) === slug || (kind === "ticker" && v.toUpperCase() === slug.toUpperCase()));
+    if (hit) { exemplar = hit; break; }
+  }
+
+  // Pull cached AI profile (bio + episode summary) when available.
+  const { data: profile } = await supabase
+    .from("entity_profiles")
+    .select("display_name, bio, episodes_summary")
+    .eq("kind", kind)
+    .eq("slug", slug.toLowerCase())
+    .maybeSingle();
+
+  const human = (profile as any)?.display_name || exemplar || slug.replace(/-/g, " ");
+  const kindLabel = kind === "ticker" ? "Ticker" : kind.charAt(0).toUpperCase() + kind.slice(1);
+  const title = `${human} — podcast episodes on Podiverzum`;
+  const bio = (profile as any)?.bio?.trim();
+  const epsSummary = (profile as any)?.episodes_summary?.trim();
+  const desc = truncate(
+    bio || epsSummary || `Podcast episodes that discuss ${human}, ranked by relevance, freshness and source quality on Podiverzum.`,
+    300,
+  );
   const canonical = `${SITE}/${kind}/${slug}`;
+  const ogImage = `${SUPABASE_URL}/functions/v1/og-image?kind=site&title=${encodeURIComponent(human)}&subtitle=${encodeURIComponent(`${kindLabel} • ${rows.length} podcast episodes`)}`;
 
   const list = rows.slice(0, 40);
   const html = list
@@ -467,8 +490,9 @@ async function buildEntity(
       title,
       description: desc,
       canonical,
+      ogImage,
       jsonLd: [itemList],
-      bodyHtml: `<header><h1>${esc(human)}</h1><p>Podcast episodes mentioning ${esc(human)}.</p></header>
+      bodyHtml: `<header><h1>${esc(human)}</h1>${bio ? `<p>${esc(bio)}</p>` : `<p>Podcast episodes mentioning ${esc(human)}.</p>`}${epsSummary ? `<p>${esc(epsSummary)}</p>` : ""}</header>
 <main><ul>${html}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
