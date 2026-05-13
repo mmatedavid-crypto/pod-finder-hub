@@ -1669,6 +1669,51 @@ export type Database = {
         Returns: number
       }
       entity_extract_enqueue: { Args: { _limit?: number }; Returns: number }
+      entity_slugify: { Args: { s: string }; Returns: string }
+      episodes_by_entity: {
+        Args: { p_kind: string; p_limit?: number; p_slug: string }
+        Returns: {
+          ai_enriched_at: string | null
+          ai_entities_version: number
+          ai_summary: string | null
+          apple_url: string | null
+          audio_url: string | null
+          companies: string[] | null
+          created_at: string
+          description: string | null
+          display_title: string | null
+          episode_rank: number
+          episode_rank_label: string | null
+          episode_rank_reason: Json
+          episode_rank_updated_at: string | null
+          episode_url: string | null
+          guid: string | null
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          people: string[] | null
+          podcast_id: string
+          published_at: string | null
+          search_text: string | null
+          search_tsv: unknown
+          seo_description: string | null
+          seo_title: string | null
+          slug: string
+          spotify_url: string | null
+          summary: string | null
+          tickers: string[] | null
+          title: string
+          topics: string[] | null
+          updated_at: string
+          youtube_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "episodes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       formula_c_candidates: {
         Args: { _limit?: number }
         Returns: {
