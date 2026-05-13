@@ -109,7 +109,7 @@ export function SiteHeader() {
             </div>
           )}
         </div>
-        <ThemeToggle />
+        <div className="ml-auto"><ThemeToggle /></div>
       </div>
     </header>
   );
