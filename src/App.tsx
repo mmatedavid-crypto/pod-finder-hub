@@ -34,6 +34,7 @@ import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
 import MoodsPage from "./pages/MoodsPage.tsx";
 
 import AboutPage from "./pages/AboutPage.tsx";
+import ContactPage from "./pages/ContactPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
@@ -83,6 +84,7 @@ const App = () => (
           <Route path="/mood/:slug" element={<MoodCollectionPage />} />
           
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
