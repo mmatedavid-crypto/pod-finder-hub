@@ -310,8 +310,8 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-semibold tracking-tight">Recent episodes worth a listen</h2>
-                <p className="text-xs text-muted-foreground mt-1">Across shows, ranked by relevance, freshness and source quality.</p>
+                <h2 className="text-2xl font-semibold tracking-tight">Worth hearing now</h2>
+                <p className="text-xs text-muted-foreground mt-1">Recent episodes across shows.</p>
               </div>
             </div>
             <EpisodeList items={trendingEps} scrollOnMobile />
@@ -323,8 +323,8 @@ const Index = () => {
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
             eyebrow="Topics"
-            title="Frequently mentioned this week"
-            subtitle="Top topics across recent episodes."
+            title="What people are talking about"
+            subtitle="Topics surfacing across recent episodes."
             items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
             icon="topic"
           />
@@ -333,8 +333,8 @@ const Index = () => {
         {trendingEntityEps.length > 0 && (
           <TrendingEntities
             eyebrow="People"
-            title="Names mentioned this week"
-            subtitle="Across shows: founders, scientists, athletes, leaders."
+            title="Names in the conversation"
+            subtitle="Founders, scientists, leaders, athletes — who's coming up."
             items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
             icon="person"
           />
@@ -345,7 +345,7 @@ const Index = () => {
           return companies.length ? (
             <TrendingEntities
               eyebrow="Companies"
-              title="Companies in recent episodes"
+              title="Companies in the room"
               subtitle="Brands and organizations showing up across shows."
               items={companies}
               icon="company"
@@ -369,7 +369,7 @@ const Index = () => {
                     See more episodes <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
+                <p className="text-xs text-muted-foreground mb-4">Recent in {c.name}</p>
                 <EpisodeList items={items} scrollOnMobile />
               </section>
             );
@@ -389,8 +389,8 @@ const Index = () => {
           <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
             <div className="flex items-end justify-between mb-4">
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Timeless episodes</h2>
-                <p className="text-xs text-muted-foreground mt-1">Older episodes that still hold up.</p>
+                <h2 className="text-xl sm:text-2xl font-semibold">Still worth hearing</h2>
+                <p className="text-xs text-muted-foreground mt-1">Older episodes that hold up.</p>
               </div>
             </div>
             <EpisodeList items={evergreenEps} scrollOnMobile />
@@ -401,8 +401,8 @@ const Index = () => {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold">Highly ranked podcasts</h2>
-                <p className="text-xs text-muted-foreground mt-1">Strong sources across recent indexing.</p>
+                <h2 className="text-xl sm:text-2xl font-semibold">Strong sources</h2>
+                <p className="text-xs text-muted-foreground mt-1">Shows that consistently land.</p>
               </div>
               <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
                 Browse all <ArrowRight className="h-3.5 w-3.5" />
