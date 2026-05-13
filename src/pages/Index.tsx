@@ -37,7 +37,21 @@ const Index = () => {
   ]);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [heroPlaceholder, setHeroPlaceholder] = useState(
+    typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches
+      ? "Try: Nvidia earnings, GLP-1 drugs, AI regulation…"
+      : "Search topics or ideas…"
+  );
   const nav = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setHeroPlaceholder(mq.matches ? "Try: Nvidia earnings, GLP-1 drugs, AI regulation…" : "Search topics or ideas…");
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     supabase
