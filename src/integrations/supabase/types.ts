@@ -633,6 +633,75 @@ export type Database = {
         }
         Relationships: []
       }
+      mood_pool: {
+        Row: {
+          accent_hsl: string | null
+          clicks: number
+          country_hint: string | null
+          created_at: string
+          ctr: number | null
+          description: string | null
+          embedding: string | null
+          episode_ids: string[]
+          episodes_refreshed_at: string | null
+          id: string
+          impressions: number
+          last_shown_at: string | null
+          mood: string
+          query: string
+          retire_reason: string | null
+          retired_at: string | null
+          slug: string
+          status: string
+          time_tags: string[]
+          title: string
+        }
+        Insert: {
+          accent_hsl?: string | null
+          clicks?: number
+          country_hint?: string | null
+          created_at?: string
+          ctr?: number | null
+          description?: string | null
+          embedding?: string | null
+          episode_ids?: string[]
+          episodes_refreshed_at?: string | null
+          id?: string
+          impressions?: number
+          last_shown_at?: string | null
+          mood: string
+          query: string
+          retire_reason?: string | null
+          retired_at?: string | null
+          slug: string
+          status?: string
+          time_tags?: string[]
+          title: string
+        }
+        Update: {
+          accent_hsl?: string | null
+          clicks?: number
+          country_hint?: string | null
+          created_at?: string
+          ctr?: number | null
+          description?: string | null
+          embedding?: string | null
+          episode_ids?: string[]
+          episodes_refreshed_at?: string | null
+          id?: string
+          impressions?: number
+          last_shown_at?: string | null
+          mood?: string
+          query?: string
+          retire_reason?: string | null
+          retired_at?: string | null
+          slug?: string
+          status?: string
+          time_tags?: string[]
+          title?: string
+        }
+        Relationships: []
+      }
       page_events: {
         Row: {
           created_at: string
@@ -1479,6 +1548,10 @@ export type Database = {
       }
     }
     Functions: {
+      _mood_time_tags: {
+        Args: { p_dow: number; p_hour: number }
+        Returns: string[]
+      }
       claim_ai_jobs: {
         Args: { _limit: number; _lock_seconds?: number }
         Returns: {
@@ -1590,6 +1663,43 @@ export type Database = {
         Args: { _canonical_id: string; _duplicate_id: string; _reason?: string }
         Returns: Json
       }
+      mood_pool_bump_click: { Args: { p_slug: string }; Returns: undefined }
+      mood_pool_bump_impression: {
+        Args: { p_slug: string }
+        Returns: undefined
+      }
+      mood_pool_pick: {
+        Args: { p_country: string; p_dow: number; p_hour: number; p_k: number }
+        Returns: {
+          accent_hsl: string | null
+          clicks: number
+          country_hint: string | null
+          created_at: string
+          ctr: number | null
+          description: string | null
+          embedding: string | null
+          episode_ids: string[]
+          episodes_refreshed_at: string | null
+          id: string
+          impressions: number
+          last_shown_at: string | null
+          mood: string
+          query: string
+          retire_reason: string | null
+          retired_at: string | null
+          slug: string
+          status: string
+          time_tags: string[]
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "mood_pool"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      mood_pool_retire_overflow: { Args: { p_keep: number }; Returns: number }
       move_to_dlq: {
         Args: {
           dlq_name: string
