@@ -457,13 +457,13 @@ const Index = () => {
                 Browse all <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {topPodcasts.slice(0, 3).map((p) => <PodcastCard key={p.id} p={p} />)}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {topPodcasts.slice(0, 4).map((p) => <PodcastCard key={p.id} p={p} />)}
             </div>
           </section>
         )}
 
-        <RecentlyAddedPodcasts limit={3} />
+        <RecentlyAddedPodcasts limit={4} />
 
         {loaded && !trendingEps.length && !topPodcasts.length && (
           <div className="text-center py-20 text-muted-foreground">

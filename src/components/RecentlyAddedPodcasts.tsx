@@ -32,7 +32,7 @@ export function RecentlyAddedPodcasts({ limit = 6, showLink = true }: { limit?: 
           </Link>
         )}
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid sm:grid-cols-2 gap-3">
         {items.map((p) => <PodcastCard key={p.id} p={p} />)}
       </div>
     </section>
