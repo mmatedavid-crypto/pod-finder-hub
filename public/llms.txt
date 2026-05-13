@@ -1,15 +1,15 @@
 # Podiverzum
 
-> Premium podcast discovery engine. Search 290,000+ episodes across 2,400+ shows by topic, person, company, ticker, ingredient, or idea — not just title. Find it. Hear it.
+> Podcast discovery platform. Search more than 700,000 indexed episodes across thousands of shows by topic, person, company, ticker, or idea — not just by show title. Indexed from public RSS feeds.
 
-Podiverzum indexes English-language podcasts and uses AI to extract structured metadata (topics, named entities, key moments, summaries) from every episode. The result is a search engine that answers "which episode discusses X?" instead of just matching show titles.
+Podiverzum indexes English-language podcasts and extracts structured metadata (topics, named entities, key moments, summaries) from episodes. The result is a search engine that answers "which episode discusses X?" instead of just matching show titles.
 
 ## Key facts
 
-- ~2,400 active podcasts, ~290,000 episodes indexed
-- AI summaries on ~70,000 episodes (growing daily)
+- Thousands of active podcasts, more than 700,000 episodes indexed
+- Episode summaries generated from indexed metadata
 - Vector embeddings for semantic similarity (Gemini embedding-001, 768d)
-- Tier system: S (top quality) → A → B → C, based on freshness, consistency, and signal
+- Internal source-quality scoring based on freshness, consistency and feed health
 - Updated continuously via RSS, deep hydration, and incremental refresh pipelines
 - No login required to search or browse
 
