@@ -62,8 +62,8 @@ async function fallbackGenerate(country: string, hour: number, dow: number) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
   const stripAP = (o: any): any => Array.isArray(o) ? o.map(stripAP) : (o && typeof o === "object" ? Object.fromEntries(Object.entries(o).filter(([k]) => k !== "additionalProperties").map(([k,v]) => [k, stripAP(v)])) : o);
   const body = {
-    contents: [{ role: "user", parts: [{ text: `Local: ${dayName} ${hour}:00, country ${country}. Suggest 2 distinct evergreen podcast moods for this moment.` }] }],
-    systemInstruction: { parts: [{ text: "Curate 2 podcast moods for the visitor. Distinct, evergreen, no news, no clichés." }] },
+    contents: [{ role: "user", parts: [{ text: `Local: ${dayName} ${hour}:00, country ${country}. Suggest 4 distinct evergreen podcast moods for this moment.` }] }],
+    systemInstruction: { parts: [{ text: "Curate 4 podcast moods for the visitor. Distinct, evergreen, no news, no clichés." }] },
     tools: [{ functionDeclarations: [{ name: FALLBACK_TOOL.name, parameters: stripAP(FALLBACK_TOOL.parameters) }] }],
     toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [FALLBACK_TOOL.name] } },
     generationConfig: { temperature: 0.9 },
@@ -127,9 +127,9 @@ Deno.serve(async (req) => {
 
     if (!payload) {
       // Pick from pool
-      const { data: picked } = await admin.rpc("mood_pool_pick", { p_country: country, p_hour: hour, p_dow: dow, p_k: 2 });
+      const { data: picked } = await admin.rpc("mood_pool_pick", { p_country: country, p_hour: hour, p_dow: dow, p_k: 4 });
       let moods: any[] = [];
-      if (picked && picked.length >= 2) {
+      if (picked && picked.length >= 1) {
         for (const p of picked as any[]) {
           // Refresh episodes if older than 24h or missing
           let epIds: string[] = p.episode_ids || [];
