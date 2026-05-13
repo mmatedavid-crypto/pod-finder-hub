@@ -97,6 +97,31 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     })();
   }, [kind, slug, decoded]);
 
+  // Fetch (or trigger generation of) the AI bio + episode summary.
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("entity_profiles")
+        .select("display_name,bio,episodes_summary,updated_at")
+        .eq("kind", kind)
+        .eq("slug", decoded.toLowerCase())
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setProfile(data as EntityProfile);
+        const ageDays = (Date.now() - new Date(data.updated_at).getTime()) / 86400_000;
+        if (ageDays > 30) {
+          supabase.functions.invoke("entity-profile-generate", { body: { kind, slug: decoded.toLowerCase() } }).catch(() => {});
+        }
+      } else {
+        supabase.functions.invoke("entity-profile-generate", { body: { kind, slug: decoded.toLowerCase() } }).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [kind, slug, decoded]);
+
   const total = eps.length;
   const noindex = total > 0 && total < NOINDEX_BELOW;
   const entityType =
