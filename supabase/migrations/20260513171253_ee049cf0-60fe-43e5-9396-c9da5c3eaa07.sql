@@ -1,0 +1,1 @@
+DELETE FROM public.dynamic_mood_cache;
