@@ -14,7 +14,7 @@ type Row = {
 };
 
 const ACTIVE_WINDOW_MIN = 5;
-const REFRESH_MS = 15_000;
+const REFRESH_MS = 20_000;
 
 function classifyRoute(path: string): string {
   if (path === "/") return "/";
@@ -39,7 +39,6 @@ export default function AdminLivePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [recent, setRecent] = useState<Row[]>([]);
   const [todayCount, setTodayCount] = useState(0);
-  const [todayUnique, setTodayUnique] = useState(0);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [tick, setTick] = useState(0);
@@ -68,7 +67,7 @@ export default function AdminLivePage() {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        const [{ data: r }, { count: total }, { data: dayRows }] = await Promise.all([
+        const [{ data: r }, { count: total }] = await Promise.all([
           supabase
             .from("page_events")
             .select("id,path,full_url,user_id,referrer,created_at")
@@ -79,19 +78,11 @@ export default function AdminLivePage() {
             .from("page_events")
             .select("id", { count: "exact", head: true })
             .gte("created_at", startOfDay.toISOString()),
-          supabase
-            .from("page_events")
-            .select("user_id,full_url,path")
-            .gte("created_at", startOfDay.toISOString())
-            .limit(10000),
         ]);
 
         if (cancelled) return;
         setRecent((r as Row[]) || []);
         setTodayCount(total || 0);
-        const uniq = new Set<string>();
-        (dayRows || []).forEach((x: any) => uniq.add(x.user_id || x.full_url || x.path));
-        setTodayUnique(uniq.size);
         setLastRefreshed(new Date());
       } finally {
         if (!cancelled) setLoading(false);
@@ -168,11 +159,10 @@ export default function AdminLivePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Stat label="Active visitors" value={stats.active.length.toLocaleString()} accent />
           <Stat label="Pageviews (last 5 min)" value={recent.length.toLocaleString()} />
           <Stat label="Pageviews today" value={todayCount.toLocaleString()} />
-          <Stat label="Unique today (approx)" value={todayUnique.toLocaleString()} />
         </div>
 
         <section>
