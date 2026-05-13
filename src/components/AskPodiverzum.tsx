@@ -1,16 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, ArrowRight, Search } from "lucide-react";
+import { Sparkles, ArrowRight, Search, Cpu, Pill, Landmark, Mic, Moon, TrendingUp, Activity, Brain } from "lucide-react";
 
-const QUESTIONS = [
-  "Nvidia and data centers",
-  "GLP-1 drugs and long-term health",
-  "AI regulation",
-  "founder interviews",
-  "sleep and recovery",
-  "European politics",
-  "Warren Buffett and Apple",
-  "longevity science",
+const QUESTIONS: { text: string; Icon: typeof Sparkles }[] = [
+  { text: "Nvidia and data centers", Icon: Cpu },
+  { text: "GLP-1 drugs and long-term health", Icon: Pill },
+  { text: "AI regulation", Icon: Brain },
+  { text: "founder interviews", Icon: Mic },
+  { text: "sleep and recovery", Icon: Moon },
+  { text: "European politics", Icon: Landmark },
+  { text: "Warren Buffett and Apple", Icon: TrendingUp },
+  { text: "longevity science", Icon: Activity },
 ];
 
 const ROTATE_MS = 5200;
