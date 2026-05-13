@@ -332,7 +332,15 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Recent episodes across shows.</p>
               </div>
             </div>
-            <EpisodeList items={trendingEps} scrollOnMobile />
+            <div className="hidden lg:grid lg:grid-cols-2 gap-4">
+              <EpisodeList items={trendingEps.slice(0, Math.ceil(trendingEps.length / 2))} />
+              {trendingEps.length > 1 && (
+                <EpisodeList items={trendingEps.slice(Math.ceil(trendingEps.length / 2))} />
+              )}
+            </div>
+            <div className="lg:hidden">
+              <EpisodeList items={trendingEps} scrollOnMobile />
+            </div>
           </section>
         )}
 
