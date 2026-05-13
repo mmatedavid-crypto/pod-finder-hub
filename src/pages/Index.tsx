@@ -30,11 +30,19 @@ const Index = () => {
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
-  const [chips, setChips] = useState<{ label: string; query: string }[]>([
+  const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "Nvidia earnings", query: "Nvidia earnings" },
     { label: "Sam Altman", query: "Sam Altman" },
     { label: "GLP-1 drugs", query: "GLP-1 drugs" },
+    { label: "AI regulation", query: "AI regulation" },
+    { label: "longevity", query: "longevity" },
+    { label: "Warren Buffett", query: "Warren Buffett" },
+    { label: "Tesla robotaxi", query: "Tesla robotaxi" },
+    { label: "founder interviews", query: "founder interviews" },
+    { label: "sleep science", query: "sleep science" },
+    { label: "European politics", query: "European politics" },
   ]);
+  const [chipOffset, setChipOffset] = useState(0);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
@@ -62,10 +70,22 @@ const Index = () => {
       .then(({ data }) => {
         const items = (data?.value as any)?.items;
         if (Array.isArray(items) && items.length) {
-          setChips(items.filter((c) => c?.label && c?.query).slice(0, 3));
+          const cleaned = items.filter((c: any) => c?.label && c?.query);
+          if (cleaned.length >= 4) setChipPool(cleaned);
         }
       });
   }, []);
+
+  // Rotate chip set every 6s
+  useEffect(() => {
+    const t = setInterval(() => setChipOffset((o) => (o + 1) % Math.max(chipPool.length, 1)), 6000);
+    return () => clearInterval(t);
+  }, [chipPool.length]);
+
+  const visibleChips = useMemo(() => {
+    const n = Math.min(4, chipPool.length);
+    return Array.from({ length: n }, (_, i) => chipPool[(chipOffset + i) % chipPool.length]);
+  }, [chipPool, chipOffset]);
 
   useEffect(() => {
     (async () => {
@@ -242,7 +262,7 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto pt-6 pb-8 sm:pt-6 sm:pb-16">
+        <div className="relative container mx-auto pt-6 pb-6 sm:pt-6 sm:pb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-muted-foreground shadow-sm animate-fade-up">
             Podcast discovery
           </div>
@@ -270,9 +290,9 @@ const Index = () => {
               Search
             </button>
           </form>
-          <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-2">
-            {chips.map((c) => (
-              <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip">
+          <div className="mt-3 sm:mt-3 flex flex-nowrap items-center gap-2 overflow-hidden">
+            {visibleChips.map((c) => (
+              <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip whitespace-nowrap shrink-0 animate-fade-up">
                 {c.label}
               </button>
             ))}
@@ -285,7 +305,7 @@ const Index = () => {
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
-      <div className="container mx-auto pt-4 pb-8 sm:pt-8 sm:pb-12 space-y-8 sm:space-y-10">
+      <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <AskPodiverzum />
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
