@@ -276,6 +276,14 @@ export default function SearchPage() {
 
   return (
     <Layout>
+      <Seo
+        title={initial ? `${initial} — Podiverzum episode search` : "Search podcast episodes — Podiverzum"}
+        description={initial
+          ? `Podcast episodes matching "${initial}". Search by topic, person, company, ticker or ingredient.`
+          : "Search podcast episodes by topic, person, company, ticker or ingredient."}
+        canonical={initial ? `https://podiverzum.com/search?q=${encodeURIComponent(initial)}` : "https://podiverzum.com/search"}
+        noindex={!initial}
+      />
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
         <p className="text-muted-foreground mb-4 text-sm">
