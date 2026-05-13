@@ -218,15 +218,20 @@ Deno.serve(async (req) => {
     }
     let mustGateApplied = requiredTerms.length > 0;
     let mustGateRelaxed = false;
-    // Graceful fallback: if MUST gate zeroed out results, retry without required_terms
-    // (entity boost + dynamic alpha still applied).
+    // Graceful fallback: if MUST gate zeroed out results, keep only multi-word
+    // entities (e.g. "Warren Buffett") and drop single-word required terms.
+    // Single-word entities like "Apple" are too ambiguous and pull in noise
+    // ("Apple Valley", "apple pie podcast") when used as a hard MUST gate.
+    // Multi-word entities are specific enough to keep locked.
     if ((rows?.length || 0) < 5 && mustGateApplied) {
+      const strictTerms = requiredTerms.filter((t) => t.includes(" "));
+      const relaxedTerms = strictTerms.length ? strictTerms : null;
       const retry = await supa.rpc("search_episodes_hybrid", {
         q: q,
         q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
         limit_n: Math.max(limit, 50),
         lang,
-        required_terms: null,
+        required_terms: relaxedTerms,
         entity_terms: entityTerms.length ? entityTerms : null,
         alpha_lex: alphaLex,
       });
