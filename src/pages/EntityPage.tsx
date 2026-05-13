@@ -163,13 +163,14 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             "@type": "CollectionPage",
             name: `Podcast episodes about ${displayName}`,
             url: pageUrl,
-            about: { "@type": entityType, name: displayName },
+            about: { "@type": entityType, name: displayName, ...(profile?.bio ? { description: profile.bio } : {}) },
           },
           {
             "@context": "https://schema.org",
             "@type": entityType,
             name: displayName,
             url: pageUrl,
+            ...(profile?.bio ? { description: profile.bio } : {}),
           },
         ]}
       />
