@@ -196,6 +196,7 @@ export default function AdminQueuePage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Queue — Podiverzum" noindex />
       <div className="container py-6 space-y-4 max-w-5xl">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-2xl font-semibold">Approval Queue ({items.length})</h1>

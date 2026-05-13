@@ -83,6 +83,7 @@ export default function AdminSocialPostsPage() {
 
   return (
     <Layout>
+      <Seo title="Social Posts — Podiverzum Admin" noindex />
       <div className="container mx-auto py-8 space-y-6 max-w-4xl">
         <header>
           <h1 className="text-2xl sm:text-3xl font-semibold">Daily Social Posts</h1>

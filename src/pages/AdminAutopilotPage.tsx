@@ -179,6 +179,7 @@ export default function AdminAutopilotPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Growth Autopilot — Podiverzum" noindex />
       <div className="container mx-auto py-6 sm:py-10 space-y-6 max-w-3xl">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

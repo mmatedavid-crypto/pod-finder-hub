@@ -447,6 +447,7 @@ VALUES ('{userId}', 'admin');
 
   return (
     <Layout>
+      <Seo title="Admin — Podiverzum" noindex />
       <div className="container mx-auto py-10 space-y-10">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-3xl font-semibold">Admin</h1>

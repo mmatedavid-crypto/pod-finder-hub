@@ -68,6 +68,7 @@ export default function AdminSearchInsightsPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Search insights — Podiverzum" noindex />
       <div className="container mx-auto py-10 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-3xl font-semibold">Search insights</h1>

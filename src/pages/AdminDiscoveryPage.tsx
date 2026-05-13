@@ -169,6 +169,7 @@ export default function AdminDiscoveryPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Discovery — Podiverzum" noindex />
       <div className="container mx-auto py-6 max-w-4xl space-y-4">
         <div>
           <h1 className="text-2xl font-semibold">Discover podcasts</h1>

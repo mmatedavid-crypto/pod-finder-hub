@@ -152,6 +152,7 @@ export default function GrowthStatusPage() {
 
   return (
     <Layout>
+      <Seo title="Growth status — Podiverzum" noindex />
       <div className="container mx-auto py-8 space-y-6">
         <div>
           <h1 className="text-3xl font-semibold">Growth status</h1>

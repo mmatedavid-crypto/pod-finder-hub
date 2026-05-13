@@ -70,6 +70,7 @@ export default function AdminCronStatusPage() {
 
   return (
     <Layout>
+      <Seo title="Cron Status — Podiverzum" noindex />
       <div className="container mx-auto py-8 space-y-6 max-w-6xl">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

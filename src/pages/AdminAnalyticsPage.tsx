@@ -136,6 +136,7 @@ export default function AdminAnalyticsPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Analytics — Podiverzum" noindex />
       <div className="container mx-auto py-10 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-3xl font-semibold">Analytics</h1>

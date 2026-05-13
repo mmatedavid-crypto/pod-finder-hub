@@ -142,6 +142,7 @@ export default function AdminHubPage() {
 
   return (
     <Layout>
+      <Seo title="Admin Hub — Podiverzum" noindex />
       <div className="container mx-auto py-8 sm:py-10 space-y-8 max-w-6xl">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

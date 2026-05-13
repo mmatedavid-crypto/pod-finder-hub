@@ -235,6 +235,7 @@ export default function AdminGrowthPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Growth — Podiverzum" noindex />
       <div className="container py-6 space-y-6 max-w-5xl">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
