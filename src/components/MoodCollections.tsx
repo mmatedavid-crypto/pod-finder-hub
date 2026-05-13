@@ -70,6 +70,13 @@ export function MoodCollections() {
 
   if (!statics.length && dyn === null) return null;
 
+  // Target 6 cards on tablet/desktop. Prefer up to 4 AI moods, fill rest with statics.
+  const dynList = dyn ?? [];
+  const dynCount = Math.min(dynList.length, 4);
+  const staticCount = Math.min(Math.max(6 - dynCount, 0), statics.length);
+  const dynShown = dynList.slice(0, dynCount);
+  const staticShown = statics.slice(0, staticCount);
+
   return (
     <section>
       <div className="flex items-end justify-between mb-4">
@@ -82,7 +89,7 @@ export function MoodCollections() {
         </Link>
       </div>
       <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-3 md:gap-3">
-        {statics.slice(0, 2).map((m) => {
+        {staticShown.map((m) => {
           const Icon = STATIC_ICONS[m.slug] || Sparkles;
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
           return (
@@ -111,7 +118,7 @@ export function MoodCollections() {
             <div className="hidden md:block h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
           </>
         )}
-        {dyn?.slice(0, 4).map((m) => {
+        {dynShown.map((m) => {
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
           const onClick = () => {
             try { (supabase.rpc as any)("mood_pool_bump_click", { p_slug: m.slug }).then?.(() => {}, () => {}); } catch { /* noop */ }
