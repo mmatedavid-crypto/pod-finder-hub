@@ -28,7 +28,7 @@ export function AskPodiverzum() {
     return () => clearInterval(t);
   }, [paused]);
 
-  const visible = Array.from({ length: 3 }, (_, k) => QUESTIONS[(idx + k) % QUESTIONS.length]);
+  const visible = Array.from({ length: 4 }, (_, k) => QUESTIONS[(idx + k) % QUESTIONS.length]);
 
   const go = (query: string) => {
     if (!query.trim()) return;
@@ -46,7 +46,7 @@ export function AskPodiverzum() {
 
       <div className="relative">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          Natural-language search
+          Ask Podiverzum
         </div>
 
         <h2 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-bold tracking-tight max-w-3xl leading-tight">

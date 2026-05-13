@@ -76,7 +76,7 @@ export function SiteHeader() {
             Categories
           </NavLink>
         )}
-        <div ref={wrapRef} className={`ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "block sm:block"}`}>
+        <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "block sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submit(q); }}
             className="relative focus-brand rounded-md transition-shadow"
@@ -109,7 +109,7 @@ export function SiteHeader() {
             </div>
           )}
         </div>
-        <ThemeToggle />
+        <div className="ml-auto"><ThemeToggle /></div>
       </div>
     </header>
   );

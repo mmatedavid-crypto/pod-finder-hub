@@ -242,7 +242,7 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto pt-6 pb-8 sm:py-28">
+        <div className="relative container mx-auto pt-6 pb-8 sm:pt-12 sm:pb-20">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card/60 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-muted-foreground shadow-sm animate-fade-up">
             Podcast discovery
           </div>
@@ -285,7 +285,7 @@ const Index = () => {
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </section>
 
-      <div className="container mx-auto pt-4 pb-8 sm:py-12 space-y-8 sm:space-y-14">
+      <div className="container mx-auto pt-4 pb-8 sm:pt-8 sm:pb-12 space-y-8 sm:space-y-10">
         <AskPodiverzum />
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
