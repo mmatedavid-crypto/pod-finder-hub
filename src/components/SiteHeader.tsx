@@ -65,7 +65,6 @@ export function SiteHeader() {
         <nav className="hidden sm:flex items-center gap-6 ml-2">
           <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
-          <NavLink to="/search" className={linkCls}>Search</NavLink>
         </nav>
         <NavLink
           to="/categories"
