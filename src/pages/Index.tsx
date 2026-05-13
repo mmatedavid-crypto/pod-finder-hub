@@ -129,6 +129,7 @@ const Index = () => {
           display_title: r.display_title,
           slug: r.slug,
           summary: r.summary,
+          ai_summary: r.ai_summary,
           description: r.description,
           published_at: r.published_at,
           audio_url: r.audio_url,
