@@ -219,7 +219,7 @@ export default function EpisodeDetail() {
           {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Apple className="h-4 w-4" /> Apple</a>}
           {p.spotify_url && <a href={p.spotify_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Music className="h-4 w-4" /> Spotify</a>}
           {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
-          <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} />
+          <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} kind="episode" />
         </div>
 
         {e.audio_url && (
