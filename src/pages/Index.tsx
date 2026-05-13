@@ -228,7 +228,7 @@ const Index = () => {
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-60" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
-        <div className="relative container mx-auto pt-5 pb-10 sm:py-28">
+        <div className="relative container mx-auto pt-5 pb-6 sm:py-28">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 backdrop-blur text-[10px] uppercase tracking-[0.22em] text-primary shadow-sm animate-fade-up">
             <span className="relative inline-flex h-1.5 w-1.5">
               <span className="pulse-red" />
