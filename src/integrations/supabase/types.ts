@@ -278,6 +278,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dynamic_mood_cache: {
+        Row: {
+          country: string
+          created_at: string
+          dow: number
+          expires_at: string
+          hits: number
+          hour_bucket: number
+          id: string
+          payload: Json
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          dow: number
+          expires_at?: string
+          hits?: number
+          hour_bucket: number
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          dow?: number
+          expires_at?: string
+          hits?: number
+          hour_bucket?: number
+          id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
