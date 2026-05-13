@@ -1581,6 +1581,35 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_ai_jobs_by_kinds: {
+        Args: { _kinds: string[]; _limit: number; _lock_seconds?: number }
+        Returns: {
+          attempts: number
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          id: string
+          input_hash: string
+          input_tokens: number | null
+          kind: string
+          last_error: string | null
+          locked_until: string | null
+          model: string | null
+          output_tokens: number | null
+          priority: number
+          result: Json | null
+          started_at: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ai_enrichment_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {
         Args: { _batch?: number }
@@ -1600,6 +1629,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      entity_extract_enqueue: { Args: { _limit?: number }; Returns: number }
       formula_c_candidates: {
         Args: { _limit?: number }
         Returns: {
@@ -1817,6 +1847,10 @@ export type Database = {
         Returns: undefined
       }
       set_embed_schedule: { Args: { _schedule: string }; Returns: undefined }
+      set_entity_extract_runner_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
       set_incremental_refresh_command: {
         Args: { _command: string }
         Returns: undefined
