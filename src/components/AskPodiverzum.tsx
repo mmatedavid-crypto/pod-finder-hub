@@ -13,7 +13,7 @@ const QUESTIONS = [
   "longevity science",
 ];
 
-const ROTATE_MS = 3500;
+const ROTATE_MS = 5200;
 // Clockwise slot order in a 2x2 grid (rendered row-by-row: 0=TL, 1=TR, 2=BL, 3=BR)
 const CLOCKWISE = [0, 1, 3, 2];
 
