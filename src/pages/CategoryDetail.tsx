@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { setSeo, breadcrumbJsonLd } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
+import { breadcrumbJsonLd, siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
 import { Search } from "lucide-react";
 import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
@@ -41,24 +42,6 @@ export default function CategoryDetail() {
       setCat(c);
       setLoading(false);
       if (!c) return;
-      setSeo({
-        title: c.seo_title || `${c.name} podcast episodes — Podiverzum`,
-        description: c.seo_description || `Discover the latest podcast episodes in ${c.name}, ranked by relevance, freshness and Podiverzum Rank.`,
-        jsonLd: [
-          {
-            "@context": "https://schema.org",
-            "@type": "CollectionPage",
-            name: `${c.name} podcast episodes`,
-            about: { "@type": "Thing", name: c.name },
-            url: typeof window !== "undefined" ? window.location.href : undefined,
-          },
-          breadcrumbJsonLd([
-            { name: "Home", url: typeof window !== "undefined" ? window.location.origin + "/" : "/" },
-            { name: "Categories", url: typeof window !== "undefined" ? `${window.location.origin}/categories` : "/categories" },
-            { name: c.name, url: typeof window !== "undefined" ? window.location.href : "" },
-          ]),
-        ],
-      });
       const { data: ps } = await supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,shadow_rank_components,language")
