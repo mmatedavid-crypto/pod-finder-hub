@@ -65,9 +65,8 @@ Deno.serve(async (req) => {
 
     const idem = `entity-report-${new Date().toISOString().slice(0, 13)}-${total}`;
 
-    const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const anon = Deno.env.get("SUPABASE_ANON_KEY") || "";
-    console.log("invoking send-transactional-email", { recipient, total, idem, srkLen: srk.length, anonLen: anon.length });
+    const ANON_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxemtheW9xcWFnb3d2eGVhcGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA3NzAsImV4cCI6MjA5MzU3Njc3MH0.KaeRcYcljGjrP_OAcTp_lapPSRsAYRq6gPJ2vYV7fz4";
+    console.log("invoking send-transactional-email", { recipient, total, idem });
     const sendResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-transactional-email`, {
       method: "POST",
       headers: {
