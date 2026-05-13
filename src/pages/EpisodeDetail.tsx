@@ -141,8 +141,55 @@ export default function EpisodeDetail() {
     );
   };
 
+  const aiSum = stripHtml(e.ai_summary);
+  const cleanSummary = stripHtml(e.summary);
+  const cleanDesc = stripHtml(e.description);
+  const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+  const moments = extractKeyMoments(cleanDesc || cleanSummary);
+  const epUrl = `${siteOrigin()}/podcast/${p.slug}/${e.slug}`;
+  const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
+
   return (
     <Layout>
+      <Seo
+        title={e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`}
+        description={metaDesc}
+        canonical={epUrl}
+        ogType="article"
+        image={ogImageUrl({
+          kind: "episode",
+          title: e.display_title || e.title,
+          subtitle: p.display_title || p.title,
+          image: e.image_url || p.image_url,
+        })}
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "PodcastEpisode",
+            name: e.title,
+            description: e.seo_description || aiSum || cleanSummary || cleanDesc || undefined,
+            datePublished: e.published_at || undefined,
+            url: epUrl,
+            image: e.image_url || p.image_url || undefined,
+            partOfSeries: {
+              "@type": "PodcastSeries",
+              name: p.title,
+              image: p.image_url || undefined,
+              url: podUrl,
+              webFeed: p.rss_url || undefined,
+            },
+            associatedMedia: e.audio_url ? { "@type": "MediaObject", contentUrl: e.audio_url } : undefined,
+            hasPart: moments.length
+              ? moments.map((m) => ({ "@type": "Clip", name: m.label, startOffset: m.timeSec }))
+              : undefined,
+          },
+          breadcrumbJsonLd([
+            { name: "Home", url: `${siteOrigin()}/` },
+            { name: p.display_title || p.title, url: podUrl },
+            { name: e.display_title || e.title, url: epUrl },
+          ]),
+        ]}
+      />
       <div className="container mx-auto py-10 max-w-3xl">
         <Link to={`/podcast/${p.slug}`} className="text-sm text-muted-foreground hover:text-accent">← {p.display_title || p.title}</Link>
         <h1 className="text-3xl font-semibold mt-2">{e.display_title || e.title}</h1>
