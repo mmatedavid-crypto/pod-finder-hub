@@ -105,3 +105,6 @@ verify_jwt = false
 
 [functions.x-metrics-fetch]
 verify_jwt = false
+
+[functions.entity-extract-runner]
+verify_jwt = false

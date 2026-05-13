@@ -309,7 +309,11 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) break;
       if (spend >= dailyBudget) break;
 
-      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs", { _limit: batch, _lock_seconds: 120 });
+      // 2026-05-13: switched to claim_ai_jobs_by_kinds so entity_episode jobs
+      // (handled by entity-extract-runner) aren't stolen by this runner.
+      const { data: claimed, error: cErr } = await admin.rpc("claim_ai_jobs_by_kinds" as any, {
+        _kinds: ["seo_podcast", "seo_episode"], _limit: batch, _lock_seconds: 120,
+      });
       if (cErr) throw cErr;
       const jobs = (claimed || []) as any[];
       if (!jobs.length) break;
