@@ -10,7 +10,7 @@ export const PODCAST_SEO_TOOL = {
       type: "object",
       properties: {
         seo_title: { type: "string", description: "<=60 chars. Include show name. No clickbait. No emojis." },
-        seo_description: { type: "string", description: "<=160 chars. Factual, neutral. Describe what the show covers based ONLY on the provided description/title." },
+        seo_description: { type: "string", description: "Target 120-160 chars when there is enough factual material in the input (description + recent episode titles). If the input is too sparse to fill 120 chars factually, return a SHORTER honest description (e.g. 60-100 chars). NEVER pad with filler like 'Listen to this great podcast', 'Tune in for amazing content', generic adjectives, or repeated show name. Factual, neutral, based ONLY on the supplied metadata." },
         detected_language: { type: "string", description: "ISO 639-1 code (e.g. 'en','hu','es','fr','de','yo','fa','ar','zh','hi') of the ACTUAL podcast content language as inferred from title+description. If genuinely mixed/unknown, return 'mul'." },
       },
       required: ["seo_title", "seo_description", "detected_language"],
