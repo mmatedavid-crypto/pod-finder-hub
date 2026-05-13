@@ -234,10 +234,34 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
+        {featuredEps.length > 0 && (
+          <section className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">
+                Featuring {displayName}
+                <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">
+                  {kind === "person" ? "as host or guest" : "as primary subject"}
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {speakerCount > 0
+                  ? `${speakerCount} episode${speakerCount === 1 ? "" : "s"} where ${displayName} actually speaks.`
+                  : `Episodes built around ${displayName}.`}
+              </p>
+            </div>
+            <EpisodeList items={featuredEps} showEntities />
+          </section>
+        )}
+
         <section>
           <div className="flex items-end justify-between mb-3">
             <div>
-              <h2 className="text-xl font-semibold">Latest episodes</h2>
+              <h2 className="text-xl font-semibold">
+                {featuredEps.length > 0 ? `Also mentioning ${displayName}` : "Latest episodes"}
+              </h2>
+              {featuredEps.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">Episodes that discuss {displayName} but where they don't appear directly.</p>
+              )}
             </div>
           </div>
           <EpisodeList items={newest} showEntities />
