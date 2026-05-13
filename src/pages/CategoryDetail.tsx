@@ -245,7 +245,17 @@ export default function CategoryDetail() {
           <>
             <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes in {cat.name}</h2>
             {episodes.length > 0 ? (
-              <EpisodeList items={episodes} showTopics />
+              <>
+                <div className="hidden md:grid md:grid-cols-2 gap-4">
+                  <EpisodeList items={episodes.slice(0, Math.ceil(episodes.length / 2))} showTopics />
+                  {episodes.length > 1 && (
+                    <EpisodeList items={episodes.slice(Math.ceil(episodes.length / 2))} showTopics />
+                  )}
+                </div>
+                <div className="md:hidden">
+                  <EpisodeList items={episodes} showTopics />
+                </div>
+              </>
             ) : (
               <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
                 No podcasts indexed in this category yet.
