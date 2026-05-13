@@ -1,19 +1,14 @@
 import Layout from "@/components/Layout";
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 
 export default function MethodologyPage() {
-  useEffect(() => {
-    setSeo({
-      title: "How Podiverzum ranks podcasts and episodes",
-      description:
-        "Quality-first podcast discovery. How Podiverzum combines AI, structured analysis and editorial signals to rank podcasts and episodes — with no paid placement.",
-    });
-  }, []);
-
   return (
     <Layout>
+      <Seo
+        title="How Podiverzum ranks podcasts and episodes"
+        description="Quality-first podcast discovery. How Podiverzum combines AI, structured analysis and editorial signals to rank podcasts and episodes — with no paid placement."
+      />
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">How we rank</div>
         <h1 className="text-3xl font-semibold mb-2">Quality-first podcast discovery</h1>

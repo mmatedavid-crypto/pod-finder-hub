@@ -2,17 +2,13 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { supabase } from "@/integrations/supabase/client";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 
 export default function NewPodcastsPage() {
   const [items, setItems] = useState<PodcastLite[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setSeo({
-      title: "Recently added podcasts — Podiverzum",
-      description: "The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health.",
-    });
     supabase
       .from("podcasts")
       .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label,created_at,language")

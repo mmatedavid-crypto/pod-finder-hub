@@ -1,17 +1,13 @@
 import Layout from "@/components/Layout";
-import { useEffect } from "react";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 
 export default function PrivacyPage() {
-  useEffect(() => {
-    setSeo({
-      title: "Privacy — Podiverzum",
-      description: "How Podiverzum handles your data: optional feedback, search analytics, no IP tracking, no sale of personal data.",
-    });
-  }, []);
-
   return (
     <Layout>
+      <Seo
+        title="Privacy — Podiverzum"
+        description="How Podiverzum handles your data: optional feedback, search analytics, no IP tracking, no sale of personal data."
+      />
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <h1 className="text-3xl font-semibold mb-2">Privacy</h1>
         <p className="text-xs text-muted-foreground mb-8">Last updated {new Date().toLocaleDateString()}</p>
