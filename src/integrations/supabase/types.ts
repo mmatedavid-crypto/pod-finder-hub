@@ -398,6 +398,45 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_profiles: {
+        Row: {
+          bio: string | null
+          cost_usd: number | null
+          display_name: string
+          episode_ids: string[]
+          episodes_summary: string | null
+          generated_at: string
+          kind: string
+          model: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          cost_usd?: number | null
+          display_name: string
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          generated_at?: string
+          kind: string
+          model?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          cost_usd?: number | null
+          display_name?: string
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          generated_at?: string
+          kind?: string
+          model?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_embeddings: {
         Row: {
           content_hash: string
