@@ -19,19 +19,22 @@ export default function AboutPage() {
       />
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <h1 className="text-3xl font-semibold mb-2">About Podiverzum</h1>
-        <p className="text-muted-foreground !mt-2">
-          Podiverzum is a podcast discovery platform that helps listeners search episodes by what they actually discuss — not only by show title, category or chart position.
+        <p className="text-muted-foreground !mt-2 text-base">
+          Podiverzum is built for people who listen for ideas — not just shows.
         </p>
         <p>
-          We index public podcast RSS feeds and link listeners back to the original publisher — Apple Podcasts, Spotify, YouTube, the show's website or wherever the creator publishes. We do not host audio.
+          It searches podcast episodes by what they actually discuss: people, companies, markets, technologies, places and ideas.
+        </p>
+        <p>
+          We index public podcast RSS feeds and link listeners back to the original publisher — Apple Podcasts, Spotify, YouTube, the show's website or wherever the creator publishes. We do not host audio. The index currently covers more than 700,000 episodes and keeps growing.
         </p>
 
-        <h2 className="mt-10 text-xl font-semibold">Why Podiverzum exists</h2>
+        <h2 className="mt-10 text-xl font-semibold">Why it exists</h2>
         <p>
-          Most podcast apps are designed around shows you already follow. Discovery across the wider catalog is still fragmented.
+          Most podcast apps are built around shows you already follow. The wider catalog stays hard to search.
         </p>
         <p>
-          If you want to find recent episodes about Nvidia earnings, the Federal Reserve, GLP-1 drugs, AI regulation, longevity or European politics, you usually have to search by title, scroll through individual feeds, or hope the right episode appears in a chart.
+          If you want recent episodes about Nvidia earnings, the Federal Reserve, GLP-1 drugs, AI regulation, longevity or European politics, you usually have to guess at titles, scroll through individual feeds, or hope a chart surfaces it. Podiverzum is the layer that's been missing.
         </p>
         <p>
           Podiverzum is built for that missing layer — a searchable, ranked index of episodes, shows, topics, people, companies and ideas.
