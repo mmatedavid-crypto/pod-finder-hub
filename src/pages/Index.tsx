@@ -48,7 +48,7 @@ const Index = () => {
       .then(({ data }) => {
         const items = (data?.value as any)?.items;
         if (Array.isArray(items) && items.length) {
-          setChips(items.filter((c) => c?.label && c?.query).slice(0, 4));
+          setChips(items.filter((c) => c?.label && c?.query).slice(0, 3));
         }
       });
   }, []);
