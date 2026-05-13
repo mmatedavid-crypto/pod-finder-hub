@@ -81,7 +81,7 @@ const Index = () => {
     if (!chipPool.length) return [];
     const week = Math.floor(Date.now() / (7 * 86400_000));
     const offset = week % chipPool.length;
-    const n = Math.min(4, chipPool.length);
+    const n = Math.min(5, chipPool.length);
     return Array.from({ length: n }, (_, i) => chipPool[(offset + i) % chipPool.length]);
   }, [chipPool]);
 
@@ -296,8 +296,8 @@ const Index = () => {
                   type="button"
                   onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)}
                   className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                    i >= 2 ? "hidden sm:inline-flex" : ""
-                  } ${i >= 3 ? "sm:hidden lg:inline-flex" : ""}`}
+                    i >= 3 ? "hidden sm:inline-flex" : ""
+                  } ${i >= 4 ? "sm:hidden lg:inline-flex" : ""}`}
                 >
                   {c.label}
                 </button>
