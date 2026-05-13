@@ -21,33 +21,25 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 }
 
-const TIME_TAGS = ["any","morning","mid-morning","lunch","afternoon","evening","night","late-night","weekend","weekday","focus","wind-down","commute","background"];
+const ALLOWED_TAGS = new Set(["any","morning","mid-morning","lunch","afternoon","evening","night","late-night","weekend","weekday","focus","wind-down","commute","background"]);
 
 const POOL_TOOL = {
   name: "evergreen_moods",
-  description: "Generate evergreen podcast mood concepts for the Podiverzum mood pool.",
+  description: "Generate 5-10 new evergreen podcast moods. Each item: title, mood, description, query, accent_hsl, time_tags (array of tags from: any, morning, mid-morning, lunch, afternoon, evening, night, late-night, weekend, weekday, focus, wind-down, commute, background).",
   parameters: {
     type: "object",
     properties: {
       moods: {
         type: "array",
-        minItems: 5,
-        maxItems: 10,
         items: {
           type: "object",
           properties: {
-            title: { type: "string", description: "Short evocative title, 2-5 words, Title Case." },
-            mood: { type: "string", description: "Short phrase (3-6 words) for the listening state." },
-            description: { type: "string", description: "One sentence ≤90 chars, factual + warm. No emojis." },
-            query: { type: "string", description: "Natural-language semantic query (5-12 words) describing the episodes that fit." },
-            accent_hsl: { type: "string", description: "HSL components only e.g. '210 80% 55%'." },
-            time_tags: {
-              type: "array",
-              minItems: 1,
-              maxItems: 4,
-              items: { type: "string", enum: TIME_TAGS },
-              description: "Contexts when this mood fits. Use 'any' for fully evergreen.",
-            },
+            title: { type: "string" },
+            mood: { type: "string" },
+            description: { type: "string" },
+            query: { type: "string" },
+            accent_hsl: { type: "string" },
+            time_tags: { type: "array", items: { type: "string" } },
           },
           required: ["title","mood","description","query","accent_hsl","time_tags"],
         },
