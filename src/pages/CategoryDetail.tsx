@@ -201,7 +201,17 @@ export default function CategoryDetail() {
                     )}
                   </h2>
                   {inCat.length > 0 ? (
-                    <EpisodeList items={inCat} terms={flatTerms} showEntities />
+                    <>
+                      <div className="hidden md:grid md:grid-cols-2 gap-4">
+                        <EpisodeList items={inCat.slice(0, Math.ceil(inCat.length / 2))} terms={flatTerms} showEntities />
+                        {inCat.length > 1 && (
+                          <EpisodeList items={inCat.slice(Math.ceil(inCat.length / 2))} terms={flatTerms} showEntities />
+                        )}
+                      </div>
+                      <div className="md:hidden">
+                        <EpisodeList items={inCat} terms={flatTerms} showEntities />
+                      </div>
+                    </>
                   ) : (
                     <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
                       No matches in {cat.name}. Try “All Podiverzum” to broaden the search.
@@ -216,7 +226,15 @@ export default function CategoryDetail() {
                         outside this category
                       </span>
                     </h2>
-                    <EpisodeList items={outside} terms={flatTerms} showEntities />
+                    <div className="hidden md:grid md:grid-cols-2 gap-4">
+                      <EpisodeList items={outside.slice(0, Math.ceil(outside.length / 2))} terms={flatTerms} showEntities />
+                      {outside.length > 1 && (
+                        <EpisodeList items={outside.slice(Math.ceil(outside.length / 2))} terms={flatTerms} showEntities />
+                      )}
+                    </div>
+                    <div className="md:hidden">
+                      <EpisodeList items={outside} terms={flatTerms} showEntities />
+                    </div>
                   </section>
                 )}
               </>
@@ -237,7 +255,15 @@ export default function CategoryDetail() {
                     </span>
                   )}
                 </h2>
-                <EpisodeList items={allResults} terms={flatTerms} showEntities />
+                <div className="hidden md:grid md:grid-cols-2 gap-4">
+                  <EpisodeList items={allResults.slice(0, Math.ceil(allResults.length / 2))} terms={flatTerms} showEntities />
+                  {allResults.length > 1 && (
+                    <EpisodeList items={allResults.slice(Math.ceil(allResults.length / 2))} terms={flatTerms} showEntities />
+                  )}
+                </div>
+                <div className="md:hidden">
+                  <EpisodeList items={allResults} terms={flatTerms} showEntities />
+                </div>
               </section>
             )}
           </div>
@@ -245,7 +271,17 @@ export default function CategoryDetail() {
           <>
             <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes in {cat.name}</h2>
             {episodes.length > 0 ? (
-              <EpisodeList items={episodes} showTopics />
+              <>
+                <div className="hidden md:grid md:grid-cols-2 gap-4">
+                  <EpisodeList items={episodes.slice(0, Math.ceil(episodes.length / 2))} showTopics />
+                  {episodes.length > 1 && (
+                    <EpisodeList items={episodes.slice(Math.ceil(episodes.length / 2))} showTopics />
+                  )}
+                </div>
+                <div className="md:hidden">
+                  <EpisodeList items={episodes} showTopics />
+                </div>
+              </>
             ) : (
               <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
                 No podcasts indexed in this category yet.
