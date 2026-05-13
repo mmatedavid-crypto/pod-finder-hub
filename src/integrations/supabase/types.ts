@@ -1543,6 +1543,27 @@ export type Database = {
         }
         Returns: boolean
       }
+      match_episodes_by_embedding: {
+        Args: {
+          match_limit?: number
+          max_age_days?: number
+          query_embedding: string
+        }
+        Returns: {
+          display_title: string
+          episode_id: string
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          rank_label: string
+          similarity: number
+          title: string
+        }[]
+      }
       match_podcasts_by_embedding: {
         Args: {
           p_embedding: string
