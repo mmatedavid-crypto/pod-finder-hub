@@ -1,28 +1,23 @@
 import Layout from "@/components/Layout";
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 
 export default function AboutPage() {
-  useEffect(() => {
-    setSeo({
-      title: "About Podiverzum — AI-powered podcast discovery",
-      description:
-        "Podiverzum is an AI-powered podcast discovery engine. We index thousands of public podcast feeds and help listeners find episodes by what they actually discuss.",
-      jsonLd: {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: "Podiverzum",
-        url: "https://podiverzum.com",
-        description:
-          "AI-powered podcast discovery engine. Search episodes by topic, person, company, ticker and idea.",
-        sameAs: [],
-      },
-    });
-  }, []);
-
   return (
     <Layout>
+      <Seo
+        title="About Podiverzum — AI-powered podcast discovery"
+        description="Podiverzum is an AI-powered podcast discovery engine. We index thousands of public podcast feeds and help listeners find episodes by what they actually discuss."
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Podiverzum",
+          url: "https://podiverzum.com",
+          description:
+            "AI-powered podcast discovery engine. Search episodes by topic, person, company, ticker and idea.",
+          sameAs: [],
+        }}
+      />
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">About</div>
         <h1 className="text-3xl font-semibold mb-2">Find it. Hear it.</h1>

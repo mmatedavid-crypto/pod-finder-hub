@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ type Health = { generated_at: string; jobs: Job[]; recent_runs: Run[] };
 const ACTIVE_ALLOWLIST = new Set([4, 7, 8, 10, 12, 13, 16, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
 
 export default function AdminCronStatusPage() {
-  useNoindex("Cron Status — Podiverzum");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -70,6 +70,7 @@ export default function AdminCronStatusPage() {
 
   return (
     <Layout>
+      <Seo title="Cron Status — Podiverzum" noindex />
       <div className="container mx-auto py-8 space-y-6 max-w-6xl">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

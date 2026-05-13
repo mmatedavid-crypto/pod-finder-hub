@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function AdminGrowthPage() {
-  useNoindex("Admin · Growth — Podiverzum");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -235,6 +235,7 @@ export default function AdminGrowthPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Growth — Podiverzum" noindex />
       <div className="container py-6 space-y-6 max-w-5xl">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>

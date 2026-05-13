@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { Calendar, Sparkles, Clock } from "lucide-react";
 import { TrendingEntities } from "@/components/TrendingEntities";
@@ -47,12 +47,6 @@ export default function DailyBriefPage() {
   const [loading, setLoading] = useState(true);
   const [windowHours, setWindowHours] = useState<24 | 48 | 72>(24);
 
-  useEffect(() => {
-    setSeo({
-      title: "Daily Brief — fresh podcast episodes today | Podiverzum",
-      description: "The best podcast episodes published in the last 24-72 hours, hand-ranked by Podiverzum.",
-    });
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -114,6 +108,10 @@ export default function DailyBriefPage() {
 
   return (
     <Layout>
+      <Seo
+        title="Daily Brief — fresh podcast episodes today | Podiverzum"
+        description="The best podcast episodes published in the last 24-72 hours, hand-ranked by Podiverzum."
+      />
       {/* Hero */}
       <section className="border-b border-border bg-background relative overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-60" />

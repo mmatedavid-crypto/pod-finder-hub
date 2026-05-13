@@ -2,19 +2,19 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 
 export default function CategoriesPage() {
   const [cats, setCats] = useState<any[]>([]);
   useEffect(() => {
-    setSeo({
-      title: "All podcast categories — Podiverzum",
-      description: "Browse the best podcasts by topic — news, tech & AI, business, investing, health, food, science and more.",
-    });
     supabase.from("categories").select("*").order("sort_order").then(({ data }) => setCats(data || []));
   }, []);
   return (
     <Layout>
+      <Seo
+        title="All podcast categories — Podiverzum"
+        description="Browse the best podcasts by topic — news, tech & AI, business, investing, health, food, science and more."
+      />
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">All Categories</h1>
         <p className="text-muted-foreground mb-8">Browse the best podcasts by topic.</p>

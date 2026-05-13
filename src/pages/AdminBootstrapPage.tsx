@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 const TEMP_ADMIN_USER_ID = "7b92654a-2b5d-438c-ad67-7ad5f6709483";
 
 export default function AdminBootstrapPage() {
-  useNoindex("Admin · Bootstrap — Podiverzum");
+  
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -61,6 +61,7 @@ export default function AdminBootstrapPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Bootstrap — Podiverzum" noindex />
       <div className="container mx-auto py-20 max-w-md space-y-4">
         <h1 className="text-2xl font-semibold">Admin bootstrap</h1>
         <p className="text-sm text-muted-foreground">

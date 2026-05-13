@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ const DEFAULT_STATE: State = {
 };
 
 export default function AdminAutopilotPage() {
-  useNoindex("Admin · Growth Autopilot — Podiverzum");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -179,6 +179,7 @@ export default function AdminAutopilotPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Growth Autopilot — Podiverzum" noindex />
       <div className="container mx-auto py-6 sm:py-10 space-y-6 max-w-3xl">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
@@ -27,7 +27,7 @@ type PiResult = {
 };
 
 export default function AdminDiscoveryPage() {
-  useNoindex("Admin · Discovery — Podiverzum");
+  
   const [params] = useSearchParams();
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
@@ -169,6 +169,7 @@ export default function AdminDiscoveryPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Discovery — Podiverzum" noindex />
       <div className="container mx-auto py-6 max-w-4xl space-y-4">
         <div>
           <h1 className="text-2xl font-semibold">Discover podcasts</h1>

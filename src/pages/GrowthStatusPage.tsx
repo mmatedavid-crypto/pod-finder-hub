@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -47,7 +47,7 @@ function computeHealth(lastRun: any, lastSuccess: any): Health {
 }
 
 export default function GrowthStatusPage() {
-  useNoindex("Growth status — Podiverzum");
+  
   const [loading, setLoading] = useState(true);
   const [lastRun, setLastRun] = useState<any>(null);
   const [lastSuccess, setLastSuccess] = useState<any>(null);
@@ -152,6 +152,7 @@ export default function GrowthStatusPage() {
 
   return (
     <Layout>
+      <Seo title="Growth status — Podiverzum" noindex />
       <div className="container mx-auto py-8 space-y-6">
         <div>
           <h1 className="text-3xl font-semibold">Growth status</h1>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import {
@@ -39,7 +39,7 @@ type Tool = {
 };
 
 export default function AdminHubPage() {
-  useNoindex("Admin Hub — Podiverzum");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -142,6 +142,7 @@ export default function AdminHubPage() {
 
   return (
     <Layout>
+      <Seo title="Admin Hub — Podiverzum" noindex />
       <div className="container mx-auto py-8 sm:py-10 space-y-8 max-w-6xl">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 
 type Row = {
   id: string;
@@ -14,7 +14,7 @@ type Row = {
 };
 
 export default function AdminSearchInsightsPage() {
-  useNoindex("Admin · Search insights — Podiverzum");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -68,6 +68,7 @@ export default function AdminSearchInsightsPage() {
 
   return (
     <Layout>
+      <Seo title="Admin · Search insights — Podiverzum" noindex />
       <div className="container mx-auto py-10 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-3xl font-semibold">Search insights</h1>

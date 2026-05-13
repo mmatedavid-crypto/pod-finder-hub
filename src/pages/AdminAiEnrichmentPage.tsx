@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 import { toast } from "@/hooks/use-toast";
 
 type Status = {
@@ -31,7 +31,6 @@ export default function AdminAiEnrichmentPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { setSeo({ title: "AI Enrichment | Admin | Podiverzum", description: "SEO + AI enrichment controls", noindex: true }); }, []);
 
   const refresh = async () => {
     setLoading(true);
@@ -89,6 +88,7 @@ export default function AdminAiEnrichmentPage() {
 
   return (
     <Layout>
+      <Seo title="AI Enrichment | Admin | Podiverzum" noindex />
       <div className="container mx-auto py-10 max-w-3xl space-y-6">
         <h1 className="text-2xl font-semibold">AI Enrichment</h1>
         <p className="text-sm text-muted-foreground">

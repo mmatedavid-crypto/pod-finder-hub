@@ -1,17 +1,13 @@
 import Layout from "@/components/Layout";
-import { useEffect } from "react";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 
 export default function TermsPage() {
-  useEffect(() => {
-    setSeo({
-      title: "Terms — Podiverzum",
-      description: "Terms for using Podiverzum, a podcast episode search and discovery engine built on public RSS feeds.",
-    });
-  }, []);
-
   return (
     <Layout>
+      <Seo
+        title="Terms — Podiverzum"
+        description="Terms for using Podiverzum, a podcast episode search and discovery engine built on public RSS feeds."
+      />
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
         <h1 className="text-3xl font-semibold mb-2">Terms</h1>
         <p className="text-xs text-muted-foreground mb-8">Last updated {new Date().toLocaleDateString()}</p>
