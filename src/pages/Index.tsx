@@ -359,7 +359,7 @@ const Index = () => {
                 </Link>
               </div>
               <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
-              <EpisodeList items={items} />
+              <EpisodeList items={items} scrollOnMobile />
             </section>
           );
         })}
