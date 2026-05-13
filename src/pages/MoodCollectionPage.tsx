@@ -24,11 +24,6 @@ export default function MoodCollectionPage() {
       // Dynamic AI mood
       if (slug.startsWith("dyn-")) {
         try {
-          const { data } = await supabase.functions.invoke("mood-personalize", {
-            body: {},
-            // pass slug via query param-style by appending to functionName? supabase-js doesn't expose this; use fetch fallback below
-          });
-          // Fallback: hit the function directly with slug query param
           const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mood-personalize?slug=${encodeURIComponent(slug)}`;
           const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } });
           const j = await res.json();
