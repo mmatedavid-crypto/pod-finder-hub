@@ -119,7 +119,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     (async () => {
       const { data } = await supabase
         .from("entity_profiles")
-        .select("display_name,bio,episodes_summary,updated_at")
+        .select("display_name,bio,episodes_summary,updated_at,featured_episode_ids,appearance_stats")
         .eq("kind", kind)
         .eq("slug", decoded.toLowerCase())
         .maybeSingle();
