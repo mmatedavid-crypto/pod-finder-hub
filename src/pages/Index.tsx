@@ -307,7 +307,7 @@ const Index = () => {
               </div>
               <span className="text-xs text-muted-foreground hidden sm:inline">Selected · ranked · understood</span>
             </div>
-            <EpisodeList items={trendingEps} />
+            <EpisodeList items={trendingEps} scrollOnMobile />
           </section>
         )}
 
@@ -359,7 +359,7 @@ const Index = () => {
                 </Link>
               </div>
               <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
-              <EpisodeList items={items} />
+              <EpisodeList items={items} scrollOnMobile />
             </section>
           );
         })}
@@ -375,7 +375,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Older episodes from S-tier podcasts that still hold up.</p>
               </div>
             </div>
-            <EpisodeList items={evergreenEps} />
+            <EpisodeList items={evergreenEps} scrollOnMobile />
           </section>
         )}
 
