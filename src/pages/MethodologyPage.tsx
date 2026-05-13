@@ -6,23 +6,21 @@ export default function MethodologyPage() {
   return (
     <Layout>
       <Seo
-        title="How Podiverzum ranks podcasts and episodes"
-        description="An overview of the principles behind Podiverzum's ranking — relevance, freshness, source quality, consistency and feed health."
+        title="How ranking works — Podiverzum"
+        description="A high-level overview of how Podiverzum ranks podcasts and episodes."
       />
       <article className="container mx-auto py-12 max-w-2xl prose prose-invert prose-sm sm:prose-base">
-        <h1 className="text-3xl font-semibold mb-2">How Podiverzum ranks podcasts and episodes</h1>
-        <p className="text-muted-foreground !mt-2">
-          Podiverzum ranks podcasts and episodes using a combination of relevance, freshness, feed quality, consistency and source strength. The goal is to surface useful matches, not to reproduce popularity charts.
+        <h1 className="text-3xl font-semibold mb-2">How ranking works</h1>
+        <p className="text-muted-foreground !mt-2 text-base">
+          Podiverzum uses a mix of relevance, freshness, source quality and feed signals to surface episodes that are more likely to be useful.
         </p>
-
-        <h2 className="mt-10 text-xl font-semibold">Transparency, without a manual to game it</h2>
         <p>
-          We do not publish exact formulas, weights or thresholds. The ranking system evolves over time, and publishing every detail would make the index easier to game. This page explains the main principles behind ranking without exposing the full system.
+          The exact model is not public. Ranking changes over time, and exposing every detail would make the index easier to game.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Paid placement</h2>
         <p>
-          Podiverzum does not currently sell paid placement in rankings. Any future commercial relationships will be disclosed and will not silently influence ranking.
+          Podiverzum does not sell paid placement in rankings. Any future commercial relationships will be disclosed and will not silently influence ranking.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">Main signals</h2>

@@ -37,30 +37,27 @@ export default function AboutPage() {
           If you want recent episodes about Nvidia earnings, the Federal Reserve, GLP-1 drugs, AI regulation, longevity or European politics, you usually have to guess at titles, scroll through individual feeds, or hope a chart surfaces it. Podiverzum is the layer that's been missing.
         </p>
         <p>
-          Podiverzum is built for that missing layer — a searchable, ranked index of episodes, shows, topics, people, companies and ideas.
+          Podiverzum is the missing layer — a searchable, ranked index of episodes, shows, topics, people, companies and ideas.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">What we do</h2>
         <ul className="list-disc pl-5">
           <li>Continuously index public podcast RSS feeds.</li>
-          <li>Match search queries against what episodes actually discuss, including topics, people, companies and ideas.</li>
-          <li>Rank podcasts and episodes using relevance, freshness, source quality and feed health signals.</li>
+          <li>Match queries against what episodes actually discuss — topics, people, companies and ideas.</li>
+          <li>Rank using relevance, freshness, source quality and feed signals.</li>
           <li>Link listeners back to the original publisher.</li>
         </ul>
-        <p>
-          AI-assisted summaries and matching help make large podcast archives easier to search.
-        </p>
 
         <h2 className="mt-10 text-xl font-semibold">What we don't do</h2>
         <ul className="list-disc pl-5">
-          <li>We don't host or stream audio. The audio belongs to its creators and publishers.</li>
+          <li>We don't host or stream audio. Audio belongs to its creators and publishers.</li>
           <li>We don't sell personal data. See <Link to="/privacy" className="text-primary hover:underline">Privacy</Link>.</li>
-          <li>Podiverzum does not currently sell paid placement in rankings.</li>
+          <li>We don't sell paid placement in rankings.</li>
         </ul>
 
         <h2 className="mt-10 text-xl font-semibold">Status</h2>
         <p>
-          Podiverzum is still evolving. The catalog grows regularly, and search quality, rankings and discovery surfaces continue to improve as more episodes are indexed and connected.
+          The index keeps growing. Search, ranking and discovery surfaces continue to evolve as more episodes are connected.
         </p>
 
         <div className="not-prose mt-12 flex flex-wrap gap-3">
