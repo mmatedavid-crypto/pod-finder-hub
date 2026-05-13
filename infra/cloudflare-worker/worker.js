@@ -13,6 +13,8 @@
 
 const PRERENDER_ENDPOINT =
   "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/prerender";
+const SITEMAP_ENDPOINT =
+  "https://iqzkayoqqagowvxeaphe.supabase.co/functions/v1/sitemap";
 
 // Lovable origin host (proxied via Cloudflare). Workers route runs BEFORE
 // the proxy returns, so we just `fetch(request)` to passthrough.
