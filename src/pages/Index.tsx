@@ -342,23 +342,37 @@ const Index = () => {
           ) : null;
         })()}
 
-        {cats.filter((c) => c.slug !== "trending").map((c, idx) => {
-          const items = epsByCat[c.name] || [];
-          if (!items.length) return null;
-          const tinted = idx % 2 === 1;
-          return (
-            <section key={c.id} className={tinted ? "rounded-2xl bg-card/40 border border-border/60 p-5 sm:p-6" : ""}>
-              <div className="flex items-end justify-between mb-1">
-                <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
-                <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                  See more episodes <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
-              <EpisodeList items={items} scrollOnMobile />
-            </section>
-          );
-        })}
+        {(() => {
+          const populated = cats
+            .filter((c) => c.slug !== "trending" && (epsByCat[c.name]?.length ?? 0) > 0)
+            .sort((a, b) => (epsByCat[b.name]?.length ?? 0) - (epsByCat[a.name]?.length ?? 0))
+            .slice(0, 3);
+          return populated.map((c, idx) => {
+            const items = epsByCat[c.name] || [];
+            const tinted = idx % 2 === 1;
+            return (
+              <section key={c.id} className={tinted ? "rounded-2xl bg-card/40 border border-border/60 p-5 sm:p-6" : ""}>
+                <div className="flex items-end justify-between mb-1">
+                  <h2 className="text-xl sm:text-2xl font-semibold">{c.name}</h2>
+                  <Link to={`/category/${c.slug}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                    See more episodes <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Latest episodes in {c.name}</p>
+                <EpisodeList items={items} scrollOnMobile />
+              </section>
+            );
+          });
+        })()}
+
+        <div className="flex justify-center">
+          <Link
+            to="/categories"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-border bg-card/60 text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+          >
+            Browse all categories <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
 
         {evergreenEps.length > 0 && (
           <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
