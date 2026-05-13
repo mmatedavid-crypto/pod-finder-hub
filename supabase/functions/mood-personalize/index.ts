@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
 
     if (!payload) {
       // Pick from pool
-      const { data: picked } = await admin.rpc("mood_pool_pick", { p_country: country, p_hour: hour, p_dow: dow, p_k: 4 });
+      const { data: picked } = await admin.rpc("mood_pool_pick", { p_country: country, p_hour: hour, p_dow: dow, p_k: 6 });
       let moods: any[] = [];
       if (picked && picked.length >= 1) {
         for (const p of picked as any[]) {
