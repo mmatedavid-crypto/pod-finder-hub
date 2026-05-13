@@ -30,22 +30,29 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     (async () => {
       setLoading(true);
       const col = ENTITY_COLUMN[kind];
-      const { data: cand } = await supabase
-        .from("episodes")
-        .select(`id,title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients,podcast_id,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured)`)
-        .not(col, "is", null)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(800);
-
+      // Server-side entity match (handles diacritics/casing). Then fetch joined podcast data.
+      const { data: rpcRows } = await supabase.rpc("episodes_by_entity" as any, {
+        p_kind: kind, p_slug: decoded, p_limit: 200,
+      });
+      const baseEps: any[] = Array.isArray(rpcRows) ? rpcRows : [];
+      const podIdsAll = Array.from(new Set(baseEps.map((e: any) => e.podcast_id))).filter(Boolean);
+      let podMap2 = new Map<string, any>();
+      if (podIdsAll.length) {
+        const { data: ps } = await supabase
+          .from("podcasts")
+          .select("id,slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured")
+          .in("id", podIdsAll);
+        (ps || []).forEach((p: any) => podMap2.set(p.id, p));
+      }
       const matches: any[] = [];
       let exemplar = decoded;
-      (cand || []).forEach((e: any) => {
+      baseEps.forEach((e: any) => {
+        const podcasts = podMap2.get(e.podcast_id);
+        if (!podcasts) return;
         const arr: string[] = e[col] || [];
         const hit = arr.find((v) => matchesEntitySlug(kind, v, decoded));
-        if (hit) {
-          matches.push(e);
-          if (exemplar === decoded) exemplar = hit;
-        }
+        if (exemplar === decoded && hit) exemplar = hit;
+        matches.push({ ...e, podcasts });
       });
       // Filter out broken parent feeds
       const visible = matches.filter((e) => {
