@@ -288,7 +288,7 @@ const Index = () => {
               Search
             </button>
           </form>
-          <div className="mt-3 sm:mt-3 flex flex-nowrap items-center gap-2 overflow-hidden">
+          <div className="mt-3 sm:mt-3 flex flex-wrap sm:flex-nowrap items-center gap-2">
             {visibleChips.map((c) => (
               <button key={c.label} type="button" onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)} className="chip whitespace-nowrap shrink-0 animate-fade-up">
                 {c.label}
