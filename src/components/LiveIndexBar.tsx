@@ -22,7 +22,7 @@ type Item = {
 const HIDE_PREFIXES = ["/admin", "/auth", "/privacy", "/terms", "/admin-bootstrap", "/growth-status"];
 
 // Quiet, single label so the ticker doesn't compete with the hero
-const PREFIXES = ["Live"];
+const PREFIXES = ["Latest"];
 
 export default function LiveIndexBar() {
   const { pathname } = useLocation();
