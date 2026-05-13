@@ -89,7 +89,7 @@ export function MoodCollections() {
             <Link
               key={m.id}
               to={`/mood/${m.slug}`}
-              className={`group relative overflow-hidden rounded-xl border border-border/70 bg-card/70 p-4 hover:border-primary/40 transition-colors`}
+              className={`group relative overflow-hidden rounded-xl border border-border/70 bg-card/70 p-4 hover:border-primary/40 transition-colors ${idx >= 1 ? "hidden md:block" : ""}`}
               style={{ background: `linear-gradient(135deg, ${accent}11, transparent 60%), hsl(var(--card) / 0.7)` }}
             >
               <div className="flex items-start justify-between">
@@ -107,8 +107,8 @@ export function MoodCollections() {
           <>
             <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
             <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
-            <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
-            <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
+            <div className="hidden md:block h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
+            <div className="hidden md:block h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
           </>
         )}
         {dyn?.slice(0, 4).map((m, idx) => {
@@ -121,7 +121,7 @@ export function MoodCollections() {
               key={m.slug}
               to={`/mood/${m.slug}`}
               onClick={onClick}
-              className={`group relative overflow-hidden rounded-xl border border-primary/30 bg-card/70 p-4 hover:border-primary/60 transition-colors`}
+              className={`group relative overflow-hidden rounded-xl border border-primary/30 bg-card/70 p-4 hover:border-primary/60 transition-colors ${idx >= 2 ? "hidden md:block" : ""}`}
               style={{ background: `linear-gradient(135deg, ${accent}1c, transparent 60%), hsl(var(--card) / 0.7)` }}
             >
               <div className="flex items-start justify-between">
