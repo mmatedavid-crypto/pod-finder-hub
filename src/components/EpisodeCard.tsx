@@ -96,7 +96,12 @@ export function EpisodeCard({
             );
           })()}
           {typeof p.podiverzum_rank === "number" && p.podiverzum_rank > 0 && (
-            <span className="px-1.5 py-0.5 rounded-md border border-primary/30 bg-primary/10 text-[10px] font-medium text-primary">Pod {Number(p.podiverzum_rank).toFixed(1)}</span>
+            <span
+              className="px-1.5 py-0.5 rounded-md border border-border bg-card text-[10px] font-medium text-muted-foreground"
+              title="Podiverzum's source-quality signal, based on factors such as relevance, freshness, consistency and feed health."
+            >
+              Source {Number(p.podiverzum_rank).toFixed(1)}
+            </span>
           )}
           {e.matchBadge && (
             <span className="px-1.5 py-0.5 rounded-md border border-border bg-secondary text-[10px] font-medium text-foreground/80">{e.matchBadge}</span>
@@ -104,7 +109,7 @@ export function EpisodeCard({
         </div>
         {e.why_matched && (
           <p className="text-[12px] mt-2 px-2.5 py-1.5 rounded-md border border-primary/40 bg-primary/10 text-foreground leading-snug">
-            <span className="font-semibold text-primary mr-1">Why matched:</span>
+            <span className="font-semibold text-primary mr-1">Why this matched:</span>
             {e.why_matched}
           </p>
         )}

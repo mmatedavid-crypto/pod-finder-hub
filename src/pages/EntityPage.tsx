@@ -161,7 +161,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     <Layout>
       <Seo
         title={`Podcast episodes about ${displayName} — Podiverzum`}
-        description={`Discover podcast episodes about ${displayName}, ranked by relevance, freshness and Podiverzum Rank.`}
+        description={`Discover podcast episodes about ${displayName}, ranked by relevance, freshness and source quality.`}
         canonical={pageUrl}
         noindex={noindex}
         jsonLd={noindex ? undefined : [
@@ -193,7 +193,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
             </p>
           ) : (
             <p className="text-muted-foreground mt-3 max-w-2xl">
-              Cross-show podcast coverage of <span className="text-foreground font-medium">{displayName}</span>. Ranked by tier, freshness and Podiverzum Rank.
+              Podcast coverage of <span className="text-foreground font-medium">{displayName}</span> across shows. Ranked by relevance, freshness and source quality.
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-3">
@@ -203,9 +203,9 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           </div>
           {profile?.episodes_summary && (
             <div className="mt-7 max-w-3xl rounded-2xl border border-border/70 bg-card/60 p-5 sm:p-6">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-primary mb-1.5">What these episodes cover</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1.5">What these episodes cover</div>
               <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/85">{profile.episodes_summary}</p>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-3">AI-generated summary based on indexed episodes</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-3">Based on indexed episodes that mention this topic.</p>
             </div>
           )}
         </div>
@@ -215,7 +215,6 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         <section>
           <div className="flex items-end justify-between mb-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Fresh</div>
               <h2 className="text-xl font-semibold">Latest episodes</h2>
             </div>
           </div>
@@ -223,11 +222,10 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         </section>
 
         {rich && (
-          <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/40 p-5 sm:p-6">
+          <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
             <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">Best of</div>
-              <h2 className="text-xl font-semibold">Highest-ranked episodes</h2>
-              <p className="text-xs text-muted-foreground mt-1">From S/A-tier shows that consistently deliver.</p>
+              <h2 className="text-xl font-semibold">Recommended episodes</h2>
+              <p className="text-xs text-muted-foreground mt-1">Strong matches from highly ranked sources.</p>
             </div>
             <EpisodeList items={best} showEntities />
           </section>
@@ -236,7 +234,6 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         {pods.length > 0 && (
           <section>
             <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Sources</div>
               <h2 className="text-xl font-semibold">Podcasts covering {displayName}</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -248,7 +245,6 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         {related.length > 0 && (
           <section>
             <div className="mb-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">Connected</div>
               <h2 className="text-xl font-semibold">Related</h2>
               <p className="text-xs text-muted-foreground mt-1">People, companies and topics that show up alongside {displayName}.</p>
             </div>
@@ -271,7 +267,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         )}
 
         <p className="text-xs text-muted-foreground pt-4 border-t border-border/60">
-          Indexed from public RSS feeds. Ranked by freshness, feed health and episode relevance.
+          Indexed from public RSS feeds. Ranked by relevance, freshness and source quality.
         </p>
       </div>
     </Layout>
