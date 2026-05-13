@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
     // (entity boost + dynamic alpha still applied).
     if ((rows?.length || 0) === 0 && mustGateApplied) {
       const retry = await supa.rpc("search_episodes_hybrid", {
-        q: expanded,
+        q: q,
         q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
         limit_n: Math.max(limit, 50),
         lang,
