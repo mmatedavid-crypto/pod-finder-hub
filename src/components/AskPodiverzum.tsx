@@ -97,12 +97,12 @@ export function AskPodiverzum() {
             Try
           </div>
           <div className="grid sm:grid-cols-2 gap-2.5">
-            {visible.map((question) => (
+            {visible.map((question, i) => (
               <button
-                key={question}
+                key={`${i}-${keys[i]}`}
                 type="button"
                 onClick={() => go(question)}
-                className="group text-left flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-all duration-300 animate-fade-up"
+                className="group text-left flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-all duration-300 animate-fade-in"
               >
                 <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0 transition-transform group-hover:scale-110" />
                 <span className="text-sm font-medium leading-snug">{question}</span>
