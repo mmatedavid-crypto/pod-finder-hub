@@ -379,8 +379,8 @@ export default function SearchPage() {
         {initial && !loading && piFallback && piFallback.candidates.length > 0 && podcasts.length === 0 && (
           <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                {piFallback.staged > 0 ? "Indexing now" : "Found via PodcastIndex"}
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {piFallback.staged > 0 ? "Coming soon" : "Found in external sources"}
               </span>
               {piFallback.staged > 0 && (
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
@@ -388,8 +388,8 @@ export default function SearchPage() {
             </div>
             <p className="text-sm text-foreground/80 mb-3">
               We didn't have these in our index yet. {piFallback.staged > 0
-                ? `We just queued ${piFallback.staged} for ingestion — episodes should appear within a few minutes.`
-                : "They're already in the queue."}
+                ? `We just queued ${piFallback.staged} for indexing — episodes should appear within a few minutes.`
+                : "They're already queued."}
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {piFallback.candidates.slice(0, 6).map((c, i) => {
@@ -403,9 +403,9 @@ export default function SearchPage() {
                       <div className="font-medium text-sm leading-tight line-clamp-2">{c.title}</div>
                       {c.author && <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{c.author}</div>}
                       <div className="text-[10px] mt-1.5 inline-flex items-center gap-1">
-                        {c.status === "indexed" && <span className="text-primary font-medium">In index →</span>}
-                        {c.status === "staged" && <span className="text-muted-foreground">Queued</span>}
-                        {c.status === "new" && <span className="text-primary">Indexing…</span>}
+                        {c.status === "indexed" && <span className="text-primary font-medium">Available →</span>}
+                        {c.status === "staged" && <span className="text-muted-foreground">Coming soon</span>}
+                        {c.status === "new" && <span className="text-muted-foreground">Coming soon</span>}
                       </div>
                     </div>
                   </div>

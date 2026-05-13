@@ -109,21 +109,21 @@ export default function DailyBriefPage() {
   return (
     <Layout>
       <Seo
-        title="Daily Brief — fresh podcast episodes today | Podiverzum"
-        description="The best podcast episodes published in the last 24-72 hours, hand-ranked by Podiverzum."
+        title="Daily brief — fresh podcast episodes | Podiverzum"
+        description="A short daily roundup of notable episodes across the index."
       />
       {/* Hero */}
       <section className="border-b border-border bg-background relative overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-60" />
         <div className="container mx-auto py-12 sm:py-16 relative">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[10px] uppercase tracking-[0.22em] text-primary">
-            <Calendar className="h-3 w-3" /> Daily Brief
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-card/60 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            <Calendar className="h-3 w-3" /> Daily brief
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mt-4 leading-[1.05]">
-            What's worth hearing <span className="text-brand-gradient">today</span>
+            Daily brief
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl">
-            {today} · The best podcast episodes published recently across S/A-tier shows. Curated by Podiverzum, refreshed continuously.
+            {today} · A short daily roundup of notable episodes across the index.
           </p>
 
           <div className="mt-6 inline-flex rounded-lg border border-border bg-card overflow-hidden text-sm">
@@ -157,11 +157,8 @@ export default function DailyBriefPage() {
           <section>
             <div className="flex items-end justify-between mb-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary mb-1">
-                  <Sparkles className="h-3 w-3" /> Top 5 right now
-                </div>
                 <h2 className="text-2xl font-semibold">If you only have time for five</h2>
-                <p className="text-xs text-muted-foreground mt-1">One per show. Ranked by tier, freshness and Podiverzum Rank.</p>
+                <p className="text-xs text-muted-foreground mt-1">One per show, ranked by relevance, freshness and source quality.</p>
               </div>
             </div>
             <EpisodeList items={top5} />
@@ -170,8 +167,8 @@ export default function DailyBriefPage() {
 
         {topTopics.length > 0 && (
           <TrendingEntities
-            eyebrow="Today's signal"
-            title="What's getting talked about"
+            eyebrow="Topics"
+            title="Frequently mentioned today"
             subtitle="Topics surfacing across today's episodes."
             items={topTopics}
             icon="topic"
@@ -180,8 +177,8 @@ export default function DailyBriefPage() {
 
         {topPeople.length > 0 && (
           <TrendingEntities
-            eyebrow="People in today's brief"
-            title="Names you'll hear today"
+            eyebrow="People"
+            title="Names mentioned today"
             items={topPeople}
             icon="person"
           />
