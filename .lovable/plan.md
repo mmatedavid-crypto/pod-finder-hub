@@ -1,78 +1,77 @@
-# Bot prerender — `/` és `/podcast/{slug}` indító verzió
+# Plan: Út a publikus launch felé
 
-## Cél
+A backlog gyakorlatilag kész (126k/133k friss epizód AI-summary-vel, 6.6k S/A/B/C podcast SEO-val, 7.5k pod embedding, 658k epizód embedding). Innen már nem mennyiségi, hanem **minőségi és go-live** munka van hátra. A terv 4 fázisból áll, kb. 5–7 nap alatt élesedhet.
 
-AI crawler-eknek (GPTBot, ClaudeBot, PerplexityBot, Google-Extended stb.) szerver oldalon legyártott, teljes HTML-t adni: `<title>`, meta description, canonical, **teljes JSON-LD** (PodcastSeries / PodcastEpisode / BreadcrumbList), H1, AI summary szöveg, kattintható linkek. A felhasználók továbbra is a normál SPA-t kapják — gyors, semmi sem változik nekik.
+---
 
-A csővezeték már áll (DNS proxied + Worker route-ok bekötve). Most a **tartalom** kerül bele.
+## Fázis 1 — Sprint kivezetése (ma, ~1 óra)
 
-## Hatókör — első iteráció
+A 48h sprint cron beállításai még "drain" módban futnak, ezeket vissza kell venni steady-state-re, különben fölöslegesen égetjük a Cloud kreditet.
 
-Csak két útvonal típus, hogy gyorsan élesedjen és mérni tudjuk a hatást:
+- `seo-enrich-enqueue` cron: `*/5` → `*/15`
+- `seo-enrich-runner` fanout: 8 → 4, daily budget: $50 → $5
+- `deep-hydrate-runner`: `*/2` → `*/10`
+- `embed-episode` cron: `*/1` → adaptív (már az)
+- `title-cleanup`: `*/15` → `*/60`
+- AI daily budget cap visszavétele $5/day-re
+- Memory frissítése (Core rule: "sprint vége, steady state")
 
-1. `/` — homepage (trending + evergreen episode-ök listája)
-2. `/podcast/{slug}` — podcast részletes oldal (cím, leírás, AI summary, top 10 epizód)
+## Fázis 2 — Tartalom-minőség audit (1–2 nap)
 
-Második körben (külön kérésre): `/podcast/{slug}/{episode-slug}`, `/category/{slug}`, entitás hub-ok.
+A site akkor mehet publikba, ha a látogató első 3 kattintása jó élmény. Mintavételes ellenőrzés:
 
-## Architektúra
+- **Homepage feed**: 30 random epizód kézzel végignézve (cím, summary, kategória, cover) — ha >5% rossz, javítás
+- **Top 100 S-tier podcast** AI-summary-jának mintavételes review — nyelv, hossz, hallucináció
+- **Kategorizálás**: 21-slug taxonomy újrafuttatása minden S/A podcastra, ha hiányzik
+- **Search QA test set** (`mem://qa/search-issues.md`) lefuttatása, regressziók javítása
+- **Mood collections**: `mood-collections-seed` újrafuttatás friss embeddingekkel
+- **Featured / curated lists**: legalább 5 kézzel kurált "best of" lista a homepage-re
 
-```text
-Bot UA?  ─yes─►  CF Worker  ──►  prerender-page edge fn  ──►  DB (RPC)
-                    │              ↓ HTML string
-                    ◄────── HTML + JSON-LD
-Human ──no──►  Worker passthrough  ──►  Lovable hosting (SPA)
-```
+## Fázis 3 — SEO és indexelhetőség (1–2 nap)
 
-## Lépések
+A bot-prerender már él. Hátralévő:
 
-### 1. Edge function `prerender-page` (Supabase)
+- **Sitemap regen**: friss epizódok + új podcastok bekerüljenek
+- **`seo_chat--list_findings`** lefuttatás → minden failing finding fix
+- **Meta title/description** ellenőrzés a top 200 podcast + 500 epizód oldalon
+- **JSON-LD** (Podcast, PodcastEpisode, BreadcrumbList) review
+- **`llms.txt`** és `robots.txt` átnézés
+- **Core Web Vitals**: homepage + search + podcast detail Lighthouse audit, ha <90, optimalizálás (LCP, CLS)
+- **OG image** generálás top 100 podcastra
+- **Google Search Console + Bing Webmaster** beadás, sitemap submit
 
-- Bemenet: `?path=/podcast/some-slug` (query param)
-- Logika:
-  - parse path → `{ kind: 'home' | 'podcast', slug? }`
-  - `home`: olvassa `mv_homepage_feed` + `mv_homepage_evergreen` MV-eket (top 30 + 10)
-  - `podcast`: `podcasts` row by slug (csak EN, healthy RSS) + top 10 episode by `published_at`
-  - HTML template (template literal, semmi React) — egyetlen `<html>` string visszaad
-- Tartalom a HTML-ben:
-  - `<title>` + meta description (a `seo_title` / `seo_description` mezőkből, vagy fallback a `title` / `summary`-ből)
-  - `<link rel="canonical">` mindig `https://podiverzum.com{path}`
-  - JSON-LD: WebSite + Organization homepage-en; PodcastSeries + BreadcrumbList podcast oldalon, `hasPart` listában az epizódok
-  - `<h1>`, AI summary `<p>`, epizód lista `<a href="...">` linkekkel
-  - `<noscript>` fallback link
-- Headers: `Cache-Control: public, max-age=3600`, `Vary: User-Agent`, `X-Prerendered: 1`, `Content-Type: text/html; charset=utf-8`
-- `verify_jwt = false` (publikus)
+## Fázis 4 — Observability és launch (1 nap)
 
-### 2. Cloudflare Worker (`podiverzum-bot-prerender`) frissítése
+- **Admin Cron Status oldal** zöld minden soron
+- **Edge function error rate** monitoring — ha bármelyik >2%, vizsgálat
+- **Search latency p95** <800ms ellenőrzés
+- **Incident kill-switch** teszt (`background_jobs.incident_mode = true` → minden async leáll)
+- **Privacy / Terms / About** oldalak végleges szöveg
+- **Feedback gomb** működik, célzott inbox
+- **Soft launch checklist**:
+  - Custom domain `podiverzum.com` aktív (már él)
+  - Publish Update gomb megnyomva
+  - 10 fős privát beta csoport meghívása 24h-ra
+  - Beta visszajelzések alapján P0 javítások
+- **Public launch**: HN Show / Product Hunt / X poszt
 
-A jelenleg passthrough Worker helyett:
+---
 
-- Bot UA detektor (regex listán): `GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|PerplexityBot|Google-Extended|Applebot-Extended|Bytespider|Meta-ExternalAgent|DuckAssistBot|CCBot|YouBot|Diffbot|Googlebot|Bingbot`
-- Path filter: csak `/` és `/^\/podcast\/[^\/]+$/` — minden más passthrough (még bot UA-val is)
-- Ha bot + támogatott path:
-  1. CF Cache API lookup (kulcs: `path + UA-osztály`)
-  2. Cache miss → `fetch('https://<project>.functions.supabase.co/prerender-page?path=...')`
-  3. Cache 1h-ra, `X-Prerender-Cache: HIT|MISS` header
-- Ha nem bot vagy nem támogatott path: `fetch(originalRequest)` (passthrough)
-- Hibatűrés: ha a prerender 5xx-et ad vagy timeout (>3s), passthrough az SPA-ra (sose törjük az oldalt)
+## Mérőszámok a launch előtt (go/no-go)
 
-Worker upload a már meglévő API tokennel megy (Cloudflare API).
+| Mutató | Cél |
+|---|---|
+| S+A podcast SEO coverage | ≥98% |
+| Friss epizód AI-summary coverage (30 nap) | ≥95% (most 95%) |
+| Homepage feed kattintható és nem üres | 100% |
+| Search top-10 manuális minőség | ≥8/10 random querynél jó |
+| Lighthouse Performance (mobile) | ≥85 |
+| Cloud daily spend steady state | <$10/day |
+| Edge function error rate | <2% |
 
-### 3. Smoke teszt
+## Mit nem csinálunk a launch előtt (post-launch backlog)
 
-`curl` szkripttel verifikáljuk:
-- bot UA + `/` → `X-Prerendered: 1`, JSON-LD jelen, megfelelő `<title>`
-- bot UA + `/podcast/<létező-slug>` → JSON-LD `@type: PodcastSeries`
-- bot UA + `/search?q=...` → passthrough (nincs `X-Prerendered`)
-- normál Chrome UA + `/` → passthrough, normál SPA HTML
-- második hívás bot UA-val → `X-Prerender-Cache: HIT`
-
-## Ami NEM ez a plan része (későbbre)
-
-- Episode detail, category, entity hub oldalak (külön iteráció — minta kell hozzá az első kettőből)
-- `bot_visits` logging tábla (egyelőre csak a Worker logokat nézzük)
-- Edge cache tisztítás új epizód érkezésekor (1h TTL bőven elég kezdetnek)
-
-## Becsült kockázat
-
-Alacsony — a Worker fail-safe (hiba esetén passthrough), és csak bot UA-knak változik valami. Felhasználói forgalom 0 hatás.
+- Search ranking finomhangolás (memory szerint nem nyúlunk hozzá amíg minden zöld)
+- Multilingual / HU rollout (`mem://plans/multilingual.md`)
+- Audio transcription, Spotify download
+- User accounts / kommentek / fizetés
