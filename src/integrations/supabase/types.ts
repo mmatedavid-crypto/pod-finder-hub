@@ -1529,6 +1529,194 @@ export type Database = {
         }
         Relationships: []
       }
+      x_reply_audit_log: {
+        Row: {
+          action: string
+          actor: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          suggestion_id: string | null
+          watched_post_id: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          suggestion_id?: string | null
+          watched_post_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          suggestion_id?: string | null
+          watched_post_id?: string | null
+        }
+        Relationships: []
+      }
+      x_reply_suggestions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          podiverzum_url: string
+          posted_at: string | null
+          status: string
+          suggestion_text: string
+          updated_at: string
+          variant: string | null
+          watched_post_id: string
+          x_reply_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          podiverzum_url: string
+          posted_at?: string | null
+          status?: string
+          suggestion_text: string
+          updated_at?: string
+          variant?: string | null
+          watched_post_id: string
+          x_reply_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          podiverzum_url?: string
+          posted_at?: string | null
+          status?: string
+          suggestion_text?: string
+          updated_at?: string
+          variant?: string | null
+          watched_post_id?: string
+          x_reply_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_reply_suggestions_watched_post_id_fkey"
+            columns: ["watched_post_id"]
+            isOneToOne: false
+            referencedRelation: "x_watched_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      x_watch_accounts: {
+        Row: {
+          created_at: string
+          default_podiverzum_url: string | null
+          display_name: string | null
+          id: string
+          is_active: boolean
+          last_checked_at: string | null
+          last_seen_post_id: string | null
+          notes: string | null
+          person_slug: string | null
+          priority: number
+          updated_at: string
+          x_handle: string
+          x_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          default_podiverzum_url?: string | null
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_seen_post_id?: string | null
+          notes?: string | null
+          person_slug?: string | null
+          priority?: number
+          updated_at?: string
+          x_handle: string
+          x_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          default_podiverzum_url?: string | null
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_seen_post_id?: string | null
+          notes?: string | null
+          person_slug?: string | null
+          priority?: number
+          updated_at?: string
+          x_handle?: string
+          x_user_id?: string | null
+        }
+        Relationships: []
+      }
+      x_watched_posts: {
+        Row: {
+          created_at: string
+          detected_at: string
+          id: string
+          match_reason: string | null
+          matched_person_slug: string | null
+          matched_podiverzum_url: string | null
+          matched_topic: string | null
+          post_text: string | null
+          post_url: string
+          posted_at: string | null
+          relevance_score: number | null
+          status: string
+          updated_at: string
+          x_handle: string
+          x_post_id: string
+        }
+        Insert: {
+          created_at?: string
+          detected_at?: string
+          id?: string
+          match_reason?: string | null
+          matched_person_slug?: string | null
+          matched_podiverzum_url?: string | null
+          matched_topic?: string | null
+          post_text?: string | null
+          post_url: string
+          posted_at?: string | null
+          relevance_score?: number | null
+          status?: string
+          updated_at?: string
+          x_handle: string
+          x_post_id: string
+        }
+        Update: {
+          created_at?: string
+          detected_at?: string
+          id?: string
+          match_reason?: string | null
+          matched_person_slug?: string | null
+          matched_podiverzum_url?: string | null
+          matched_topic?: string | null
+          post_text?: string | null
+          post_url?: string
+          posted_at?: string | null
+          relevance_score?: number | null
+          status?: string
+          updated_at?: string
+          x_handle?: string
+          x_post_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_homepage_evergreen: {
