@@ -1550,8 +1550,11 @@ export type Database = {
           query_embedding: string
         }
         Returns: {
+          ai_summary: string
+          audio_url: string
           display_title: string
           episode_id: string
+          episode_slug: string
           podcast_category: string
           podcast_display_title: string
           podcast_id: string
