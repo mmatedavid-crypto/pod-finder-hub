@@ -67,7 +67,7 @@ export default function AdminLivePage() {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        const [{ data: r }, { count: total }, { data: dayRows }] = await Promise.all([
+        const [{ data: r }, { count: total }] = await Promise.all([
           supabase
             .from("page_events")
             .select("id,path,full_url,user_id,referrer,created_at")
@@ -78,19 +78,11 @@ export default function AdminLivePage() {
             .from("page_events")
             .select("id", { count: "exact", head: true })
             .gte("created_at", startOfDay.toISOString()),
-          supabase
-            .from("page_events")
-            .select("user_id,full_url,path")
-            .gte("created_at", startOfDay.toISOString())
-            .limit(10000),
         ]);
 
         if (cancelled) return;
         setRecent((r as Row[]) || []);
         setTodayCount(total || 0);
-        const uniq = new Set<string>();
-        (dayRows || []).forEach((x: any) => uniq.add(x.user_id || x.full_url || x.path));
-        setTodayUnique(uniq.size);
         setLastRefreshed(new Date());
       } finally {
         if (!cancelled) setLoading(false);
