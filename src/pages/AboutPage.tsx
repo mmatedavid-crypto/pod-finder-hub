@@ -23,7 +23,7 @@ export default function AboutPage() {
           Podiverzum is built for people who listen for ideas — not just shows.
         </p>
         <p>
-          It searches podcast episodes by what they actually discuss: people, companies, markets, technologies, places and ideas.
+          Start with what you're curious about — not the show name. Search across podcasts by the topic, person, company or idea you care about, and surface the episodes actually discussing it.
         </p>
         <p>
           We index public podcast RSS feeds and link listeners back to the original publisher — Apple Podcasts, Spotify, YouTube, the show's website or wherever the creator publishes. We do not host audio. The index currently covers more than 700,000 episodes and keeps growing.
@@ -31,13 +31,13 @@ export default function AboutPage() {
 
         <h2 className="mt-10 text-xl font-semibold">Why it exists</h2>
         <p>
-          Most podcast apps are built around shows you already follow. The wider catalog stays hard to search.
+          Spotify and Apple Podcasts are great when you already know the show. They're built around the feeds you already follow.
         </p>
         <p>
-          If you want recent episodes about Nvidia earnings, the Federal Reserve, GLP-1 drugs, AI regulation, longevity or European politics, you usually have to guess at titles, scroll through individual feeds, or hope a chart surfaces it. Podiverzum is the layer that's been missing.
+          But most of what's worth hearing lives outside them. If you want recent episodes about Nvidia earnings, the Federal Reserve, GLP-1 drugs, AI regulation or European politics, you have to guess at titles or scroll through individual feeds.
         </p>
         <p>
-          Podiverzum is the missing layer — a searchable, ranked index of episodes, shows, topics, people, companies and ideas.
+          Podiverzum is the layer in between — a searchable, ranked index of episodes, shows, topics, people, companies and ideas, pulling relevant conversations from across different podcasts.
         </p>
 
         <h2 className="mt-10 text-xl font-semibold">What we do</h2>
