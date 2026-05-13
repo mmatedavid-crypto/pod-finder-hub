@@ -490,8 +490,9 @@ async function buildEntity(
       title,
       description: desc,
       canonical,
+      ogImage,
       jsonLd: [itemList],
-      bodyHtml: `<header><h1>${esc(human)}</h1><p>Podcast episodes mentioning ${esc(human)}.</p></header>
+      bodyHtml: `<header><h1>${esc(human)}</h1>${bio ? `<p>${esc(bio)}</p>` : `<p>Podcast episodes mentioning ${esc(human)}.</p>`}${epsSummary ? `<p>${esc(epsSummary)}</p>` : ""}</header>
 <main><ul>${html}</ul></main>`,
     })),
     { headers: new Headers(baseHeaders) },
