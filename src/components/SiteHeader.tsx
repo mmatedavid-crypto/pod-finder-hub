@@ -74,7 +74,7 @@ export function SiteHeader() {
           <LayoutGrid className="h-4 w-4" />
           Categories
         </NavLink>
-        <div ref={wrapRef} className="ml-auto relative w-full max-w-sm hidden sm:block">
+        <div ref={wrapRef} className={`ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submit(q); }}
             className="relative focus-brand rounded-md transition-shadow"
