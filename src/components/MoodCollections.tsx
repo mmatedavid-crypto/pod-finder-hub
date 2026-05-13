@@ -121,7 +121,7 @@ export function MoodCollections() {
               key={m.slug}
               to={`/mood/${m.slug}`}
               onClick={onClick}
-              className={`group relative overflow-hidden rounded-xl border border-primary/30 bg-card/70 p-4 hover:border-primary/60 transition-colors`}
+              className={`group relative overflow-hidden rounded-xl border border-primary/30 bg-card/70 p-4 hover:border-primary/60 transition-colors ${idx >= 2 ? "hidden md:block" : ""}`}
               style={{ background: `linear-gradient(135deg, ${accent}1c, transparent 60%), hsl(var(--card) / 0.7)` }}
             >
               <div className="flex items-start justify-between">
