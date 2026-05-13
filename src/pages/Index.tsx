@@ -296,8 +296,8 @@ const Index = () => {
                   type="button"
                   onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)}
                   className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                    i >= 3 ? "hidden sm:inline-flex" : ""
-                  } ${i >= 4 ? "sm:hidden lg:inline-flex" : ""}`}
+                    i >= 3 ? "!hidden sm:!inline-flex" : ""
+                  } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
                 >
                   {c.label}
                 </button>
