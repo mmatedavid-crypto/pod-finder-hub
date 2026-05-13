@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { Search, LayoutGrid } from "lucide-react";
 import { BrandMark } from "./Brand";
@@ -12,6 +12,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [loadingSugg, setLoadingSugg] = useState(false);
   const nav = useNavigate();
+  const isHome = useLocation().pathname === "/";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -73,7 +74,7 @@ export function SiteHeader() {
           <LayoutGrid className="h-4 w-4" />
           Categories
         </NavLink>
-        <div ref={wrapRef} className="ml-auto relative w-full max-w-sm hidden sm:block">
+        <div ref={wrapRef} className={`ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden sm:block"}`}>
           <form
             onSubmit={(e) => { e.preventDefault(); submit(q); }}
             className="relative focus-brand rounded-md transition-shadow"
