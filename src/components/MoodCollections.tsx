@@ -78,11 +78,11 @@ export function MoodCollections() {
             <Sparkles className="h-3 w-3" /> Discover by mood
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold">What are you in the mood for?</h2>
-          <p className="text-xs text-muted-foreground mt-1">Two evergreen picks · Two we sensed for this moment.</p>
+          <p className="text-xs text-muted-foreground mt-1">A few picks for right now — see all on the categories page.</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {statics.map((m) => {
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {statics.slice(0, 1).map((m) => {
           const Icon = STATIC_ICONS[m.slug] || Sparkles;
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
           return (
