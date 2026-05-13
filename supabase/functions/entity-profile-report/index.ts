@@ -65,8 +65,14 @@ Deno.serve(async (req) => {
 
     const idem = `entity-report-${new Date().toISOString().slice(0, 13)}-${total}`;
 
-    const { data: sendRes, error: sendErr } = await sb.functions.invoke("send-transactional-email", {
-      body: {
+    console.log("invoking send-transactional-email", { recipient, total, idem });
+    const sendResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-transactional-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
         templateName: "admin-report",
         recipientEmail: recipient,
         idempotencyKey: idem,
@@ -74,13 +80,20 @@ Deno.serve(async (req) => {
           title,
           intro: `${total} entitáshoz van AI életrajz. Kattints bármelyikre a profil megnyitásához.`,
           linkGroups,
-          notes: sinceHours ? null : `Forrás: entity_profiles tábla. Generálva: ${new Date().toISOString()}`,
+          notes: sinceHours ? null : `Forrás: entity_profiles. Generálva: ${new Date().toISOString()}`,
         },
-      },
+      }),
     });
-    if (sendErr) throw sendErr;
+    const sendText = await sendResp.text();
+    console.log("send response", sendResp.status, sendText);
+    if (!sendResp.ok) {
+      return new Response(JSON.stringify({ error: "send failed", status: sendResp.status, body: sendText }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    return new Response(JSON.stringify({ ok: true, total, groups: linkGroups.length, send: sendRes }), {
+    return new Response(JSON.stringify({ ok: true, total, groups: linkGroups.length, send: sendText }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
