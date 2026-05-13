@@ -268,10 +268,10 @@ const Index = () => {
             Find it. <span className="text-brand-gradient">Hear it.</span>
           </h1>
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Search podcast episodes by what they actually discuss.
+            Start with what you're curious about — not the show name.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Ask about people, companies, markets, technologies or ideas — and find the conversations worth hearing.
+            Search by topic, person, company, market, technology or idea.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}

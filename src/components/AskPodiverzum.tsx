@@ -72,7 +72,7 @@ export function AskPodiverzum() {
         </h2>
 
         <p className="mt-2 sm:mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-          Describe a topic, person, company or idea. Podiverzum finds episodes that connect — and shows why they match.
+          Try a person, a company, a topic or an idea. Podiverzum finds relevant podcast episodes across shows — and shows why they match.
         </p>
 
         <form
