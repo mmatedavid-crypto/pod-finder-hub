@@ -145,7 +145,6 @@ export default function EpisodeDetail() {
   const cleanSummary = stripHtml(e.summary);
   const cleanDesc = stripHtml(e.description);
   const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
-  const moments = extractKeyMoments(cleanDesc || cleanSummary);
   const epUrl = `${siteOrigin()}/podcast/${p.slug}/${e.slug}`;
   const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
 
