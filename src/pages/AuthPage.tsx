@@ -17,7 +17,7 @@ export default function AuthPage() {
     if (!robots) { robots = document.createElement("meta"); robots.name = "robots"; document.head.appendChild(robots); }
     robots.content = "noindex, nofollow";
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav("/admin");
+      if (data.session) nav("/");
     });
   }, [nav]);
 
@@ -28,14 +28,14 @@ export default function AuthPage() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
+        options: { emailRedirectTo: `${window.location.origin}/` },
       });
       if (error) toast.error(error.message);
       else toast.success("Account created. Check your email if confirmation required, then sign in.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) toast.error(error.message);
-      else nav("/admin");
+      else nav("/");
     }
     setLoading(false);
   };

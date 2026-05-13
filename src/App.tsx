@@ -11,21 +11,8 @@ import PodcastDetail from "./pages/PodcastDetail.tsx";
 import EpisodeDetail from "./pages/EpisodeDetail.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
-import AdminPage from "./pages/AdminPage.tsx";
-import AdminHubPage from "./pages/AdminHubPage.tsx";
-import AdminBootstrapPage from "./pages/AdminBootstrapPage.tsx";
-import AdminDiscoveryPage from "./pages/AdminDiscoveryPage.tsx";
-import AdminGrowthPage from "./pages/AdminGrowthPage.tsx";
-import AdminAutopilotPage from "./pages/AdminAutopilotPage.tsx";
-import AdminQueuePage from "./pages/AdminQueuePage.tsx";
 import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 import EntityPage from "./pages/EntityPage.tsx";
-import AdminFeedbackPage from "./pages/AdminFeedbackPage.tsx";
-import AdminSearchInsightsPage from "./pages/AdminSearchInsightsPage.tsx";
-import AdminAnalyticsPage from "./pages/AdminAnalyticsPage.tsx";
-import AdminAiEnrichmentPage from "./pages/AdminAiEnrichmentPage.tsx";
-import AdminCronStatusPage from "./pages/AdminCronStatusPage.tsx";
-import AdminSocialPostsPage from "./pages/AdminSocialPostsPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
@@ -58,20 +45,8 @@ const App = () => (
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/admin" element={<AdminHubPage />} />
-          <Route path="/admin/podcasts" element={<AdminPage />} />
-          <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />
-          <Route path="/admin/discovery" element={<AdminDiscoveryPage />} />
-          <Route path="/admin/growth" element={<AdminGrowthPage />} />
-          <Route path="/admin/autopilot" element={<AdminAutopilotPage />} />
-          <Route path="/admin/queue" element={<AdminQueuePage />} />
-          <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
-          <Route path="/admin/search-insights" element={<AdminSearchInsightsPage />} />
-          <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
-          <Route path="/admin/ai-enrichment" element={<AdminAiEnrichmentPage />} />
-          <Route path="/admin/cron-status" element={<AdminCronStatusPage />} />
-          <Route path="/admin/social" element={<AdminSocialPostsPage />} />
           
+
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
