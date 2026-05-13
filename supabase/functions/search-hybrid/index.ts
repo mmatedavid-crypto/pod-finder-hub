@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
     const entityTerms = rawEntities.slice(0, 8);
     const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
 
-    const { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
+    let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q: expanded,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
@@ -217,11 +217,27 @@ Deno.serve(async (req) => {
       console.error("rpc err", error);
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    let mustGateApplied = requiredTerms.length > 0;
+    let mustGateRelaxed = false;
+    // Graceful fallback: if MUST gate zeroed out results, retry without required_terms
+    // (entity boost + dynamic alpha still applied).
+    if ((rows?.length || 0) === 0 && mustGateApplied) {
+      const retry = await supa.rpc("search_episodes_hybrid", {
+        q: expanded,
+        q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+        limit_n: Math.max(limit, 50),
+        lang,
+        required_terms: null,
+        entity_terms: entityTerms.length ? entityTerms : null,
+        alpha_lex: alphaLex,
+      });
+      if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+    }
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
