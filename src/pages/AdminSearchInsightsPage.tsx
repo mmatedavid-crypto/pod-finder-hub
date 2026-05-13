@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 
 type Row = {
   id: string;
@@ -14,7 +14,7 @@ type Row = {
 };
 
 export default function AdminSearchInsightsPage() {
-  useNoindex("Admin · Search insights — Podiverzum");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);

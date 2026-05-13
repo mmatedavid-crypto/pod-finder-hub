@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useNoindex } from "@/lib/useNoindex";
+import { Seo } from "@/components/Seo";
 import Layout from "@/components/Layout";
 import { Loader2, Send, Eye, ExternalLink, RefreshCcw } from "lucide-react";
 
@@ -21,7 +21,7 @@ type SocialPost = {
 };
 
 export default function AdminSocialPostsPage() {
-  useNoindex("Social Posts — Podiverzum Admin");
+  
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
