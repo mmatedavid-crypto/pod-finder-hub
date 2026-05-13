@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
-import { setSeo } from "@/lib/seo";
+import { Seo } from "@/components/Seo";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { Compass, Search } from "lucide-react";
 
@@ -13,11 +13,6 @@ export default function NotFound() {
   const [suggestions, setSuggestions] = useState<PodcastLite[]>([]);
 
   useEffect(() => {
-    setSeo({
-      title: "Page not found — Podiverzum",
-      description: "The page you're looking for doesn't exist on Podiverzum. Browse top podcasts instead.",
-      noindex: true,
-    });
     console.warn("404:", location.pathname);
     supabase
       .from("podcasts")
