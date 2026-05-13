@@ -25,6 +25,7 @@ import ContactPage from "./pages/ContactPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
+import AdminLivePage from "./pages/AdminLivePage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
 const queryClient = new QueryClient();
