@@ -82,22 +82,37 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
 
 function buildSvg(opts: { kind: string; title: string; subtitle: string; coverDataUri: string }): string {
   const { kind, title, subtitle, coverDataUri } = opts;
-  const titleLines = wrapText(title, kind === "site" ? 30 : 32, 3);
-  const titleFontSize = titleLines.length >= 3 ? 56 : titleLines.length === 2 ? 64 : 72;
-  const lineHeight = titleFontSize + 12;
-
   const coverSize = 360;
   const coverX = 80;
   const coverY = (H - coverSize) / 2;
-
   const textX = coverDataUri ? coverX + coverSize + 60 : 80;
 
+  // Available text width → conservative char budget per line (Inter Bold ~0.55em avg).
+  const textRight = W - 80;
+  const textWidth = textRight - textX;
+  const maxCharsAt = (px: number) => Math.max(8, Math.floor(textWidth / (px * 0.52)));
+
+  // Try widest font first, shrink until 3 lines fit.
+  let titleFontSize = 72;
+  let titleLines = wrapText(title, maxCharsAt(titleFontSize), 3);
+  if (titleLines.length >= 2) { titleFontSize = 64; titleLines = wrapText(title, maxCharsAt(titleFontSize), 3); }
+  if (titleLines.length >= 3) { titleFontSize = 56; titleLines = wrapText(title, maxCharsAt(titleFontSize), 3); }
+  const lineHeight = Math.round(titleFontSize * 1.15);
+
+  // Vertically center the (subtitle + title) block around y=H/2.
+  const subtitleSize = 26;
+  const subtitleGap = 18;
+  const blockH = (subtitle ? subtitleSize + subtitleGap : 0) + titleLines.length * lineHeight;
+  const blockTop = Math.round((H - blockH) / 2) - 30; // nudge up to leave room for footer
+  const subtitleY = subtitle ? blockTop + subtitleSize : 0;
+  const titleStartY = (subtitle ? subtitleY + subtitleGap : blockTop) + titleFontSize;
+
   const titleSvg = titleLines
-    .map((line, i) => `<text x="${textX}" y="${260 + i * lineHeight}" font-family="Inter" font-weight="700" font-size="${titleFontSize}" fill="#ffffff">${escapeXml(line)}</text>`)
+    .map((line, i) => `<text x="${textX}" y="${titleStartY + i * lineHeight}" font-family="Inter" font-weight="700" font-size="${titleFontSize}" fill="#ffffff">${escapeXml(line)}</text>`)
     .join("");
 
   const subtitleSvg = subtitle
-    ? `<text x="${textX}" y="220" font-family="Inter" font-weight="700" font-size="28" fill="#a3a3a3" letter-spacing="2">${escapeXml(subtitle.toUpperCase())}</text>`
+    ? `<text x="${textX}" y="${subtitleY}" font-family="Inter" font-weight="700" font-size="${subtitleSize}" fill="#a3a3a3" letter-spacing="2">${escapeXml(subtitle.toUpperCase())}</text>`
     : "";
 
   const coverSvg = coverDataUri
