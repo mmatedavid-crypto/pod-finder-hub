@@ -20,6 +20,41 @@ export default function MoodCollectionPage() {
     if (!slug) return;
     (async () => {
       setLoading(true);
+
+      // Dynamic AI mood
+      if (slug.startsWith("dyn-")) {
+        try {
+          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mood-personalize?slug=${encodeURIComponent(slug)}`;
+          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } });
+          const j = await res.json();
+          const m = j?.mood;
+          if (m) {
+            setMood({ ...m, podcast_ids: [], episode_ids: m.episode_ids || [] });
+            const eps = (m.episodes || []).map((e: any) => ({
+              id: e.episode_id,
+              slug: e.episode_slug,
+              title: e.title,
+              display_title: e.display_title,
+              ai_summary: e.ai_summary,
+              published_at: e.published_at,
+              audio_url: e.audio_url,
+              podcasts: {
+                slug: e.podcast_slug,
+                title: e.podcast_title,
+                display_title: e.podcast_display_title,
+                image_url: e.podcast_image_url,
+                category: e.podcast_category,
+                rank_label: e.rank_label,
+              },
+            }));
+            setEpisodes(eps as any);
+          }
+        } catch (e) { console.warn(e); }
+        setLoading(false);
+        return;
+      }
+
+      // Static mood
       const { data: m } = await supabase
         .from("mood_collections" as any)
         .select("*").eq("slug", slug).eq("active", true).maybeSingle();
@@ -28,26 +63,21 @@ export default function MoodCollectionPage() {
       if (!m) return;
       const ids: string[] = (m as any).podcast_ids || [];
       const epIds: string[] = (m as any).episode_ids || [];
+      if (epIds.length) {
+        const { data: eps } = await supabase
+          .from("episodes")
+          .select("id,title,display_title,slug,summary,ai_summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+          .in("id", epIds);
+        // Preserve curated order
+        const order = new Map(epIds.map((id, i) => [id, i]));
+        const sorted = (eps || []).slice().sort((a: any, b: any) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+        setEpisodes(sorted as any);
+      }
       if (ids.length) {
         const { data: ps } = await supabase.from("podcasts")
           .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank,rank_label")
           .in("id", ids);
         setPodcasts(ps || []);
-        // Latest episodes from these podcasts
-        const { data: eps } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,summary,ai_summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
-          .in("podcast_id", ids)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(40);
-        const sorted = (eps || []).slice().sort(compareByScore).slice(0, 18) as any;
-        setEpisodes(sorted);
-      } else if (epIds.length) {
-        const { data: eps } = await supabase
-          .from("episodes")
-          .select("id,title,display_title,slug,summary,ai_summary,description,published_at,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
-          .in("id", epIds);
-        setEpisodes((eps || []) as any);
       }
     })();
   }, [slug]);

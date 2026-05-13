@@ -278,6 +278,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dynamic_mood_cache: {
+        Row: {
+          country: string
+          created_at: string
+          dow: number
+          expires_at: string
+          hits: number
+          hour_bucket: number
+          id: string
+          payload: Json
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          dow: number
+          expires_at?: string
+          hits?: number
+          hour_bucket: number
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          dow?: number
+          expires_at?: string
+          hits?: number
+          hour_bucket?: number
+          id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -1509,6 +1542,30 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_episodes_by_embedding: {
+        Args: {
+          match_limit?: number
+          max_age_days?: number
+          query_embedding: string
+        }
+        Returns: {
+          ai_summary: string
+          audio_url: string
+          display_title: string
+          episode_id: string
+          episode_slug: string
+          podcast_category: string
+          podcast_display_title: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          rank_label: string
+          similarity: number
+          title: string
+        }[]
       }
       match_podcasts_by_embedding: {
         Args: {
