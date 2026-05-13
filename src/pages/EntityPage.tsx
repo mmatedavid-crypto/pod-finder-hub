@@ -13,6 +13,8 @@ import { compareByScore, episodeScore } from "@/lib/episodeRank";
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
 
+type EntityProfile = { display_name: string; bio: string | null; episodes_summary: string | null; updated_at: string };
+
 export default function EntityPage({ kind }: { kind: EntityKind }) {
   const { slug = "" } = useParams();
   const decoded = useMemo(() => decodeURIComponent(slug), [slug]);
@@ -21,6 +23,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string>(decoded);
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
+  const [profile, setProfile] = useState<EntityProfile | null>(null);
 
   useEffect(() => {
     if (!slug) return;
