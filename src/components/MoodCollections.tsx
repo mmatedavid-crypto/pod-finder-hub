@@ -109,7 +109,7 @@ export function MoodCollections() {
             <div className="h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
           </>
         )}
-        {dyn?.map((m) => {
+        {dyn?.slice(0, 2).map((m) => {
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
           const onClick = () => {
             try { (supabase.rpc as any)("mood_pool_bump_click", { p_slug: m.slug }).then?.(() => {}, () => {}); } catch { /* noop */ }
