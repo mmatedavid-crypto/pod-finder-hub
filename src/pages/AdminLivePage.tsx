@@ -159,11 +159,10 @@ export default function AdminLivePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Stat label="Active visitors" value={stats.active.length.toLocaleString()} accent />
           <Stat label="Pageviews (last 5 min)" value={recent.length.toLocaleString()} />
           <Stat label="Pageviews today" value={todayCount.toLocaleString()} />
-          <Stat label="Unique today (approx)" value={todayUnique.toLocaleString()} />
         </div>
 
         <section>
