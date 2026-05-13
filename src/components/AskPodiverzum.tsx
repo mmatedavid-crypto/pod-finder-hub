@@ -1,16 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, ArrowRight, Search } from "lucide-react";
+import { Sparkles, ArrowRight, Search, Cpu, Pill, Landmark, Mic, Moon, TrendingUp, Activity, Brain } from "lucide-react";
 
-const QUESTIONS = [
-  "Nvidia and data centers",
-  "GLP-1 drugs and long-term health",
-  "AI regulation",
-  "founder interviews",
-  "sleep and recovery",
-  "European politics",
-  "Warren Buffett and Apple",
-  "longevity science",
+const QUESTIONS: { text: string; Icon: typeof Sparkles }[] = [
+  { text: "Nvidia and data centers", Icon: Cpu },
+  { text: "GLP-1 drugs and long-term health", Icon: Pill },
+  { text: "AI regulation", Icon: Brain },
+  { text: "founder interviews", Icon: Mic },
+  { text: "sleep and recovery", Icon: Moon },
+  { text: "European politics", Icon: Landmark },
+  { text: "Warren Buffett and Apple", Icon: TrendingUp },
+  { text: "longevity science", Icon: Activity },
 ];
 
 const ROTATE_MS = 5200;
@@ -20,7 +20,7 @@ const CLOCKWISE = [0, 1, 3, 2];
 export function AskPodiverzum() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
-  const [slots, setSlots] = useState<string[]>(() => QUESTIONS.slice(0, 4));
+  const [slots, setSlots] = useState<typeof QUESTIONS>(() => QUESTIONS.slice(0, 4));
   const [keys, setKeys] = useState<number[]>(() => [0, 1, 2, 3]);
   const [paused, setPaused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -97,19 +97,23 @@ export function AskPodiverzum() {
             Try
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-            {visible.map((question, i) => (
-              <button
-                key={`${i}-${keys[i]}`}
-                type="button"
-                onClick={() => go(question)}
-                className="group relative overflow-hidden text-left flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-colors duration-500 animate-ai-reveal"
-              >
-                <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0 animate-ai-shimmer" />
-                <span className="text-sm font-medium leading-snug">{question}</span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-500" />
-              </button>
-            ))}
+            {visible.map((item, i) => {
+              const Icon = item.Icon;
+              return (
+                <button
+                  key={`${i}-${keys[i]}`}
+                  type="button"
+                  onClick={() => go(item.text)}
+                  className="group relative overflow-hidden text-left flex flex-col gap-2 p-3 sm:p-3.5 rounded-xl border border-border/70 bg-card/70 hover:bg-card hover:border-primary/40 transition-colors duration-500 animate-ai-reveal min-h-[78px]"
+                >
+                  <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-[13px] sm:text-sm font-medium leading-snug">{item.text}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
