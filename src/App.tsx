@@ -26,6 +26,7 @@ import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
+import AdminXReplyAssistantPage from "./pages/AdminXReplyAssistantPage.tsx";
 import UnsubscribePage from "./pages/UnsubscribePage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
@@ -66,6 +67,7 @@ const App = () => (
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
+          <Route path="/admin/x-reply-assistant" element={<AdminXReplyAssistantPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
