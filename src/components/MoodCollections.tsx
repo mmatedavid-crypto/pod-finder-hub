@@ -43,7 +43,7 @@ export function MoodCollections() {
 
     // Cache personalized moods in sessionStorage so they don't shuffle on every page nav
     try {
-      const cached = sessionStorage.getItem("podiverzum.dyn_moods_v2");
+      const cached = sessionStorage.getItem("podiverzum.dyn_moods_v3");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed?.expires > Date.now() && Array.isArray(parsed.moods)) {
@@ -58,7 +58,7 @@ export function MoodCollections() {
       if (moods?.length) {
         setDyn(moods);
         try {
-          sessionStorage.setItem("podiverzum.dyn_moods_v2", JSON.stringify({
+          sessionStorage.setItem("podiverzum.dyn_moods_v3", JSON.stringify({
             moods, expires: Date.now() + 30 * 60_000, // 30min client cache
           }));
         } catch { /* noop */ }
@@ -69,6 +69,11 @@ export function MoodCollections() {
   }, []);
 
   if (!statics.length && dyn === null) return null;
+
+  // Target 6 cards. Show all statics, then fill with as many AI moods as needed.
+  const staticShown = statics;
+  const dynList = dyn ?? [];
+  const dynShown = dynList.slice(0, Math.max(6 - staticShown.length, 0));
 
   return (
     <section>
@@ -82,7 +87,7 @@ export function MoodCollections() {
         </Link>
       </div>
       <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-3 md:gap-3">
-        {statics.slice(0, 2).map((m) => {
+        {staticShown.map((m) => {
           const Icon = STATIC_ICONS[m.slug] || Sparkles;
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
           return (
@@ -111,7 +116,7 @@ export function MoodCollections() {
             <div className="hidden md:block h-[112px] rounded-xl border border-border/70 bg-card/40 animate-pulse" />
           </>
         )}
-        {dyn?.slice(0, 4).map((m) => {
+        {dynShown.map((m) => {
           const accent = m.accent_hsl ? `hsl(${m.accent_hsl})` : "hsl(var(--primary))";
           const onClick = () => {
             try { (supabase.rpc as any)("mood_pool_bump_click", { p_slug: m.slug }).then?.(() => {}, () => {}); } catch { /* noop */ }
