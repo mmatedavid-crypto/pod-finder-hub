@@ -66,12 +66,21 @@ function langName(code: string | null): string {
   }
 }
 
-export function podcastUserPrompt(p: { display_title?: string|null; title: string; description?: string|null; category?: string|null; language?: string|null }) {
+export function podcastUserPrompt(p: { display_title?: string|null; title: string; description?: string|null; category?: string|null; language?: string|null; recent_episodes?: Array<{ title: string; description?: string|null }> | null }) {
   const name = p.display_title || p.title;
   const desc = (p.description || "").replace(/\s+/g, " ").trim().slice(0, 1500);
   const code = langCode(p.language);
   const langLine = code ? `Output language: ${langName(code)} (${code}). Write seo_title and seo_description in this language only.\n` : "";
-  return `${langLine}Podcast: ${name}\nCategory: ${p.category || "(unknown)"}\nDescription: ${desc || "(none)"}\n\nWrite SEO title and description.`;
+  let epLines = "";
+  if (p.recent_episodes && p.recent_episodes.length) {
+    const lines = p.recent_episodes.slice(0, 5).map((e, i) => {
+      const t = (e.title || "").replace(/\s+/g, " ").trim().slice(0, 140);
+      const d = (e.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+      return d ? `  ${i+1}. ${t} — ${d}` : `  ${i+1}. ${t}`;
+    }).join("\n");
+    epLines = `Recent episodes (for topical grounding only — do not list them verbatim):\n${lines}\n`;
+  }
+  return `${langLine}Podcast: ${name}\nCategory: ${p.category || "(unknown)"}\nDescription: ${desc || "(none)"}\n${epLines}\nWrite SEO title and description. Reminder: if there is not enough factual material to honestly fill 120 chars, return a SHORTER description rather than padding with filler.`;
 }
 
 export function episodeUserPrompt(e: { display_title?: string|null; title: string; description?: string|null; language?: string|null }, podName: string, podLanguage?: string | null) {
