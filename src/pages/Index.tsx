@@ -30,11 +30,19 @@ const Index = () => {
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
   const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
-  const [chips, setChips] = useState<{ label: string; query: string }[]>([
+  const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "Nvidia earnings", query: "Nvidia earnings" },
     { label: "Sam Altman", query: "Sam Altman" },
     { label: "GLP-1 drugs", query: "GLP-1 drugs" },
+    { label: "AI regulation", query: "AI regulation" },
+    { label: "longevity", query: "longevity" },
+    { label: "Warren Buffett", query: "Warren Buffett" },
+    { label: "Tesla robotaxi", query: "Tesla robotaxi" },
+    { label: "founder interviews", query: "founder interviews" },
+    { label: "sleep science", query: "sleep science" },
+    { label: "European politics", query: "European politics" },
   ]);
+  const [chipOffset, setChipOffset] = useState(0);
   const [loadError, setLoadError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [heroPlaceholder, setHeroPlaceholder] = useState(
