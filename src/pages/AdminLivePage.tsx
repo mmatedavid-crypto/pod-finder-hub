@@ -14,7 +14,7 @@ type Row = {
 };
 
 const ACTIVE_WINDOW_MIN = 5;
-const REFRESH_MS = 15_000;
+const REFRESH_MS = 20_000;
 
 function classifyRoute(path: string): string {
   if (path === "/") return "/";
