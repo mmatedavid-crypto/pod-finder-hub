@@ -26,6 +26,10 @@ export default function NewPodcastsPage() {
 
   return (
     <Layout>
+      <Seo
+        title="Recently added podcasts — Podiverzum"
+        description="The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health."
+      />
       <div className="container mx-auto py-12 max-w-5xl">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Fresh in the index</div>
         <h1 className="text-3xl font-semibold mt-2">Recently added podcasts</h1>
