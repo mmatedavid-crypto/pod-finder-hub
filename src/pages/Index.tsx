@@ -388,7 +388,22 @@ const Index = () => {
                   </Link>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Recent in {c.name}</p>
-                <EpisodeList items={items} scrollOnMobile />
+                {(() => {
+                  const mid = Math.ceil(items.length / 2);
+                  const left = items.slice(0, mid);
+                  const right = items.slice(mid);
+                  return (
+                    <>
+                      <div className="hidden lg:grid lg:grid-cols-2 gap-4">
+                        <EpisodeList items={left} />
+                        {right.length > 0 && <EpisodeList items={right} />}
+                      </div>
+                      <div className="lg:hidden">
+                        <EpisodeList items={items} scrollOnMobile />
+                      </div>
+                    </>
+                  );
+                })()}
               </section>
             );
           });
