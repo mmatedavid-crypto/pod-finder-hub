@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
 
   const url = new URL(req.url);
   const kind = (url.searchParams.get("kind") || "site").slice(0, 20);
-  const title = (url.searchParams.get("title") || "Podiverzum — Find it. Hear it.").slice(0, 160);
+  const title = (url.searchParams.get("title") || "Podiverzum — podcast episode search").slice(0, 160);
   const subtitle = (url.searchParams.get("subtitle") || "").slice(0, 120);
   const image = url.searchParams.get("image") || "";
 
