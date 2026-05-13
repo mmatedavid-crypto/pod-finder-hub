@@ -43,7 +43,7 @@ export function MoodCollections() {
 
     // Cache personalized moods in sessionStorage so they don't shuffle on every page nav
     try {
-      const cached = sessionStorage.getItem("podiverzum.dyn_moods");
+      const cached = sessionStorage.getItem("podiverzum.dyn_moods_v2");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed?.expires > Date.now() && Array.isArray(parsed.moods)) {
@@ -58,7 +58,7 @@ export function MoodCollections() {
       if (moods?.length) {
         setDyn(moods);
         try {
-          sessionStorage.setItem("podiverzum.dyn_moods", JSON.stringify({
+          sessionStorage.setItem("podiverzum.dyn_moods_v2", JSON.stringify({
             moods, expires: Date.now() + 30 * 60_000, // 30min client cache
           }));
         } catch { /* noop */ }
