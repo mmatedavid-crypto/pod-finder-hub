@@ -186,14 +186,26 @@ export default function NeoSearchBar({
           }
         }}
         onFocus={() => {
-          if (mode === "ai-asking") setMode("user-replying");
+          // First touch on the AI question: clear the bar so the user's reply
+          // doesn't collide with the typed-out AI text.
+          if (mode === "ai-asking") {
+            setReply("");
+            setTyped("");
+            setMode("user-replying");
+          }
         }}
-        placeholder={inAIMode ? "" : (placeholder || "e.g. Nvidia data centers")}
+        placeholder={
+          mode === "user-replying"
+            ? "Type your answer…"
+            : inAIMode
+              ? ""
+              : (placeholder || "e.g. Nvidia data centers")
+        }
         className={`w-full pl-10 pr-24 py-3 rounded-md border outline-none transition-colors resize-none overflow-hidden leading-6 ${
           inAIMode
-            ? "neo-input neo-text border-[hsl(120_80%_45%)] bg-black/80"
+            ? `${mode === "user-replying" ? "neo-input-reply" : "neo-input neo-text"} border-[hsl(120_80%_45%)] bg-black/80`
             : "bg-card border-border focus:border-accent"
-        } ${showCursor ? "neo-caret-blink" : ""}`}
+        }`}
         aria-live={inAIMode ? "polite" : undefined}
       />
 
