@@ -159,6 +159,7 @@ Generate the JSON described in the system prompt. If unsure, prefer { "skip": tr
           { role: "user", content: userPrompt },
         ],
         response_format: { type: "json_object" },
+        temperature: 0.2,
       }),
     });
 
