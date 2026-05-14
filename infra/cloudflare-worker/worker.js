@@ -82,6 +82,24 @@ export default {
     const url = new URL(request.url);
     const ua = request.headers.get("user-agent") || "";
 
+    // Block requests with no/empty User-Agent — real browsers and legit bots
+    // always send one. Empty UA = scraper / direct API hit. Allow /sitemap.xml
+    // and robots.txt because some fetchers omit UA on those.
+    if (
+      !ua.trim() &&
+      url.pathname !== "/sitemap.xml" &&
+      url.pathname !== "/robots.txt"
+    ) {
+      return new Response("Forbidden", {
+        status: 403,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+          "X-Blocked": "no-user-agent",
+        },
+      });
+    }
+
     if (SCANNER_PATH_REGEX.test(url.pathname)) {
       return new Response("Not Found", {
         status: 404,
