@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Send, X } from "lucide-react";
 
 export type NeoTurn = { role: "assistant" | "user"; content: string };
@@ -39,7 +39,7 @@ export default function NeoSearchBar({
   const [reply, setReply] = useState("");
   const [typedMap, setTypedMap] = useState<Record<number, string>>({});
   const [closing, setClosing] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
   const typewriterRef = useRef<number | null>(null);
   const reducedMotion = useRef(false);
@@ -138,14 +138,6 @@ export default function NeoSearchBar({
     }, 720);
   };
 
-  // Auto-grow textareas
-  useLayoutEffect(() => {
-    const ta = taRef.current;
-    if (ta) {
-      ta.style.height = "auto";
-      ta.style.height = `${ta.scrollHeight + 2}px`;
-    }
-  }, [value]);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
