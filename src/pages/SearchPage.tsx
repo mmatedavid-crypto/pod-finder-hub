@@ -81,6 +81,13 @@ export default function SearchPage() {
   const chatAbortRef = useRef<AbortController | null>(null);
   const [matrixEgg, setMatrixEgg] = useState(false);
   const matrixSeenRef = useRef<string>("");
+  // Refinement extras from Neo chat — appended to the URL `q` to drive search,
+  // but NOT shown in the search bar (the bar keeps the original entry).
+  const [refineExtra, setRefineExtra] = useState("");
+  const effectiveQ = useMemo(
+    () => `${initial} ${refineExtra}`.trim(),
+    [initial, refineExtra]
+  );
   useEffect(() => { neoTurnsRef.current = neoTurns; }, [neoTurns]);
 
   useEffect(() => {
@@ -103,6 +110,7 @@ export default function SearchPage() {
     answerAbortRef.current?.abort();
     refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
+    const q0 = effectiveQ || initial;
 
     setLoading(true);
     let cancelled = false;
@@ -130,7 +138,7 @@ export default function SearchPage() {
       //   Phase 2: rerank=true → cache hit instant, else ~3.5s, merge why_matched chips.
       try {
         const phase1 = await supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: false, lang: "en" },
+          body: { q: q0, limit: 80, rerank: false, lang: "en" },
         });
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
@@ -143,7 +151,7 @@ export default function SearchPage() {
 
         // Phase 2: rerank (with cache). Fire-and-forget update.
         supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "en" },
+          body: { q: q0, limit: 80, rerank: true, lang: "en" },
         }).then(({ data: data2, error: err2 }) => {
           if (cancelled || err2 || !data2) return;
           const r2 = applyHybridResponse(data2);
@@ -156,9 +164,9 @@ export default function SearchPage() {
         if (cancelled) return;
         console.warn("search-hybrid failed, falling back to legacy", err);
         usedFallback = true;
-        const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
+        const result = await searchEpisodes({ rawQuery: q0, scope: "all", limit: 80 });
         if (cancelled) return;
-        if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
+        if (result.suggestion && result.suggestion.toLowerCase() !== q0.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
         if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
         const ranked =
@@ -193,8 +201,8 @@ export default function SearchPage() {
       }
 
       // Podcasts query (separate, simpler). Includes full-phrase title hit (e.g. "Joe Rogan").
-      const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
-      const fullPhrase = initial.trim();
+      const { terms } = parseQuery(normalizeQuery(q0).normalized || initial);
+      const fullPhrase = q0.trim();
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
@@ -248,7 +256,7 @@ export default function SearchPage() {
         chatAbortRef.current = cctrl;
         setNeoThinking(true);
         supabase.functions.invoke("search-chat", {
-          body: { messages: neoTurnsRef.current, q: initial, topResults },
+          body: { messages: neoTurnsRef.current, q: q0, topResults },
         }).then(({ data, error }) => {
           if (cancelled || cctrl.signal.aborted) return;
           setNeoThinking(false);
@@ -267,7 +275,7 @@ export default function SearchPage() {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
-          body: { q: initial, topResults },
+          body: { q: q0, topResults },
         }).then(({ data, error }) => {
           if (cancelled || rctrl.signal.aborted || error) return;
           if (data?.should_clarify && data?.question) {
@@ -289,7 +297,7 @@ export default function SearchPage() {
             signal: ctrl.signal,
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
             body: JSON.stringify({
-              q: initial,
+              q: q0,
               episodes: mapped.slice(0, 6).map((e: any) => ({
                 title: e.display_title || e.title,
                 podcast: e.podcasts?.title || "",
@@ -328,7 +336,7 @@ export default function SearchPage() {
       }
     })();
     return () => { cancelled = true; answerAbortRef.current?.abort(); refineAbortRef.current?.abort(); chatAbortRef.current?.abort(); };
-  }, [initial, sortParam, catParam]);
+  }, [initial, refineExtra, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
 
@@ -373,24 +381,24 @@ export default function SearchPage() {
               setNeoDone(false);
               setNeoThinking(false);
               expectChatRef.current = false;
+              setRefineExtra("");
               setParams({ q: v });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             onReply={(reply) => {
               // Append the user's turn immediately for instant feedback.
               setNeoTurns((t) => [...t, { role: "user", content: reply }]);
-              // Build the next refined query: append the user's reply to the current query.
-              const composed = `${initial} ${reply}`.trim();
-              setQ(composed);
+              // Refinement extras are kept INTERNALLY so the search bar stays clean.
+              // The bar continues to show the original ?q query the user typed.
+              const nextExtra = `${refineExtra} ${reply}`.trim();
               expectChatRef.current = true;
               setNeoThinking(true);
-              if (composed !== initial) {
-                setParams({ q: composed });
+              if (nextExtra !== refineExtra) {
+                setRefineExtra(nextExtra);
               } else {
-                // Same query — kick off a chat-only round (results unchanged).
-                const topResults: any[] = [];
+                // No-op refinement — chat-only round.
                 supabase.functions.invoke("search-chat", {
-                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: initial, topResults },
+                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: `${initial} ${nextExtra}`.trim(), topResults: [] },
                 }).then(({ data, error }) => {
                   setNeoThinking(false);
                   if (error) {
