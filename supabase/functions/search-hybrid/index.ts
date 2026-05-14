@@ -279,7 +279,11 @@ Deno.serve(async (req) => {
         ], 8)
       : [];
     const strictCandidateTerms = isTickerQ && resolvedMarketTerms.length
-      ? resolvedMarketTerms
+      ? [
+          resolvedMarketTerms.find((t) => t.includes(" "))
+            || resolvedMarketTerms.find((t) => t.toUpperCase() !== marketSymbol)
+            || resolvedMarketTerms[0],
+        ].filter(Boolean) as string[]
       : rawEntities;
     const requiredTerms = strictCandidateTerms
       .slice()
