@@ -12,7 +12,7 @@ interface Props {
   turns: NeoTurn[];
   /** True while the AI is "thinking" (search + chat call in flight). */
   thinking?: boolean;
-  /** True when the conversation is over and user can dismiss. */
+  /** Legacy flag from the assistant; Neo mode stays open until explicit close. */
   done?: boolean;
   onExitAI: () => void;
   placeholder?: string;
@@ -99,11 +99,11 @@ export default function NeoSearchBar({
 
   // Focus reply textarea when AI is waiting for an answer
   useEffect(() => {
-    if (inAIMode && !thinking && !done && lastTurn?.role === "assistant" &&
+    if (inAIMode && !thinking && !closing && lastTurn?.role === "assistant" &&
         typedMap[lastIdx] === lastTurn.content) {
       replyInputRef.current?.focus({ preventScroll: true });
     }
-  }, [inAIMode, thinking, done, lastIdx, lastTurn, typedMap]);
+  }, [inAIMode, thinking, closing, lastIdx, lastTurn, typedMap]);
 
   const isTyping = !!lastTurn && lastTurn.role === "assistant" && typedMap[lastIdx] !== lastTurn.content;
   const canSendReply = !thinking && !isTyping && !closing && reply.trim().length > 0;
@@ -171,7 +171,7 @@ export default function NeoSearchBar({
               neo · secure channel
             </span>
             <span className="ml-auto neo-text text-[10px] opacity-60">
-              {done ? "session ended" : thinking ? "decrypting…" : "online"}
+              {thinking ? "decrypting…" : "online"}
             </span>
           </div>
 
@@ -210,7 +210,7 @@ export default function NeoSearchBar({
             )}
           </div>
 
-          {!done && (
+          {!closing && (
             <div className="mt-2 flex items-end gap-2 border-t border-[hsl(120_60%_30%/0.45)] pt-2">
               <span className="neo-text leading-7 select-none" aria-hidden>›</span>
               <input
