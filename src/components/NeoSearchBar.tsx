@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Search, Send, X } from "lucide-react";
 
 export type NeoTurn = { role: "assistant" | "user"; content: string };
