@@ -261,15 +261,15 @@ export default function NeoSearchBar({
       aria-label="Search podcast episodes"
     >
       <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-      <textarea
-        ref={taRef}
+      <input
+        ref={inputRef}
+        type="search"
         value={value}
-        rows={1}
         onKeyDown={handleKeyDown}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder || "e.g. Nvidia data centers"}
         enterKeyHint="search"
-        className="w-full min-h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words bg-card border-border focus:border-accent"
+        className="w-full h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors block leading-7 box-border bg-card border-border focus:border-accent"
       />
       <button
         type="submit"
