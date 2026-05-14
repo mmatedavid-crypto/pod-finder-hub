@@ -790,6 +790,7 @@ export type Database = {
           id: string
           path: string
           referrer: string | null
+          user_agent: string | null
           user_id: string | null
           utm_campaign: string | null
           utm_content: string | null
@@ -804,6 +805,7 @@ export type Database = {
           id?: string
           path: string
           referrer?: string | null
+          user_agent?: string | null
           user_id?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -818,6 +820,7 @@ export type Database = {
           id?: string
           path?: string
           referrer?: string | null
+          user_agent?: string | null
           user_id?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
