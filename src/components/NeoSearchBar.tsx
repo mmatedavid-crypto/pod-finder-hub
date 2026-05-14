@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, Send, X } from "lucide-react";
 
 type Mode = "idle" | "ai-typing" | "ai-asking" | "user-replying";
 
@@ -190,8 +190,8 @@ export default function NeoSearchBar({
         }}
         onChange={(e) => {
           if (isReadOnly) return;
-          // Strip the trailing cursor character if it's been included
-          const v = e.target.value.replace(/[▮ ]+$/, "");
+          // Strip only the fake block cursor if it was included; keep real spaces.
+          const v = e.target.value.replace(/▮$/, "");
           if (mode === "ai-asking" || mode === "user-replying") {
             setReply(v);
             setMode("user-replying");
@@ -215,7 +215,8 @@ export default function NeoSearchBar({
               ? ""
               : (placeholder || "e.g. Nvidia data centers")
         }
-        className={`w-full min-h-[3.75rem] pl-10 pr-14 sm:pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words ${
+        enterKeyHint={inAIMode ? "send" : "search"}
+        className={`w-full min-h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words ${
           inAIMode
             ? `${mode === "user-replying" ? "neo-input-reply" : "neo-input neo-text"} border-[hsl(120_80%_45%)] bg-black/80`
             : "bg-card border-border focus:border-accent"
@@ -224,15 +225,26 @@ export default function NeoSearchBar({
       />
 
       {inAIMode ? (
-        <button
-          type="button"
-          onClick={handleExit}
-          aria-label="Dismiss AI and start a new search"
-          className="absolute right-2 top-2 h-8 w-8 rounded-md flex items-center justify-center text-[hsl(120_80%_55%)] hover:bg-[hsl(120_80%_45%/0.15)] transition-colors"
-          title="New search"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="absolute right-2 top-2 flex items-center gap-1">
+          <button
+            type="submit"
+            disabled={mode === "ai-typing" || reply.trim().length === 0}
+            aria-label="Send answer"
+            className="h-8 w-8 rounded-md flex items-center justify-center text-[hsl(38_100%_65%)] hover:bg-[hsl(38_100%_50%/0.15)] disabled:opacity-35 disabled:hover:bg-transparent transition-colors"
+            title="Send answer"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={handleExit}
+            aria-label="Dismiss AI and start a new search"
+            className="h-8 w-8 rounded-md flex items-center justify-center text-[hsl(120_80%_55%)] hover:bg-[hsl(120_80%_45%/0.15)] transition-colors"
+            title="New search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       ) : (
         <button
           type="submit"
