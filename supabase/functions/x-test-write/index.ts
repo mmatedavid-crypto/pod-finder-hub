@@ -16,9 +16,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const token = authHeader.replace(/^Bearer /, "");
-    const { data: claims } = await userClient.auth.getClaims(token);
-    const userId = claims?.claims?.sub as string | undefined;
+    const { data: { user } } = await userClient.auth.getUser();
+    const userId = user?.id;
     if (!userId) return new Response(JSON.stringify({ error: "unauth" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: isAdmin } = await sb.rpc("has_role", { _user_id: userId, _role: "admin" });
