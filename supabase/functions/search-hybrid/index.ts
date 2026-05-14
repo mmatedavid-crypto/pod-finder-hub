@@ -237,8 +237,21 @@ Deno.serve(async (req) => {
     const entityTerms = rawEntities.slice(0, 8);
     const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
 
+    // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
+    // episode tsv. Rewrite the lexical q to use the resolved company name(s)
+    // so the lex CTE can actually find matching episodes. Semantic side still
+    // uses the original embedding.
+    let lexQ = q;
+    if (tickerMatch) {
+      const companies = (curated.expansions || []).filter(Boolean);
+      if (companies.length) {
+        // websearch_to_tsquery OR-s quoted phrases when wrapped in OR keyword.
+        lexQ = companies.map((c) => `"${c}"`).join(" OR ");
+      }
+    }
+
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
-      q: q, // RAW query for lexical, not expanded
+      q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
