@@ -164,7 +164,7 @@ export function EpisodeList({
 }: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
   const desktop = (
-    <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 surface overflow-hidden -mx-4 sm:mx-0`}>
+    <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:surface overflow-hidden -mx-4 sm:mx-0`}>
       {items.map((e) => (
         <li key={e.id} className="transition-colors">
           <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
