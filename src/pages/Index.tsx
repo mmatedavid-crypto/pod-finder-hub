@@ -13,7 +13,7 @@ import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
-import { AskPodiverzum } from "@/components/AskPodiverzum";
+
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -268,10 +268,10 @@ const Index = () => {
             Find it. <span className="text-brand-gradient">Hear it.</span>
           </h1>
           <p className="text-foreground/90 mt-4 sm:mt-6 max-w-2xl text-base sm:text-lg leading-relaxed animate-fade-up font-medium">
-            Start with what you're curious about — not the show name.
+            Ask in your own words — not the show name.
           </p>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
-            Search by topic, person, company, market, technology or idea.
+            Search by topic, person, company, market ticker, technology or idea. Podiverzum looks beyond titles and finds episodes by meaning.
           </p>
           <form
             onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
@@ -313,7 +313,6 @@ const Index = () => {
       </section>
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
-        <AskPodiverzum />
         <ContinueListening />
         {!loaded && trendingEps.length === 0 && (
           <section>
