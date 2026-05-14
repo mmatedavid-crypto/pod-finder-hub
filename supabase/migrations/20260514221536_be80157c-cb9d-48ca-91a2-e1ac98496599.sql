@@ -1,0 +1,1 @@
+ALTER TABLE public.search_query_cache ADD COLUMN IF NOT EXISTS refine jsonb;

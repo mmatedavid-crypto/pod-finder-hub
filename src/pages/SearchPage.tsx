@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search } from "lucide-react";
+
 import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
+import NeoSearchBar from "@/components/NeoSearchBar";
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -65,8 +66,10 @@ export default function SearchPage() {
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
+  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
+  const refineAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
@@ -76,7 +79,9 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
+    setAiQuestion(null);
     answerAbortRef.current?.abort();
+    refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
 
     setLoading(true);
@@ -206,6 +211,28 @@ export default function SearchPage() {
         }, () => { /* ignore */ });
       }
 
+      // Kick off the "Neo moment" refine probe in parallel — server decides
+      // whether the query is ambiguous enough to ask a clarifying question.
+      if (mapped.length >= 6) {
+        const rctrl = new AbortController();
+        refineAbortRef.current = rctrl;
+        supabase.functions.invoke("search-refine", {
+          body: {
+            q: initial,
+            topResults: mapped.slice(0, 6).map((e: any) => ({
+              title: e.display_title || e.title,
+              podcast: e.podcasts?.title || "",
+              summary: (e.ai_summary || e.summary || "").slice(0, 200),
+            })),
+          },
+        }).then(({ data, error }) => {
+          if (cancelled || rctrl.signal.aborted || error) return;
+          if (data?.should_clarify && data?.question) {
+            setAiQuestion(String(data.question));
+          }
+        }, () => { /* ignore */ });
+      }
+
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 3) {
         setAiAnswerLoading(true);
@@ -256,7 +283,7 @@ export default function SearchPage() {
         }
       }
     })();
-    return () => { cancelled = true; answerAbortRef.current?.abort(); };
+    return () => { cancelled = true; answerAbortRef.current?.abort(); refineAbortRef.current?.abort(); };
   }, [initial, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
@@ -290,18 +317,21 @@ export default function SearchPage() {
         <p className="text-muted-foreground mb-4 text-sm">
           Search by topic, guest, company, show, ticker or idea.
         </p>
-        <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. Nvidia data centers"
-            className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
-          />
-          <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
-            Search
-          </button>
-        </form>
+        <NeoSearchBar
+          value={q}
+          onChange={setQ}
+          onSubmit={(v) => { setAiQuestion(null); setParams({ q: v }); }}
+          onReply={(orig, reply) => {
+            const composed = `${orig} ${reply}`.trim();
+            setQ(composed);
+            setAiQuestion(null);
+            setParams({ q: composed });
+          }}
+          aiQuestion={aiQuestion}
+          originalQ={initial}
+          onExitAI={() => { setAiQuestion(null); }}
+          placeholder="e.g. Nvidia data centers"
+        />
         <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
           <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
           <p className="mt-2">
