@@ -110,6 +110,7 @@ export default function SearchPage() {
     answerAbortRef.current?.abort();
     refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
+    const q0 = effectiveQ || initial;
 
     setLoading(true);
     let cancelled = false;
