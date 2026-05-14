@@ -138,7 +138,7 @@ export default function SearchPage() {
       //   Phase 2: rerank=true → cache hit instant, else ~3.5s, merge why_matched chips.
       try {
         const phase1 = await supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: false, lang: "en" },
+          body: { q: q0, limit: 80, rerank: false, lang: "en" },
         });
         if (phase1.error) throw phase1.error;
         if (cancelled) return;
@@ -151,7 +151,7 @@ export default function SearchPage() {
 
         // Phase 2: rerank (with cache). Fire-and-forget update.
         supabase.functions.invoke("search-hybrid", {
-          body: { q: initial, limit: 80, rerank: true, lang: "en" },
+          body: { q: q0, limit: 80, rerank: true, lang: "en" },
         }).then(({ data: data2, error: err2 }) => {
           if (cancelled || err2 || !data2) return;
           const r2 = applyHybridResponse(data2);
@@ -164,9 +164,9 @@ export default function SearchPage() {
         if (cancelled) return;
         console.warn("search-hybrid failed, falling back to legacy", err);
         usedFallback = true;
-        const result = await searchEpisodes({ rawQuery: initial, scope: "all", limit: 80 });
+        const result = await searchEpisodes({ rawQuery: q0, scope: "all", limit: 80 });
         if (cancelled) return;
-        if (result.suggestion && result.suggestion.toLowerCase() !== initial.toLowerCase()) setSuggestion(result.suggestion);
+        if (result.suggestion && result.suggestion.toLowerCase() !== q0.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
         if (catParam) chosen = chosen.filter((x) => (x.e.podcasts?.category || "") === catParam);
         const ranked =
