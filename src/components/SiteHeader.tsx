@@ -66,6 +66,8 @@ export function SiteHeader() {
         <nav className="hidden sm:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
+          <NavLink to="/topics" className={linkCls}>Topics</NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
         </nav>
         {isHome && (

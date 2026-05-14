@@ -13,6 +13,8 @@ import SearchPage from "./pages/SearchPage.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 import EntityPage from "./pages/EntityPage.tsx";
+import TopicHubPage from "./pages/TopicHubPage.tsx";
+import TopicsIndexPage from "./pages/TopicsIndexPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
@@ -52,7 +54,8 @@ const App = () => (
           
 
           <Route path="/growth-status" element={<GrowthStatusPage />} />
-          <Route path="/topic/:slug" element={<EntityPage kind="topic" />} />
+          <Route path="/topics" element={<TopicsIndexPage />} />
+          <Route path="/topic/:slug" element={<TopicHubPage />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
           <Route path="/company/:slug" element={<EntityPage kind="company" />} />
           <Route path="/ticker/:slug" element={<EntityPage kind="ticker" />} />

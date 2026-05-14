@@ -1668,6 +1668,72 @@ export type Database = {
           },
         ]
       }
+      topic_hubs: {
+        Row: {
+          accent_hsl: string | null
+          active: boolean
+          aliases: string[]
+          appearance_stats: Json
+          bio: string | null
+          category: string | null
+          cost_usd: number | null
+          created_at: string
+          description: string | null
+          episode_ids: string[]
+          episodes_summary: string | null
+          featured_episode_ids: string[]
+          generated_at: string | null
+          id: string
+          model: string | null
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent_hsl?: string | null
+          active?: boolean
+          aliases?: string[]
+          appearance_stats?: Json
+          bio?: string | null
+          category?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          description?: string | null
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          featured_episode_ids?: string[]
+          generated_at?: string | null
+          id?: string
+          model?: string | null
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent_hsl?: string | null
+          active?: boolean
+          aliases?: string[]
+          appearance_stats?: Json
+          bio?: string | null
+          category?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          description?: string | null
+          episode_ids?: string[]
+          episodes_summary?: string | null
+          featured_episode_ids?: string[]
+          generated_at?: string | null
+          id?: string
+          model?: string | null
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

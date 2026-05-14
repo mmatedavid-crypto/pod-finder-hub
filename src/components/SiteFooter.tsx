@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { BrandMark } from "./Brand";
 
 const EXPLORE = [
+  { to: "/topics", label: "Topics" },
   { to: "/categories", label: "Categories" },
   { to: "/search", label: "Search" },
   { to: "/new", label: "New shows" },
