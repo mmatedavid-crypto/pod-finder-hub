@@ -27,6 +27,8 @@ const BOT_UAS = [
   "chatgpt-user",
   "claude-web",
   "claudebot",
+  "claude-user",
+  "claude-searchbot",
   "anthropic-ai",
   "perplexitybot",
   "perplexity-user",
