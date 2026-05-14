@@ -240,11 +240,13 @@ export default function SearchPage() {
         }).then(({ data, error }) => {
           if (cancelled || cctrl.signal.aborted) return;
           setNeoThinking(false);
-          if (error) return;
+          if (error) {
+            setNeoTurns((t) => [...t, { role: "assistant", content: "ráálltam erre. mondd még pontosabban: melyik oldalát keresed?" }]);
+            return;
+          }
           const reply = String(data?.reply || "").trim();
-          const isDone = !!data?.done;
-          if (reply) setNeoTurns((t) => [...t, { role: "assistant", content: reply }]);
-          if (isDone) setNeoDone(true);
+          setNeoTurns((t) => [...t, { role: "assistant", content: reply || "oké, erre szűkítettem. jó irány, vagy menjünk mélyebbre?" }]);
+          setNeoDone(false);
         }, () => { setNeoThinking(false); });
       } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
         const rctrl = new AbortController();
@@ -375,10 +377,13 @@ export default function SearchPage() {
                   body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: initial, topResults },
                 }).then(({ data, error }) => {
                   setNeoThinking(false);
-                  if (error) return;
+                  if (error) {
+                    setNeoTurns((t) => [...t, { role: "assistant", content: "vettem. írd meg, mire szűkítsem tovább?" }]);
+                    return;
+                  }
                   const r = String(data?.reply || "").trim();
-                  if (r) setNeoTurns((t) => [...t, { role: "assistant", content: r }]);
-                  if (data?.done) setNeoDone(true);
+                  setNeoTurns((t) => [...t, { role: "assistant", content: r || "oké. ez már közelebb van, folytassuk?" }]);
+                  setNeoDone(false);
                 }, () => setNeoThinking(false));
                 expectChatRef.current = false;
               }
