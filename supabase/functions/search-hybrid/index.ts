@@ -245,19 +245,25 @@ Deno.serve(async (req) => {
     // Single-word entities like "Apple" are too ambiguous and pull in noise
     // ("Apple Valley", "apple pie podcast") when used as a hard MUST gate.
     // Multi-word entities are specific enough to keep locked.
-    if ((rows?.length || 0) < 5 && mustGateApplied && understanding?.intent !== "ticker") {
+    if ((rows?.length || 0) < 5 && mustGateApplied) {
+      // For ticker intent: drop the bare symbol, keep multi-word company names
+      //   (e.g. "ASTS" → fall back to "AST SpaceMobile").
+      // For other intents: drop single-word ambiguous entities, keep multi-word.
       const strictTerms = requiredTerms.filter((t) => t.includes(" "));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
-      const retry = await supa.rpc("search_episodes_hybrid", {
-        q: q,
-        q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-        limit_n: Math.max(limit, 50),
-        lang,
-        required_terms: relaxedTerms,
-        entity_terms: entityTerms.length ? entityTerms : null,
-        alpha_lex: alphaLex,
-      });
-      if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+      // Skip retry if relaxation wouldn't change anything.
+      if (relaxedTerms?.join("|") !== requiredTerms.join("|")) {
+        const retry = await supa.rpc("search_episodes_hybrid", {
+          q: q,
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          limit_n: Math.max(limit, 50),
+          lang,
+          required_terms: relaxedTerms,
+          entity_terms: entityTerms.length ? entityTerms : null,
+          alpha_lex: alphaLex,
+        });
+        if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+      }
     }
     const tRpc = Date.now() - t0 - tEmb;
 
