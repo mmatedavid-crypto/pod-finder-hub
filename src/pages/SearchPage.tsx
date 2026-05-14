@@ -311,17 +311,19 @@ export default function SearchPage() {
           </p>
         </details>
 
-        <div className="flex flex-wrap gap-2 mt-3">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              onClick={() => { setQ(ex); setParams({ q: ex }); }}
-              className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
+        {!initial && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                onClick={() => { setQ(ex); setParams({ q: ex }); }}
+                className="px-3 py-1 rounded-full bg-secondary text-xs hover:bg-accent hover:text-accent-foreground"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+        )}
 
         {initial && (
           <div className="flex flex-wrap gap-2 items-center mt-6 text-xs">
