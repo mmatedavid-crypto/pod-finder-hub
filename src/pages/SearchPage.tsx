@@ -81,6 +81,13 @@ export default function SearchPage() {
   const chatAbortRef = useRef<AbortController | null>(null);
   const [matrixEgg, setMatrixEgg] = useState(false);
   const matrixSeenRef = useRef<string>("");
+  // Refinement extras from Neo chat — appended to the URL `q` to drive search,
+  // but NOT shown in the search bar (the bar keeps the original entry).
+  const [refineExtra, setRefineExtra] = useState("");
+  const effectiveQ = useMemo(
+    () => `${initial} ${refineExtra}`.trim(),
+    [initial, refineExtra]
+  );
   useEffect(() => { neoTurnsRef.current = neoTurns; }, [neoTurns]);
 
   useEffect(() => {
