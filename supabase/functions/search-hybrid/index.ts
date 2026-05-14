@@ -30,6 +30,44 @@ function normalizeQ(q: string): string {
   return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
+const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
+  eth: ["Ethereum", "Ether"],
+  btc: ["Bitcoin"],
+  sol: ["Solana"],
+  xrp: ["XRP Ledger", "Ripple"],
+  ada: ["Cardano"],
+  doge: ["Dogecoin"],
+  avax: ["Avalanche"],
+  link: ["Chainlink"],
+  dot: ["Polkadot"],
+  matic: ["Polygon"],
+};
+
+const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
+
+function compactMarketSymbol(q: string): string | null {
+  const t = q.trim();
+  return /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t) ? t.toUpperCase() : null;
+}
+
+function uniqueClean(values: string[], max = 12): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const v = String(raw || "").trim();
+    const key = v.toLowerCase();
+    if (!v || seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function quoteWebSearchTerm(term: string): string {
+  return term.includes(" ") ? `"${term.replace(/"/g, " ").trim()}"` : term;
+}
+
 async function embedRaw(q: string): Promise<number[] | null> {
   if (!GEMINI_API_KEY) return null;
   try {
@@ -159,10 +197,12 @@ Deno.serve(async (req) => {
     // Ticker queries: if cached understanding lacks a multi-word company name
     // (e.g. only `["ASTS"]` from a previous bug), force a fresh AI call so we
     // can recover the company name (e.g. "AST SpaceMobile") for the MUST-gate fallback.
-    const isTickerQ = /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(q.trim());
+    const marketSymbol = compactMarketSymbol(q);
+    const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
+    const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
     if (isTickerQ && understanding) {
       const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
-      if (!hasCompany) understanding = null;
+      if (!hasCompany && !symbolAliases.length) understanding = null;
     }
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
@@ -179,9 +219,8 @@ Deno.serve(async (req) => {
     // force a ticker-intent understanding so the MUST-gate locks results to episodes
     // that actually mention the symbol — instead of letting the AI expand "ASTS" into
     // astrology / unrelated semantic neighbors.
-    const tickerMatch = q.trim().match(/^[A-Za-z]{2,5}(\.[A-Za-z])?$/);
-    if (tickerMatch) {
-      const sym = tickerMatch[0].toUpperCase();
+    if (isTickerQ && marketSymbol) {
+      const sym = marketSymbol;
       // Preserve AI-discovered entities (e.g. "AST SpaceMobile" for "ASTS") so
       // the MUST-gate fallback can search by company name when no episode
       // mentions the bare ticker symbol. Also merge curated synonym mappings
@@ -189,9 +228,10 @@ Deno.serve(async (req) => {
       // recognize obscure tickers like ASTS.
       const aiEntities = (understanding?.entities || []).filter((e) => e && e.toUpperCase() !== sym);
       const curatedCompanies = (curated.expansions || []).filter((e) => e && e.toUpperCase() !== sym);
+      const resolvedNames = uniqueClean([...symbolAliases, ...curatedCompanies, ...aiEntities], 10);
       understanding = {
-        entities: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
-        expanded_terms: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
+        entities: uniqueClean([sym, ...resolvedNames], 8),
+        expanded_terms: uniqueClean([sym, ...resolvedNames], 8),
         synonyms: [],
         intent: "ticker",
         language: understanding?.language || "en",
@@ -230,23 +270,43 @@ Deno.serve(async (req) => {
     const rawEntities = (understanding?.entities || [])
       .map((s) => String(s || "").trim())
       .filter((s) => s.length >= 3 && s.length <= 60);
-    const requiredTerms = rawEntities
+    const resolvedMarketTerms = isTickerQ && marketSymbol
+      ? uniqueClean([
+          marketSymbol,
+          ...symbolAliases,
+          ...(curated.expansions || []),
+          ...rawEntities.filter((t) => t.toUpperCase() !== marketSymbol),
+        ], 8)
+      : [];
+    const strictCandidateTerms = isTickerQ && resolvedMarketTerms.length
+      ? [
+          resolvedMarketTerms.find((t) => t.includes(" "))
+            || resolvedMarketTerms.find((t) => t.toUpperCase() !== marketSymbol)
+            || resolvedMarketTerms[0],
+        ].filter(Boolean) as string[]
+      : rawEntities;
+    const requiredTerms = strictCandidateTerms
       .slice()
       .sort((a, b) => b.length - a.length)
-      .slice(0, 3);
+      .slice(0, 4);
     const entityTerms = rawEntities.slice(0, 8);
-    const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
+    const alphaLex = isTickerQ ? 0.8 : rawEntities.length > 0 ? 0.65 : 0.45;
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
     // episode tsv. Rewrite the lexical q to use the resolved company name(s)
     // so the lex CTE can actually find matching episodes. Semantic side still
     // uses the original embedding.
     let lexQ = q;
-    if (tickerMatch) {
-      const companies = (curated.expansions || []).filter(Boolean);
+    if (isTickerQ && marketSymbol) {
+      const companies = uniqueClean([
+        ...symbolAliases,
+        ...(curated.expansions || []),
+        ...rawEntities.filter((t) => t.toUpperCase() !== marketSymbol),
+        marketSymbol,
+      ], 8);
       if (companies.length) {
         // websearch_to_tsquery OR-s quoted phrases when wrapped in OR keyword.
-        lexQ = companies.map((c) => `"${c}"`).join(" OR ");
+        lexQ = companies.map(quoteWebSearchTerm).join(" OR ");
       }
     }
 
