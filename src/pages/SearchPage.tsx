@@ -66,8 +66,10 @@ export default function SearchPage() {
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
+  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
+  const refineAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
