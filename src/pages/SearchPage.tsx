@@ -197,7 +197,7 @@ export default function SearchPage() {
       // query looks like a name, ask PI byterm. The fallback fn also stages the
       // best matches into pi_feed_staging so the pipeline ingests them in minutes.
       const looksLikeName = fullPhrase.length >= 3 && /[a-zA-Z]/.test(fullPhrase);
-      if (rankedPs.length === 0 && looksLikeName) {
+      if (rankedPs.length === 0 && mapped.length === 0 && looksLikeName) {
         supabase.functions.invoke("search-pi-fallback", {
           body: { query: fullPhrase, maxStage: 5 },
         }).then(({ data, error }) => {
@@ -326,7 +326,7 @@ export default function SearchPage() {
         )}
 
         {initial && (
-          <div className="flex flex-wrap gap-2 items-center mt-6 text-xs">
+          <div className="hidden sm:flex flex-wrap gap-2 items-center mt-6 text-xs">
             <span className="text-muted-foreground">Sort:</span>
             {([
               ["best", "Best match"],
@@ -350,6 +350,21 @@ export default function SearchPage() {
                 ))}
               </>
             )}
+          </div>
+        )}
+
+        {initial && !loading && (aiAnswer || aiAnswerLoading) && (
+          <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI overview</span>
+              {aiAnswerLoading && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+              )}
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+              {aiAnswer || <span className="text-muted-foreground">Synthesizing an overview from the top episodes…</span>}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2">AI summary, may contain errors. Numbers reference the episodes below.</p>
           </div>
         )}
 
@@ -461,20 +476,6 @@ export default function SearchPage() {
           );
         })()}
 
-        {initial && !loading && (aiAnswer || aiAnswerLoading) && (
-          <div className="mt-8 p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI overview</span>
-              {aiAnswerLoading && (
-                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
-              )}
-            </div>
-            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              {aiAnswer || <span className="text-muted-foreground">Synthesizing an overview from the top episodes…</span>}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-2">AI summary, may contain errors. Numbers reference the episodes below.</p>
-          </div>
-        )}
 
         {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (() => {
           const phrase = initial.trim().toLowerCase();
