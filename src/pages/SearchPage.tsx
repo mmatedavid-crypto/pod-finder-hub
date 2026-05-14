@@ -8,15 +8,9 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
-import NeoSearchBar from "@/components/NeoSearchBar";
+import NeoSearchBar, { NeoTurn } from "@/components/NeoSearchBar";
 
 type SortKey = "best" | "newest" | "rank";
-type NeoContext = {
-  base: string;
-  refined: string;
-  reply: string;
-  phase: "refining" | "feedback";
-};
 
 const EXAMPLES = [
   "AI regulation",
@@ -27,9 +21,6 @@ const EXAMPLES = [
   "founder interviews",
 ];
 
-function isAffirmativeReply(reply: string): boolean {
-  return /^(yes|yeah|yep|ok|okay|sure|good|great|right|correct|works|igen|jó|jo|rendben|stimmel|talál|talal|megfelel|ez az)\b/i.test(reply.trim());
-}
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
@@ -76,11 +67,16 @@ export default function SearchPage() {
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
-  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
-  const [neoContext, setNeoContext] = useState<NeoContext | null>(null);
+  const [neoTurns, setNeoTurns] = useState<NeoTurn[]>([]);
+  const [neoThinking, setNeoThinking] = useState(false);
+  const [neoDone, setNeoDone] = useState(false);
+  const neoTurnsRef = useRef<NeoTurn[]>([]);
+  const expectChatRef = useRef(false);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
   const refineAbortRef = useRef<AbortController | null>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => { neoTurnsRef.current = neoTurns; }, [neoTurns]);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
@@ -90,7 +86,8 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
-    if (!neoContext) setAiQuestion(null);
+    // Neo turns are NOT cleared here — the search effect re-runs on every refined query
+    // and we want the chat history to persist. Clear only on a brand-new ?q (handled in onSubmit).
     answerAbortRef.current?.abort();
     refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
@@ -222,30 +219,43 @@ export default function SearchPage() {
         }, () => { /* ignore */ });
       }
 
-      // Continue the Neo conversation after a refinement before asking for more ambiguity.
-      if (neoContext?.refined === initial && neoContext.phase === "refining") {
-        setNeoContext({ ...neoContext, phase: "feedback" });
-        setAiQuestion(`I searched for “${initial}”. Do these results match what you meant?`);
-      }
+      // Conversational AI:
+      // - If this search was triggered by a user reply (expectChatRef), call search-chat
+      //   to produce a contextual reaction + maybe a follow-up.
+      // - Otherwise, on the very first search with enough ambiguity, call search-refine
+      //   for the initial "Neo moment" question.
+      const topResults = mapped.slice(0, 6).map((e: any) => ({
+        title: e.display_title || e.title,
+        podcast: e.podcasts?.title || "",
+        summary: (e.ai_summary || e.summary || "").slice(0, 200),
+      }));
 
-      // Kick off the "Neo moment" refine probe in parallel — server decides
-      // whether the query is ambiguous enough to ask a clarifying question.
-      if (!neoContext && mapped.length >= 6) {
+      if (expectChatRef.current) {
+        expectChatRef.current = false;
+        const cctrl = new AbortController();
+        chatAbortRef.current = cctrl;
+        setNeoThinking(true);
+        supabase.functions.invoke("search-chat", {
+          body: { messages: neoTurnsRef.current, q: initial, topResults },
+        }).then(({ data, error }) => {
+          if (cancelled || cctrl.signal.aborted) return;
+          setNeoThinking(false);
+          if (error) return;
+          const reply = String(data?.reply || "").trim();
+          const isDone = !!data?.done;
+          if (reply) setNeoTurns((t) => [...t, { role: "assistant", content: reply }]);
+          if (isDone) setNeoDone(true);
+        }, () => { setNeoThinking(false); });
+      } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
-          body: {
-            q: initial,
-            topResults: mapped.slice(0, 6).map((e: any) => ({
-              title: e.display_title || e.title,
-              podcast: e.podcasts?.title || "",
-              summary: (e.ai_summary || e.summary || "").slice(0, 200),
-            })),
-          },
+          body: { q: initial, topResults },
         }).then(({ data, error }) => {
           if (cancelled || rctrl.signal.aborted || error) return;
           if (data?.should_clarify && data?.question) {
-            setAiQuestion(String(data.question));
+            setNeoTurns([{ role: "assistant", content: String(data.question) }]);
+            setNeoDone(false);
           }
         }, () => { /* ignore */ });
       }
@@ -300,7 +310,7 @@ export default function SearchPage() {
         }
       }
     })();
-    return () => { cancelled = true; answerAbortRef.current?.abort(); refineAbortRef.current?.abort(); };
+    return () => { cancelled = true; answerAbortRef.current?.abort(); refineAbortRef.current?.abort(); chatAbortRef.current?.abort(); };
   }, [initial, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
@@ -339,37 +349,51 @@ export default function SearchPage() {
             value={q}
             onChange={setQ}
             onSubmit={(v) => {
-              setAiQuestion(null);
-              setNeoContext(null);
+              chatAbortRef.current?.abort();
+              refineAbortRef.current?.abort();
+              setNeoTurns([]);
+              setNeoDone(false);
+              setNeoThinking(false);
+              expectChatRef.current = false;
               setParams({ q: v });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
-            onReply={(orig, reply) => {
-              if (neoContext?.phase === "feedback") {
-                if (isAffirmativeReply(reply)) {
-                  setAiQuestion(null);
-                  setNeoContext(null);
-                  return;
-                }
-                const next = `${neoContext.refined} ${reply}`.trim();
-                setQ(next);
-                setNeoContext({ base: neoContext.base, refined: next, reply, phase: "refining" });
-                setAiQuestion(`Got it. Searching for “${next}”…`);
-                setParams({ q: next });
-                window.scrollTo({ top: 0, behavior: "auto" });
-                return;
-              }
-
-              const composed = `${orig} ${reply}`.trim();
+            onReply={(reply) => {
+              // Append the user's turn immediately for instant feedback.
+              setNeoTurns((t) => [...t, { role: "user", content: reply }]);
+              // Build the next refined query: append the user's reply to the current query.
+              const composed = `${initial} ${reply}`.trim();
               setQ(composed);
-              setNeoContext({ base: orig, refined: composed, reply, phase: "refining" });
-              setAiQuestion(`Got it. Searching for “${composed}”…`);
-              setParams({ q: composed });
+              expectChatRef.current = true;
+              setNeoThinking(true);
+              if (composed !== initial) {
+                setParams({ q: composed });
+              } else {
+                // Same query — kick off a chat-only round (results unchanged).
+                const topResults: any[] = [];
+                supabase.functions.invoke("search-chat", {
+                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: initial, topResults },
+                }).then(({ data, error }) => {
+                  setNeoThinking(false);
+                  if (error) return;
+                  const r = String(data?.reply || "").trim();
+                  if (r) setNeoTurns((t) => [...t, { role: "assistant", content: r }]);
+                  if (data?.done) setNeoDone(true);
+                }, () => setNeoThinking(false));
+                expectChatRef.current = false;
+              }
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
-            aiQuestion={aiQuestion}
-            originalQ={initial}
-            onExitAI={() => { setAiQuestion(null); setNeoContext(null); }}
+            turns={neoTurns}
+            thinking={neoThinking}
+            done={neoDone}
+            onExitAI={() => {
+              chatAbortRef.current?.abort();
+              setNeoTurns([]);
+              setNeoDone(false);
+              setNeoThinking(false);
+              expectChatRef.current = false;
+            }}
             placeholder="e.g. Nvidia data centers"
           />
           <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
