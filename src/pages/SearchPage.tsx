@@ -320,12 +320,17 @@ export default function SearchPage() {
         <NeoSearchBar
           value={q}
           onChange={setQ}
-          onSubmit={(v) => { setAiQuestion(null); setParams({ q: v }); }}
+          onSubmit={(v) => {
+            setAiQuestion(null);
+            setParams({ q: v });
+            window.scrollTo({ top: 0, behavior: "auto" });
+          }}
           onReply={(orig, reply) => {
             const composed = `${orig} ${reply}`.trim();
             setQ(composed);
             setAiQuestion(null);
             setParams({ q: composed });
+            window.scrollTo({ top: 0, behavior: "auto" });
           }}
           aiQuestion={aiQuestion}
           originalQ={initial}
