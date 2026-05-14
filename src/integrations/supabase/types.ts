@@ -470,6 +470,42 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_events: {
+        Row: {
+          created_at: string
+          episode_id: string | null
+          event_type: string
+          id: string
+          platform: string | null
+          podcast_id: string | null
+          referrer: string | null
+          user_id: string | null
+          viewport_width: number | null
+        }
+        Insert: {
+          created_at?: string
+          episode_id?: string | null
+          event_type: string
+          id?: string
+          platform?: string | null
+          podcast_id?: string | null
+          referrer?: string | null
+          user_id?: string | null
+          viewport_width?: number | null
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string | null
+          event_type?: string
+          id?: string
+          platform?: string | null
+          podcast_id?: string | null
+          referrer?: string | null
+          user_id?: string | null
+          viewport_width?: number | null
+        }
+        Relationships: []
+      }
       episodes: {
         Row: {
           ai_enriched_at: string | null

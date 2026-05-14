@@ -3,6 +3,7 @@ import { PodcastCover } from "./PodcastCover";
 import { ExternalLink } from "lucide-react";
 import { highlightParts, snippet } from "@/lib/text";
 import { freshnessOf, relativeTime } from "@/lib/freshness";
+import { logEpisodeEvent } from "@/lib/listenEvents";
 
 export type EpisodeLite = {
   id: string;
@@ -142,7 +143,13 @@ export function EpisodeCard({
         <div className="flex gap-3 mt-2.5 text-xs">
           <Link to={`/podcast/${p.slug}/${e.slug}`} className="text-muted-foreground hover:text-foreground">Open episode</Link>
           {e.audio_url && (
-            <a href={e.audio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+            <a
+              href={e.audio_url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "audio" })}
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            >
               <ExternalLink className="h-3 w-3" /> Listen
             </a>
           )}

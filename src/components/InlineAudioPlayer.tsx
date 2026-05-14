@@ -1,14 +1,16 @@
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 
 type Props = {
   src: string;
   title: string;
+  onFirstPlay?: () => void;
 };
 
 export const InlineAudioPlayer = forwardRef<HTMLAudioElement, Props>(function InlineAudioPlayer(
-  { src, title },
+  { src, title, onFirstPlay },
   ref,
 ) {
+  const firedRef = useRef(false);
   return (
     <div className="mt-5 rounded-xl border border-border bg-card/60 p-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2 px-1">
@@ -20,6 +22,11 @@ export const InlineAudioPlayer = forwardRef<HTMLAudioElement, Props>(function In
         preload="none"
         src={src}
         className="w-full h-10"
+        onPlay={() => {
+          if (firedRef.current) return;
+          firedRef.current = true;
+          onFirstPlay?.();
+        }}
       >
         Your browser does not support audio playback.
       </audio>
