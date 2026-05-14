@@ -213,16 +213,15 @@ export default function NeoSearchBar({
           {!done && (
             <div className="mt-2 flex items-end gap-2 border-t border-[hsl(120_60%_30%/0.45)] pt-2">
               <span className="neo-text leading-7 select-none" aria-hidden>›</span>
-              <textarea
-                ref={replyTaRef}
+              <input
+                ref={replyInputRef}
                 value={reply}
-                rows={1}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setReply(e.target.value)}
                 disabled={thinking || isTyping || closing}
                 placeholder={thinking ? "thinking…" : isTyping ? "" : "type your answer…"}
                 enterKeyHint="send"
-                className="flex-1 min-h-[1.75rem] resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none whitespace-pre-wrap break-words neo-input-reply disabled:opacity-50"
+                className="flex-1 min-h-[1.75rem] min-w-0 border-0 bg-transparent p-0 text-base leading-7 outline-none neo-input-reply disabled:opacity-50"
               />
               <button
                 type="submit"
