@@ -197,10 +197,12 @@ Deno.serve(async (req) => {
     // Ticker queries: if cached understanding lacks a multi-word company name
     // (e.g. only `["ASTS"]` from a previous bug), force a fresh AI call so we
     // can recover the company name (e.g. "AST SpaceMobile") for the MUST-gate fallback.
-    const isTickerQ = /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(q.trim());
+    const marketSymbol = compactMarketSymbol(q);
+    const symbolAliases = marketSymbol ? (MARKET_SYMBOL_ALIASES[marketSymbol.toLowerCase()] || []) : [];
+    const isTickerQ = !!marketSymbol && !COMMON_NON_TICKER_ACRONYMS.has(marketSymbol);
     if (isTickerQ && understanding) {
       const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
-      if (!hasCompany) understanding = null;
+      if (!hasCompany && !symbolAliases.length) understanding = null;
     }
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
@@ -217,9 +219,8 @@ Deno.serve(async (req) => {
     // force a ticker-intent understanding so the MUST-gate locks results to episodes
     // that actually mention the symbol — instead of letting the AI expand "ASTS" into
     // astrology / unrelated semantic neighbors.
-    const tickerMatch = q.trim().match(/^[A-Za-z]{2,5}(\.[A-Za-z])?$/);
-    if (tickerMatch) {
-      const sym = tickerMatch[0].toUpperCase();
+    if (isTickerQ && marketSymbol) {
+      const sym = marketSymbol;
       // Preserve AI-discovered entities (e.g. "AST SpaceMobile" for "ASTS") so
       // the MUST-gate fallback can search by company name when no episode
       // mentions the bare ticker symbol. Also merge curated synonym mappings
@@ -227,9 +228,10 @@ Deno.serve(async (req) => {
       // recognize obscure tickers like ASTS.
       const aiEntities = (understanding?.entities || []).filter((e) => e && e.toUpperCase() !== sym);
       const curatedCompanies = (curated.expansions || []).filter((e) => e && e.toUpperCase() !== sym);
+      const resolvedNames = uniqueClean([...symbolAliases, ...curatedCompanies, ...aiEntities], 10);
       understanding = {
-        entities: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
-        expanded_terms: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
+        entities: uniqueClean([sym, ...resolvedNames], 8),
+        expanded_terms: uniqueClean([sym, ...resolvedNames], 8),
         synonyms: [],
         intent: "ticker",
         language: understanding?.language || "en",
