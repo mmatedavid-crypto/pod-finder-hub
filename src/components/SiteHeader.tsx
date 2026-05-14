@@ -1,56 +1,11 @@
-import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { LayoutGrid } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
-import { supabase } from "@/integrations/supabase/client";
 
 export function SiteHeader() {
-  const [q, setQ] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loadingSugg, setLoadingSugg] = useState(false);
-  const nav = useNavigate();
   const isHome = useLocation().pathname === "/";
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    abortRef.current?.abort();
-    const trimmed = q.trim();
-    if (trimmed.length < 2) { setSuggestions([]); setLoadingSugg(false); return; }
-    setLoadingSugg(true);
-    debounceRef.current = setTimeout(async () => {
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-      try {
-        const { data, error } = await supabase.functions.invoke("search-suggest", {
-          body: { prefix: trimmed },
-        });
-        if (!error && Array.isArray(data?.suggestions)) setSuggestions(data.suggestions.slice(0, 5));
-      } catch { /* ignore */ }
-      finally { setLoadingSugg(false); }
-    }, 220);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [q]);
-
-  const submit = (val: string) => {
-    const v = val.trim();
-    if (!v) return;
-    setOpen(false);
-    nav(`/search?q=${encodeURIComponent(v)}`);
-  };
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     `relative text-sm transition-colors ${
