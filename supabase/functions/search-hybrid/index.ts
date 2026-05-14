@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
       // Skip retry if relaxation wouldn't change anything.
       if (relaxedTerms?.join("|") !== requiredTerms.join("|")) {
         const retry = await supa.rpc("search_episodes_hybrid", {
-          q: q,
+          q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
           limit_n: Math.max(limit, 50),
           lang,
