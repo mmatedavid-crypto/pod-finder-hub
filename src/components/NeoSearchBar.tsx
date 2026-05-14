@@ -1,34 +1,27 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Search, Send, X } from "lucide-react";
 
-type Mode = "idle" | "ai-typing" | "ai-asking" | "user-replying";
+export type NeoTurn = { role: "assistant" | "user"; content: string };
 
 interface Props {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (v: string) => void;
-  onReply: (originalQ: string, reply: string) => void;
-  aiQuestion: string | null;
-  originalQ: string;
+  onReply: (reply: string) => void;
+  /** Whole conversation so far. Last turn drives typewriter when it's an assistant message. */
+  turns: NeoTurn[];
+  /** True while the AI is "thinking" (search + chat call in flight). */
+  thinking?: boolean;
+  /** True when the conversation is over and user can dismiss. */
+  done?: boolean;
   onExitAI: () => void;
   placeholder?: string;
 }
 
-const MATRIX_DOC =
-  "Matrix-style clarifying question from the AI. Type your reply or press the X to dismiss.";
-
-// Per-character delay. Slower than before for cinematic feel; punctuation pauses extra.
-const BASE_DELAY = 75;
-const JITTER = 35; // +/- ms randomness
+const BASE_DELAY = 45;
+const JITTER = 22;
 const PUNCT_PAUSE: Record<string, number> = {
-  ",": 180,
-  ";": 220,
-  ":": 200,
-  ".": 320,
-  "?": 360,
-  "!": 320,
-  "—": 220,
-  "–": 220,
+  ",": 120, ";": 160, ":": 140, ".": 220, "?": 240, "!": 220, "—": 160, "–": 160,
 };
 
 export default function NeoSearchBar({
@@ -36,17 +29,20 @@ export default function NeoSearchBar({
   onChange,
   onSubmit,
   onReply,
-  aiQuestion,
-  originalQ,
+  turns,
+  thinking,
+  done,
   onExitAI,
   placeholder,
 }: Props) {
-  const [mode, setMode] = useState<Mode>("idle");
-  const [typed, setTyped] = useState("");
+  const inAIMode = turns.length > 0;
   const [reply, setReply] = useState("");
+  const [typedMap, setTypedMap] = useState<Record<number, string>>({});
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const replyTaRef = useRef<HTMLTextAreaElement>(null);
   const typewriterRef = useRef<number | null>(null);
   const reducedMotion = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
@@ -54,62 +50,62 @@ export default function NeoSearchBar({
     }
   }, []);
 
+  // Typewriter for the LAST assistant message that hasn't been fully typed.
+  const lastIdx = turns.length - 1;
+  const lastTurn = turns[lastIdx];
   useEffect(() => {
     if (typewriterRef.current) {
       window.clearTimeout(typewriterRef.current);
       typewriterRef.current = null;
     }
-    if (!aiQuestion) {
-      setMode("idle");
-      setTyped("");
-      setReply("");
-      return;
-    }
-    setReply("");
-    setTyped("");
-    setMode("ai-typing");
+    if (!lastTurn || lastTurn.role !== "assistant") return;
+    if (typedMap[lastIdx] === lastTurn.content) return;
 
     if (reducedMotion.current) {
-      setTyped(aiQuestion);
-      setMode("ai-asking");
+      setTypedMap((m) => ({ ...m, [lastIdx]: lastTurn.content }));
       return;
     }
 
-    // Wake-up beat, then typewriter with variable cadence
-    const start = window.setTimeout(() => {
-      let i = 0;
-      const tick = () => {
-        i += 1;
-        const slice = aiQuestion.slice(0, i);
-        setTyped(slice);
-        if (i >= aiQuestion.length) {
-          setMode("ai-asking");
-          return;
-        }
-        const lastChar = slice[slice.length - 1] ?? "";
-        const punct = PUNCT_PAUSE[lastChar] ?? 0;
-        const jitter = (Math.random() - 0.5) * 2 * JITTER;
-        const delay = Math.max(30, BASE_DELAY + jitter + punct);
-        typewriterRef.current = window.setTimeout(tick, delay);
-      };
-      tick();
-    }, 700);
-    typewriterRef.current = start;
-    return () => {
-      if (typewriterRef.current) window.clearTimeout(typewriterRef.current);
+    let i = (typedMap[lastIdx] || "").length;
+    const tick = () => {
+      i += 1;
+      const slice = lastTurn.content.slice(0, i);
+      setTypedMap((m) => ({ ...m, [lastIdx]: slice }));
+      if (i >= lastTurn.content.length) return;
+      const lastChar = slice[slice.length - 1] ?? "";
+      const punct = PUNCT_PAUSE[lastChar] ?? 0;
+      const jitter = (Math.random() - 0.5) * 2 * JITTER;
+      const delay = Math.max(20, BASE_DELAY + jitter + punct);
+      typewriterRef.current = window.setTimeout(tick, delay);
     };
-  }, [aiQuestion]);
+    typewriterRef.current = window.setTimeout(tick, 350);
+    return () => { if (typewriterRef.current) window.clearTimeout(typewriterRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastIdx, lastTurn?.content]);
 
-  const inAIMode = mode === "ai-typing" || mode === "ai-asking" || mode === "user-replying";
-  const isReadOnly = mode === "ai-typing";
+  // Auto-scroll to the bottom of the chat as new content arrives
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [turns.length, typedMap, thinking]);
+
+  // Focus reply textarea when AI is waiting for an answer
+  useEffect(() => {
+    if (inAIMode && !thinking && !done && lastTurn?.role === "assistant" &&
+        typedMap[lastIdx] === lastTurn.content) {
+      replyTaRef.current?.focus({ preventScroll: true });
+    }
+  }, [inAIMode, thinking, done, lastIdx, lastTurn, typedMap]);
+
+  const isTyping = !!lastTurn && lastTurn.role === "assistant" && typedMap[lastIdx] !== lastTurn.content;
+  const canSendReply = !thinking && !done && !isTyping && reply.trim().length > 0;
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (inAIMode) {
-      if (isReadOnly) return;
+      if (!canSendReply) return;
       const trimmed = reply.trim();
-      if (!trimmed) return;
-      onReply(originalQ, trimmed);
+      onReply(trimmed);
       setReply("");
       return;
     }
@@ -118,46 +114,26 @@ export default function NeoSearchBar({
 
   const handleExit = () => {
     if (typewriterRef.current) window.clearTimeout(typewriterRef.current);
-    setMode("idle");
-    setTyped("");
     setReply("");
+    setTypedMap({});
     onExitAI();
   };
 
-  // Trailing block cursor while typing or waiting for reply. Blink via interval.
-  const showCursor = mode === "ai-typing" || (mode === "ai-asking" && reply.length === 0);
-  const [blinkOn, setBlinkOn] = useState(true);
-  useEffect(() => {
-    if (!showCursor) { setBlinkOn(true); return; }
-    if (mode === "ai-typing") { setBlinkOn(true); return; } // solid while typing
-    const id = window.setInterval(() => setBlinkOn((b) => !b), 530);
-    return () => window.clearInterval(id);
-  }, [showCursor, mode]);
-
-  const textareaValue = inAIMode ? reply : value;
-  const aiDisplay = typed + (showCursor && blinkOn ? "▮" : "");
-
-  // Auto-grow textarea to fit content. On iOS Safari scrollHeight can lag while
-  // a value is being typed programmatically, so estimate wrapped terminal lines too.
+  // Auto-grow textareas
   useLayoutEffect(() => {
     const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    const styles = window.getComputedStyle(ta);
-    const fontSize = parseFloat(styles.fontSize) || 16;
-    const lineHeight = parseFloat(styles.lineHeight) || 28;
-    const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-    const usableWidth = Math.max(1, ta.clientWidth - horizontalPadding);
-    const averageMonoChar = fontSize * 0.62;
-    const charsPerLine = Math.max(8, Math.floor(usableWidth / averageMonoChar));
-    const estimatedLines = Math.max(
-      1,
-      ...textareaValue.split("\n").map((line) => Math.ceil(Math.max(line.length, 1) / charsPerLine))
-    );
-    const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
-    const estimatedHeight = estimatedLines * lineHeight + verticalPadding + 8;
-    ta.style.height = `${Math.max(ta.scrollHeight + 8, estimatedHeight)}px`;
-  }, [textareaValue, mode]);
+    if (ta) {
+      ta.style.height = "auto";
+      ta.style.height = `${ta.scrollHeight + 2}px`;
+    }
+  }, [value]);
+  useLayoutEffect(() => {
+    const ta = replyTaRef.current;
+    if (ta) {
+      ta.style.height = "auto";
+      ta.style.height = `${ta.scrollHeight + 2}px`;
+    }
+  }, [reply]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -173,54 +149,78 @@ export default function NeoSearchBar({
         onSubmit={handleSubmit}
         className="relative max-w-2xl scroll-mt-32 transition-shadow duration-300 neo-bar-glow"
         role="search"
-        aria-label={MATRIX_DOC}
+        aria-label="Conversational podcast search"
       >
-        <div className="neo-panel relative min-h-[5.25rem] rounded-md px-3 py-4 pl-10 pr-24">
-          <span
-            className="absolute left-3 top-[1.05rem] text-base leading-none neo-text neo-pulse"
-            aria-hidden
+        <div className="neo-panel relative rounded-md px-3 py-3 pr-10">
+          <div
+            ref={scrollRef}
+            className="max-h-[40vh] overflow-y-auto pr-1 space-y-2"
+            aria-live="polite"
           >
-            ▸
-          </span>
-          <div className="neo-text whitespace-pre-wrap break-words leading-7" aria-live="polite">
-            {aiDisplay}
+            {turns.map((t, i) => {
+              if (t.role === "assistant") {
+                const text = typedMap[i] ?? (i < lastIdx ? t.content : "");
+                const showCursor = i === lastIdx && (text !== t.content);
+                return (
+                  <div key={i} className="flex gap-2 leading-7">
+                    <span className="neo-text neo-pulse shrink-0" aria-hidden>▸</span>
+                    <div className="neo-text whitespace-pre-wrap break-words">
+                      {text}
+                      {showCursor && <span className="neo-cursor">▮</span>}
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={i} className="flex gap-2 leading-7">
+                  <span className="shrink-0 text-muted-foreground select-none">›</span>
+                  <div className="whitespace-pre-wrap break-words text-foreground/90">
+                    {t.content}
+                  </div>
+                </div>
+              );
+            })}
+            {thinking && (
+              <div className="flex gap-2 leading-7">
+                <span className="neo-text neo-pulse shrink-0" aria-hidden>▸</span>
+                <div className="neo-text neo-thinking">…</div>
+              </div>
+            )}
           </div>
-          <textarea
-            ref={taRef}
-            value={reply}
-            readOnly={isReadOnly}
-            disabled={isReadOnly}
-            rows={1}
-            onKeyDown={handleKeyDown}
-            onChange={(e) => {
-              setReply(e.target.value);
-              if (mode === "ai-asking") setMode("user-replying");
-            }}
-            onFocus={() => {
-              if (mode === "ai-asking") setMode("user-replying");
-            }}
-            placeholder={isReadOnly ? "" : "Type your answer…"}
-            enterKeyHint="send"
-            className="mt-3 block w-full min-h-[2rem] resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none box-border whitespace-pre-wrap break-words neo-input-reply disabled:opacity-60"
-          />
+
+          {!done && (
+            <div className="mt-2 flex items-end gap-2 border-t border-border/40 pt-2">
+              <span className="neo-text leading-7 select-none" aria-hidden>›</span>
+              <textarea
+                ref={replyTaRef}
+                value={reply}
+                rows={1}
+                onKeyDown={handleKeyDown}
+                onChange={(e) => setReply(e.target.value)}
+                disabled={thinking || isTyping}
+                placeholder={thinking ? "thinking…" : isTyping ? "" : "type your answer…"}
+                enterKeyHint="send"
+                className="flex-1 min-h-[1.75rem] resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none whitespace-pre-wrap break-words neo-input-reply disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={!canSendReply}
+                aria-label="Send"
+                className="neo-send-button inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors disabled:opacity-35"
+                title="Send"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         <button
-          type="submit"
-          disabled={isReadOnly || reply.trim().length === 0}
-          aria-label="Send answer"
-          className="neo-send-button absolute bottom-2 right-2 inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-35"
-          title="Send answer"
-        >
-          <Send className="h-3.5 w-3.5" />
-          Send
-        </button>
-        <button
           type="button"
           onClick={handleExit}
-          aria-label="Dismiss AI and start a new search"
-          className="neo-close-button absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-          title="New search"
+          aria-label="Close chat"
+          className="neo-close-button absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+          title="Close"
         >
           <X className="h-4 w-4" />
         </button>
