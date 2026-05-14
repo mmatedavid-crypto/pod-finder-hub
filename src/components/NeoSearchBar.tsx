@@ -40,7 +40,7 @@ export default function NeoSearchBar({
   const [typedMap, setTypedMap] = useState<Record<number, string>>({});
   const [closing, setClosing] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const replyTaRef = useRef<HTMLTextAreaElement>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
   const typewriterRef = useRef<number | null>(null);
   const reducedMotion = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,12 +101,12 @@ export default function NeoSearchBar({
   useEffect(() => {
     if (inAIMode && !thinking && !done && lastTurn?.role === "assistant" &&
         typedMap[lastIdx] === lastTurn.content) {
-      replyTaRef.current?.focus({ preventScroll: true });
+      replyInputRef.current?.focus({ preventScroll: true });
     }
   }, [inAIMode, thinking, done, lastIdx, lastTurn, typedMap]);
 
   const isTyping = !!lastTurn && lastTurn.role === "assistant" && typedMap[lastIdx] !== lastTurn.content;
-  const canSendReply = !thinking && !done && !isTyping && reply.trim().length > 0;
+  const canSendReply = !thinking && !isTyping && !closing && reply.trim().length > 0;
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -146,15 +146,7 @@ export default function NeoSearchBar({
       ta.style.height = `${ta.scrollHeight + 2}px`;
     }
   }, [value]);
-  useLayoutEffect(() => {
-    const ta = replyTaRef.current;
-    if (ta) {
-      ta.style.height = "auto";
-      ta.style.height = `${ta.scrollHeight + 2}px`;
-    }
-  }, [reply]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
