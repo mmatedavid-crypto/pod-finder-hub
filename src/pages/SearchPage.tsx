@@ -211,6 +211,28 @@ export default function SearchPage() {
         }, () => { /* ignore */ });
       }
 
+      // Kick off the "Neo moment" refine probe in parallel — server decides
+      // whether the query is ambiguous enough to ask a clarifying question.
+      if (mapped.length >= 6) {
+        const rctrl = new AbortController();
+        refineAbortRef.current = rctrl;
+        supabase.functions.invoke("search-refine", {
+          body: {
+            q: initial,
+            topResults: mapped.slice(0, 6).map((e: any) => ({
+              title: e.display_title || e.title,
+              podcast: e.podcasts?.title || "",
+              summary: (e.ai_summary || e.summary || "").slice(0, 200),
+            })),
+          },
+        }).then(({ data, error }) => {
+          if (cancelled || rctrl.signal.aborted || error) return;
+          if (data?.should_clarify && data?.question) {
+            setAiQuestion(String(data.question));
+          }
+        }, () => { /* ignore */ });
+      }
+
       // Kick off streaming AI answer when we have enough top results.
       if (mapped.length >= 3) {
         setAiAnswerLoading(true);
