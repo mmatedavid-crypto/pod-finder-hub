@@ -137,25 +137,38 @@ export default function NeoSearchBar({
   const displayValue = showCursor ? baseDisplay + (blinkOn ? "▮" : " ") : baseDisplay;
   const isReadOnly = mode === "ai-typing";
 
-  // Auto-grow textarea to fit content. Add a small buffer so glyph ascenders
-  // (and the Matrix glow) don't get clipped at the top.
+  // Auto-grow textarea to fit content. On iOS Safari scrollHeight can lag while
+  // a value is being typed programmatically, so estimate wrapped terminal lines too.
   useLayoutEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight + 2}px`;
+    const styles = window.getComputedStyle(ta);
+    const fontSize = parseFloat(styles.fontSize) || 16;
+    const lineHeight = parseFloat(styles.lineHeight) || 28;
+    const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+    const usableWidth = Math.max(1, ta.clientWidth - horizontalPadding);
+    const averageMonoChar = fontSize * 0.62;
+    const charsPerLine = Math.max(8, Math.floor(usableWidth / averageMonoChar));
+    const estimatedLines = Math.max(
+      1,
+      ...displayValue.split("\n").map((line) => Math.ceil(Math.max(line.length, 1) / charsPerLine))
+    );
+    const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+    const estimatedHeight = estimatedLines * lineHeight + verticalPadding + 8;
+    ta.style.height = `${Math.max(ta.scrollHeight + 8, estimatedHeight)}px`;
   }, [displayValue, mode]);
 
   return (
     <form
       onSubmit={handleSubmit}
-      className={`relative max-w-2xl transition-shadow duration-300 ${inAIMode ? "neo-bar-glow" : ""}`}
+      className={`relative max-w-2xl scroll-mt-32 transition-shadow duration-300 ${inAIMode ? "neo-bar-glow" : ""}`}
       role="search"
       aria-label={inAIMode ? MATRIX_DOC : "Search podcast episodes"}
     >
       {inAIMode ? (
         <span
-          className="absolute left-3 top-3 text-base leading-none neo-text neo-pulse"
+            className="absolute left-3 top-[1.05rem] text-base leading-none neo-text neo-pulse"
           aria-hidden
         >
           ▸
@@ -202,7 +215,7 @@ export default function NeoSearchBar({
               ? ""
               : (placeholder || "e.g. Nvidia data centers")
         }
-        className={`w-full pl-10 pr-24 py-3 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border ${
+        className={`w-full min-h-[3.75rem] pl-10 pr-14 sm:pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words ${
           inAIMode
             ? `${mode === "user-replying" ? "neo-input-reply" : "neo-input neo-text"} border-[hsl(120_80%_45%)] bg-black/80`
             : "bg-card border-border focus:border-accent"
