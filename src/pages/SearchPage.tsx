@@ -340,19 +340,36 @@ export default function SearchPage() {
             onChange={setQ}
             onSubmit={(v) => {
               setAiQuestion(null);
+              setNeoContext(null);
               setParams({ q: v });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             onReply={(orig, reply) => {
+              if (neoContext?.phase === "feedback") {
+                if (isAffirmativeReply(reply)) {
+                  setAiQuestion(null);
+                  setNeoContext(null);
+                  return;
+                }
+                const next = `${neoContext.refined} ${reply}`.trim();
+                setQ(next);
+                setNeoContext({ base: neoContext.base, refined: next, reply, phase: "refining" });
+                setAiQuestion(`Got it. Searching for “${next}”…`);
+                setParams({ q: next });
+                window.scrollTo({ top: 0, behavior: "auto" });
+                return;
+              }
+
               const composed = `${orig} ${reply}`.trim();
               setQ(composed);
-              setAiQuestion(null);
+              setNeoContext({ base: orig, refined: composed, reply, phase: "refining" });
+              setAiQuestion(`Got it. Searching for “${composed}”…`);
               setParams({ q: composed });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             aiQuestion={aiQuestion}
             originalQ={initial}
-            onExitAI={() => { setAiQuestion(null); }}
+            onExitAI={() => { setAiQuestion(null); setNeoContext(null); }}
             placeholder="e.g. Nvidia data centers"
           />
           <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
