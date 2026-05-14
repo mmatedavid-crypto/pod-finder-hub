@@ -270,23 +270,39 @@ Deno.serve(async (req) => {
     const rawEntities = (understanding?.entities || [])
       .map((s) => String(s || "").trim())
       .filter((s) => s.length >= 3 && s.length <= 60);
-    const requiredTerms = rawEntities
+    const resolvedMarketTerms = isTickerQ && marketSymbol
+      ? uniqueClean([
+          marketSymbol,
+          ...symbolAliases,
+          ...(curated.expansions || []),
+          ...rawEntities.filter((t) => t.toUpperCase() !== marketSymbol),
+        ], 8)
+      : [];
+    const strictCandidateTerms = isTickerQ && resolvedMarketTerms.length
+      ? resolvedMarketTerms
+      : rawEntities;
+    const requiredTerms = strictCandidateTerms
       .slice()
       .sort((a, b) => b.length - a.length)
-      .slice(0, 3);
+      .slice(0, 4);
     const entityTerms = rawEntities.slice(0, 8);
-    const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
+    const alphaLex = isTickerQ ? 0.8 : rawEntities.length > 0 ? 0.65 : 0.45;
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
     // episode tsv. Rewrite the lexical q to use the resolved company name(s)
     // so the lex CTE can actually find matching episodes. Semantic side still
     // uses the original embedding.
     let lexQ = q;
-    if (tickerMatch) {
-      const companies = (curated.expansions || []).filter(Boolean);
+    if (isTickerQ && marketSymbol) {
+      const companies = uniqueClean([
+        ...symbolAliases,
+        ...(curated.expansions || []),
+        ...rawEntities.filter((t) => t.toUpperCase() !== marketSymbol),
+        marketSymbol,
+      ], 8);
       if (companies.length) {
         // websearch_to_tsquery OR-s quoted phrases when wrapped in OR keyword.
-        lexQ = companies.map((c) => `"${c}"`).join(" OR ");
+        lexQ = companies.map(quoteWebSearchTerm).join(" OR ");
       }
     }
 
