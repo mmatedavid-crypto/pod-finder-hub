@@ -336,7 +336,7 @@ export default function SearchPage() {
       }
     })();
     return () => { cancelled = true; answerAbortRef.current?.abort(); refineAbortRef.current?.abort(); chatAbortRef.current?.abort(); };
-  }, [initial, sortParam, catParam]);
+  }, [initial, refineExtra, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
 
