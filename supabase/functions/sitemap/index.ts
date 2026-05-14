@@ -88,8 +88,9 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
   // Episode sub-sitemaps split into halves (1-15, 16-end) so neither exceeds
   // Google's 50k URL limit (peak month was ~87k whole, ~44k per half).
   for (const ym of months) {
-    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}&amp;part=1</loc><lastmod>${lastmod}</lastmod></sitemap>`);
-    entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}&amp;part=2</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+    for (const p of ["1","2","3","4"]) {
+      entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}&amp;part=${p}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+    }
     entries.push(`<sitemap><loc>${FN_BASE}?type=entities&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</sitemapindex>`;
