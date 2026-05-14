@@ -101,10 +101,12 @@ export default function NeoSearchBar({
   }, [aiQuestion]);
 
   const inAIMode = mode === "ai-typing" || mode === "ai-asking" || mode === "user-replying";
+  const isReadOnly = mode === "ai-typing";
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (inAIMode && (mode === "ai-asking" || mode === "user-replying")) {
+    if (inAIMode) {
+      if (isReadOnly) return;
       const trimmed = reply.trim();
       if (!trimmed) return;
       onReply(originalQ, trimmed);
@@ -133,9 +135,9 @@ export default function NeoSearchBar({
     const id = window.setInterval(() => setBlinkOn((b) => !b), 530);
     return () => window.clearInterval(id);
   }, [showCursor, mode]);
-  const baseDisplay = inAIMode ? (mode === "user-replying" ? reply : typed) : value;
-  const displayValue = showCursor ? baseDisplay + (blinkOn ? "▮" : " ") : baseDisplay;
-  const isReadOnly = mode === "ai-typing";
+
+  const textareaValue = inAIMode ? reply : value;
+  const aiDisplay = typed + (showCursor && blinkOn ? "▮" : "");
 
   // Auto-grow textarea to fit content. On iOS Safari scrollHeight can lag while
   // a value is being typed programmatically, so estimate wrapped terminal lines too.
@@ -152,107 +154,106 @@ export default function NeoSearchBar({
     const charsPerLine = Math.max(8, Math.floor(usableWidth / averageMonoChar));
     const estimatedLines = Math.max(
       1,
-      ...displayValue.split("\n").map((line) => Math.ceil(Math.max(line.length, 1) / charsPerLine))
+      ...textareaValue.split("\n").map((line) => Math.ceil(Math.max(line.length, 1) / charsPerLine))
     );
     const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
     const estimatedHeight = estimatedLines * lineHeight + verticalPadding + 8;
     ta.style.height = `${Math.max(ta.scrollHeight + 8, estimatedHeight)}px`;
-  }, [displayValue, mode]);
+  }, [textareaValue, mode]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  if (inAIMode) {
+    return (
+      <form
+        onSubmit={handleSubmit}
+        className="relative max-w-2xl scroll-mt-32 transition-shadow duration-300 neo-bar-glow"
+        role="search"
+        aria-label={MATRIX_DOC}
+      >
+        <div className="relative min-h-[5.25rem] rounded-md border border-[hsl(120_80%_45%)] bg-black/80 px-3 py-4 pl-10 pr-24">
+          <span
+            className="absolute left-3 top-[1.05rem] text-base leading-none neo-text neo-pulse"
+            aria-hidden
+          >
+            ▸
+          </span>
+          <div className="neo-text whitespace-pre-wrap break-words leading-7" aria-live="polite">
+            {aiDisplay}
+          </div>
+          <textarea
+            ref={taRef}
+            value={reply}
+            readOnly={isReadOnly}
+            disabled={isReadOnly}
+            rows={1}
+            onKeyDown={handleKeyDown}
+            onChange={(e) => {
+              setReply(e.target.value);
+              if (mode === "ai-asking") setMode("user-replying");
+            }}
+            onFocus={() => {
+              if (mode === "ai-asking") setMode("user-replying");
+            }}
+            placeholder={isReadOnly ? "" : "Type your answer…"}
+            enterKeyHint="send"
+            className="mt-3 block w-full min-h-[2rem] resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none box-border whitespace-pre-wrap break-words neo-input-reply disabled:opacity-60"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isReadOnly || reply.trim().length === 0}
+          aria-label="Send answer"
+          className="neo-send-button absolute bottom-2 right-2 inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-35"
+          title="Send answer"
+        >
+          <Send className="h-3.5 w-3.5" />
+          Send
+        </button>
+        <button
+          type="button"
+          onClick={handleExit}
+          aria-label="Dismiss AI and start a new search"
+          className="neo-close-button absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+          title="New search"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </form>
+    );
+  }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className={`relative max-w-2xl scroll-mt-32 transition-shadow duration-300 ${inAIMode ? "neo-bar-glow" : ""}`}
+      className="relative max-w-2xl scroll-mt-32 transition-shadow duration-300"
       role="search"
-      aria-label={inAIMode ? MATRIX_DOC : "Search podcast episodes"}
+      aria-label="Search podcast episodes"
     >
-      {inAIMode ? (
-        <span
-            className="absolute left-3 top-[1.05rem] text-base leading-none neo-text neo-pulse"
-          aria-hidden
-        >
-          ▸
-        </span>
-      ) : (
-        <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-      )}
-
+      <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
       <textarea
         ref={taRef}
-        value={displayValue}
-        readOnly={isReadOnly}
+        value={value}
         rows={1}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleSubmit();
-          }
-        }}
-        onChange={(e) => {
-          if (isReadOnly) return;
-          // Strip only the fake block cursor if it was included; keep real spaces.
-          const v = e.target.value.replace(/▮$/, "");
-          if (mode === "ai-asking" || mode === "user-replying") {
-            setReply(v);
-            setMode("user-replying");
-          } else {
-            onChange(v);
-          }
-        }}
-        onFocus={() => {
-          // First touch on the AI question: clear the bar so the user's reply
-          // doesn't collide with the typed-out AI text.
-          if (mode === "ai-asking") {
-            setReply("");
-            setTyped("");
-            setMode("user-replying");
-          }
-        }}
-        placeholder={
-          mode === "user-replying"
-            ? "Type your answer…"
-            : inAIMode
-              ? ""
-              : (placeholder || "e.g. Nvidia data centers")
-        }
-        enterKeyHint={inAIMode ? "send" : "search"}
-        className={`w-full min-h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words ${
-          inAIMode
-            ? `${mode === "user-replying" ? "neo-input-reply" : "neo-input neo-text"} border-[hsl(120_80%_45%)] bg-black/80`
-            : "bg-card border-border focus:border-accent"
-        }`}
-        aria-live={inAIMode ? "polite" : undefined}
+        onKeyDown={handleKeyDown}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || "e.g. Nvidia data centers"}
+        enterKeyHint="search"
+        className="w-full min-h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words bg-card border-border focus:border-accent"
       />
-
-      {inAIMode ? (
-        <div className="absolute right-2 top-2 flex items-center gap-1">
-          <button
-            type="submit"
-            disabled={mode === "ai-typing" || reply.trim().length === 0}
-            aria-label="Send answer"
-            className="h-8 w-8 rounded-md flex items-center justify-center text-[hsl(38_100%_65%)] hover:bg-[hsl(38_100%_50%/0.15)] disabled:opacity-35 disabled:hover:bg-transparent transition-colors"
-            title="Send answer"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleExit}
-            aria-label="Dismiss AI and start a new search"
-            className="h-8 w-8 rounded-md flex items-center justify-center text-[hsl(120_80%_55%)] hover:bg-[hsl(120_80%_45%/0.15)] transition-colors"
-            title="New search"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <button
-          type="submit"
-          className="absolute right-2 top-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm"
-        >
-          Search
-        </button>
-      )}
+      <button
+        type="submit"
+        className="absolute right-2 top-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm"
+      >
+        Search
+      </button>
     </form>
   );
 }
