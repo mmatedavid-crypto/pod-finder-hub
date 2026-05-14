@@ -79,7 +79,9 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
+    setAiQuestion(null);
     answerAbortRef.current?.abort();
+    refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
 
     setLoading(true);
