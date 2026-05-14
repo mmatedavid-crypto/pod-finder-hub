@@ -1,12 +1,17 @@
 {
-  "name": "Podiverzum",
+  "name": "Podiverzum — Discover great podcasts",
   "short_name": "Podiverzum",
+  "description": "Discover, search, and explore podcasts and episodes across the web.",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "theme_color": "#0a0a0a",
   "background_color": "#0a0a0a",
   "display": "standalone",
-  "start_url": "/"
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/?source=pwa",
+  "lang": "en",
+  "categories": ["music", "entertainment", "news"]
 }
