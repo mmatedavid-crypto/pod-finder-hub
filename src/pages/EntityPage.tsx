@@ -145,6 +145,28 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     kind === "ticker" ? "Corporation" :
     "Thing";
   const pageUrl = `${siteOrigin()}/${kind}/${slug}`;
+  const rich = total >= RICH_AT;
+
+  const featuredIdSet = useMemo(
+    () => new Set(profile?.featured_episode_ids || []),
+    [profile?.featured_episode_ids]
+  );
+  const featuredEps = useMemo(() => (
+    featuredIdSet.size
+      ? eps.filter((e) => featuredIdSet.has((e as any).id))
+          .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+          .slice(0, 12)
+      : []
+  ), [eps, featuredIdSet]);
+  const mentionedEps = useMemo(() => (
+    featuredIdSet.size ? eps.filter((e) => !featuredIdSet.has((e as any).id)) : eps
+  ), [eps, featuredIdSet]);
+  const newest = useMemo(() => (
+    mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12)
+  ), [mentionedEps]);
+  const best = useMemo(() => (
+    mentionedEps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12)
+  ), [mentionedEps]);
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
@@ -155,22 +177,6 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     />
   );
 
-
-  const rich = total >= RICH_AT;
-  const featuredIdSet = useMemo(
-    () => new Set(profile?.featured_episode_ids || []),
-    [profile?.featured_episode_ids]
-  );
-  const featuredEps = featuredIdSet.size
-    ? eps.filter((e) => featuredIdSet.has((e as any).id))
-        .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-        .slice(0, 12)
-    : [];
-  const mentionedEps = featuredIdSet.size
-    ? eps.filter((e) => !featuredIdSet.has((e as any).id))
-    : eps;
-  const newest = mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = mentionedEps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
 
   const last30Count = eps.filter((e) => {
     if (!e.published_at) return false;
