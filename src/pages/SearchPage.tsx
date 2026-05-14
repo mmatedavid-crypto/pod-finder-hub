@@ -283,7 +283,7 @@ export default function SearchPage() {
         }
       }
     })();
-    return () => { cancelled = true; answerAbortRef.current?.abort(); };
+    return () => { cancelled = true; answerAbortRef.current?.abort(); refineAbortRef.current?.abort(); };
   }, [initial, sortParam, catParam]);
 
   const flatTerms = useMemo(() => parseQuery(initial).terms, [initial]);
