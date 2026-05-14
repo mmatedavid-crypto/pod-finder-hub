@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-2.5-pro";
 
 const SYSTEM_PROMPT = `You write short, native-feeling X (Twitter) replies on behalf of Podiverzum, a podcast aggregator that collects podcast episodes about / featuring / discussing a person, company or topic across many shows.
 
