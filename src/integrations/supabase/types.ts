@@ -1553,6 +1553,121 @@ export type Database = {
         }
         Relationships: []
       }
+      tiktok_videos: {
+        Row: {
+          broll_cost_usd: number | null
+          broll_image_urls: string[] | null
+          created_at: string
+          episode_id: string
+          error: string | null
+          generated_at: string | null
+          id: string
+          podcast_id: string
+          render_cost_usd: number | null
+          script: string | null
+          script_cost_usd: number | null
+          script_model: string | null
+          status: string
+          subtitle_words: Json | null
+          total_cost_usd: number | null
+          updated_at: string
+          video_duration_s: number | null
+          video_url: string | null
+          voiceover_cost_usd: number | null
+          voiceover_duration_s: number | null
+          voiceover_url: string | null
+        }
+        Insert: {
+          broll_cost_usd?: number | null
+          broll_image_urls?: string[] | null
+          created_at?: string
+          episode_id: string
+          error?: string | null
+          generated_at?: string | null
+          id?: string
+          podcast_id: string
+          render_cost_usd?: number | null
+          script?: string | null
+          script_cost_usd?: number | null
+          script_model?: string | null
+          status?: string
+          subtitle_words?: Json | null
+          total_cost_usd?: number | null
+          updated_at?: string
+          video_duration_s?: number | null
+          video_url?: string | null
+          voiceover_cost_usd?: number | null
+          voiceover_duration_s?: number | null
+          voiceover_url?: string | null
+        }
+        Update: {
+          broll_cost_usd?: number | null
+          broll_image_urls?: string[] | null
+          created_at?: string
+          episode_id?: string
+          error?: string | null
+          generated_at?: string | null
+          id?: string
+          podcast_id?: string
+          render_cost_usd?: number | null
+          script?: string | null
+          script_cost_usd?: number | null
+          script_model?: string | null
+          status?: string
+          subtitle_words?: Json | null
+          total_cost_usd?: number | null
+          updated_at?: string
+          video_duration_s?: number | null
+          video_url?: string | null
+          voiceover_cost_usd?: number | null
+          voiceover_duration_s?: number | null
+          voiceover_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tiktok_videos_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
