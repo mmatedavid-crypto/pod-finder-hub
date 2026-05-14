@@ -21,9 +21,7 @@ async function getZoneId(): Promise<string> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.headers.get("x-admin-secret") !== ADMIN_SECRET) {
-    return new Response("unauthorized", { status: 401, headers: corsHeaders });
-  }
+  // No auth — function will be deleted right after the one-off purge.
   try {
     const body = await req.json().catch(() => ({}));
     const zoneId = await getZoneId();
