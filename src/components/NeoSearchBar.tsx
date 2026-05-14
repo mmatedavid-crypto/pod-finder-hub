@@ -137,12 +137,13 @@ export default function NeoSearchBar({
   const displayValue = showCursor ? baseDisplay + (blinkOn ? "▮" : " ") : baseDisplay;
   const isReadOnly = mode === "ai-typing";
 
-  // Auto-grow textarea to fit content (single line by default, expands when wrapped)
+  // Auto-grow textarea to fit content. Add a small buffer so glyph ascenders
+  // (and the Matrix glow) don't get clipped at the top.
   useLayoutEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
+    ta.style.height = `${ta.scrollHeight + 2}px`;
   }, [displayValue, mode]);
 
   return (
@@ -201,7 +202,7 @@ export default function NeoSearchBar({
               ? ""
               : (placeholder || "e.g. Nvidia data centers")
         }
-        className={`w-full pl-10 pr-24 py-3 rounded-md border outline-none transition-colors resize-none overflow-hidden leading-6 ${
+        className={`w-full pl-10 pr-24 py-3 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border ${
           inAIMode
             ? `${mode === "user-replying" ? "neo-input-reply" : "neo-input neo-text"} border-[hsl(120_80%_45%)] bg-black/80`
             : "bg-card border-border focus:border-accent"
