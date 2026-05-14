@@ -201,8 +201,8 @@ export default function SearchPage() {
       }
 
       // Podcasts query (separate, simpler). Includes full-phrase title hit (e.g. "Joe Rogan").
-      const { terms } = parseQuery(normalizeQuery(initial).normalized || initial);
-      const fullPhrase = initial.trim();
+      const { terms } = parseQuery(normalizeQuery(q0).normalized || initial);
+      const fullPhrase = q0.trim();
       let pq = supabase
         .from("podcasts")
         .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
@@ -256,7 +256,7 @@ export default function SearchPage() {
         chatAbortRef.current = cctrl;
         setNeoThinking(true);
         supabase.functions.invoke("search-chat", {
-          body: { messages: neoTurnsRef.current, q: initial, topResults },
+          body: { messages: neoTurnsRef.current, q: q0, topResults },
         }).then(({ data, error }) => {
           if (cancelled || cctrl.signal.aborted) return;
           setNeoThinking(false);
@@ -275,7 +275,7 @@ export default function SearchPage() {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
-          body: { q: initial, topResults },
+          body: { q: q0, topResults },
         }).then(({ data, error }) => {
           if (cancelled || rctrl.signal.aborted || error) return;
           if (data?.should_clarify && data?.question) {
@@ -297,7 +297,7 @@ export default function SearchPage() {
             signal: ctrl.signal,
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
             body: JSON.stringify({
-              q: initial,
+              q: q0,
               episodes: mapped.slice(0, 6).map((e: any) => ({
                 title: e.display_title || e.title,
                 podcast: e.podcasts?.title || "",
@@ -398,7 +398,7 @@ export default function SearchPage() {
                 // Same query — kick off a chat-only round (results unchanged).
                 const topResults: any[] = [];
                 supabase.functions.invoke("search-chat", {
-                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: initial, topResults },
+                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: q0, topResults },
                 }).then(({ data, error }) => {
                   setNeoThinking(false);
                   if (error) {
