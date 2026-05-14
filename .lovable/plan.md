@@ -1,46 +1,66 @@
-## Heti AI mood-pool tanulás
+## TikTok Content Generator — Fázis 1 (MVP)
 
-5-10 új mood koncepciót generálunk hetente AI-val a valós keresési adatokból. Pool sapka: 20. Gyenge teljesítményűek (CTR alapján) automatikusan kiesnek. A 2 dinamikus slot ebből a poolból választ a látogató kontextusához.
+Napi 1 db 30–45s 9:16 videó top S-tier epizódból, manuális letöltés admin oldalról. TikTok auto-post Fázis 2.
 
-### Adatmodell (új tábla)
-- `mood_pool` (id, slug, title, mood, description, query, accent_hsl, embedding vector(768), episode_ids uuid[], episodes_refreshed_at, time_tags text[] — pl. `morning,evening,weekend,weekday,focus,wind-down,any`, country_hint text NULL = global, status `active|retired`, impressions int, clicks int, ctr numeric generated, created_at, last_shown_at, retired_at, retire_reason)
-- Index: `(status, ctr desc)`, HNSW az embeddingre (későbbi semantic dedup-hoz).
+### Stack
+- **Script**: Lovable AI Gateway, `google/gemini-2.5-flash` (hook + 3 insight + CTA, ~90 szó)
+- **Voiceover**: ElevenLabs `eleven_turbo_v2_5`, Brian (`nPczCjzI2devNBz1zQrb`)
+- **B-roll**: Gemini `google/gemini-3.1-flash-image-preview` — 4 db 9:16 kép a script kulcs-momentumaihoz
+- **Subtitles**: ElevenLabs STT `scribe_v2` a generált voiceoveren → word-level timestamps
+- **Render**: Creatomate JSON template (cover Ken Burns + képek slideshow + égetett karaoke felirat + waveform overlay) → MP4 URL → letöltés Storage `tiktok-videos` bucketbe
+- **Tárolás**: `tiktok_videos` tábla minden artifacttel + Storage public bucket
 
-### RPC-k (SECURITY DEFINER, public)
-- `mood_pool_pick(p_country, p_hour, p_dow, p_k)` — visszaad `p_k` aktív moodot, szűr time_tags-re (hour/dow → matching tag-ek), véletlen tiebreak + frissesség boost. Ha kevés a találat, `any`-vel pótol.
-- `mood_pool_bump_impression(p_slug)` és `mood_pool_bump_click(p_slug)` — atomic counter.
-- `mood_pool_retire_overflow(p_keep)` — aktív sorokat tartja TOP `p_keep`-ig (impressions ≥ 50 esetén CTR alapján; friss <50 imp védve van új-grace-szel).
+### Új komponensek
 
-### Új edge function: `mood-pool-refresh` (heti cron)
-Folyamat:
-1. Olvas top 200 keresési query-t a `search_events` tábláb ól (utolsó 7 nap, `result_count > 0`).
-2. Lekér 8 jelenlegi pool címet (kontextusként az AI-nak: ne ismételd).
-3. Gemini 2.5 Flash → 5-10 új evergreen mood (title, mood, desc, query, accent_hsl, time_tags). System prompt hangsúlyozza: evergreen (nem napi hír), distinct a meglévőktől, természetes nyelv.
-4. Minden új mood query embed-elve → `match_episodes_by_embedding(limit 12, max_age 30)` tölti fel.
-5. Insert into `mood_pool` (slug = `dyn-{slugify(title)}`, status=active). Duplikáció (slug) → skip.
-6. `mood_pool_retire_overflow(20)` futtatása.
-7. Lock (advisory lock) hogy egyszerre csak egy fusson.
+**Tábla `tiktok_videos`** (RLS: public read, admin write):
+- episode_id, podcast_id
+- script (text), script_model, script_cost_usd
+- voiceover_url, voiceover_duration_s, voiceover_cost_usd
+- subtitle_words (jsonb word-level timing)
+- broll_image_urls (text[])
+- video_url, video_duration_s, render_cost_usd
+- status: `pending` | `script_done` | `tts_done` | `stt_done` | `images_done` | `rendered` | `failed`
+- error, created_at, generated_at, total_cost_usd
 
-### Módosított `mood-personalize`
-- Cache miss esetén már NEM generál új koncepciót — csak `mood_pool_pick(country, hour, dow, 2)` hívás, episode_ids hidratálása, payload visszaadás.
-- Ha pool < 4 aktív (hidegindítás) → fallback a régi inline AI generálás 1× (one-shot), és háttérben kéri a `mood-pool-refresh`-t (`fire-and-forget`).
-- Megtartjuk a 6h cache-t country/hour/dow szerint.
-- Impression bump: cache miss-kor minden visszaadott mood-ra `mood_pool_bump_impression`.
+**Storage bucket `tiktok-videos`** (public): voiceover.mp3, broll-{1..4}.png, final.mp4
 
-### Frontend
-- `MoodCollections.tsx`: dinamikus slot kattintáskor `supabase.rpc('mood_pool_bump_click', { p_slug })` (fire-and-forget, hibát elnyel).
-- Egyébként a UI változatlan (még mindig 2 statikus + 2 dinamikus chip).
+**Edge function `tiktok-generate`** (verify_jwt=false):
+- Bemenet: `{ episode_id?, dry_run? }` — ha nincs id, top S-tier ep az utolsó 7 napból, ami még nincs feldolgozva
+- 1. Episode + podcast + ai_summary betöltése
+- 2. Script generálás Gemini-vel (strict structured output: `{hook, insights[3], cta, broll_prompts[4]}`)
+- 3. ElevenLabs TTS Brian hangon → mp3 → Storage
+- 4. ElevenLabs STT a friss mp3-on → word-level timing → subtitle_words
+- 5. 4 db Gemini image gen (9:16, 1080×1920) → Storage
+- 6. Creatomate render call — JSON template-tel összerakva (cover + slideshow Ken Burns + karaoke ASS-szerű felirat overlay + brand watermark)
+- 7. Render webhook nélkül: poll a Creatomate API-ra max 60s
+- 8. final.mp4 letöltés → Storage → URL ment
+- Költségvédelem: napi $2 cap (script ~$0.001, TTS ~$0.10, STT ~$0.02, képek ~$0.05, render ~$0.15)
 
-### Cron
-- Új jobid heti: `0 4 * * 1` (hétfő 04:00 UTC) → `mood-pool-refresh`.
-- pg_cron `cron.schedule` az `insert` tool-lal (URL + anon key).
+**Cron**: pg_cron napi 13:00 UTC (`tiktok-generate`)
 
-### Bootstrap
-- A refresh függvényt egyszer manuálisan meghívjuk telepítés után, hogy a pool ne legyen üres.
+**Admin oldal `/admin/tiktok`**:
+- Lista (utolsó 30 videó): epizód cím, status badge, költség, létrehozás
+- Sor click → preview drawer: video player, script szöveg, b-roll thumbnails, "Download MP4" gomb (Storage signed URL)
+- "Generate now" gomb (manuális trigger, ep választás opcionális dropdown S-tier ep-ekből)
+- "Regenerate" gomb sor mellett (overwrite)
 
-### Költség
-- Heti 1 AI hívás (Gemini Flash) ~$0.001 + 5-10 embedding ~$0.001. Elhanyagolható.
+**Secret**: `CREATOMATE_API_KEY` (ElevenLabs már megvan)
 
-### Műszaki részletek
-- `time_tag` mapping az RPC-ben: `hour 5-9 → morning`, `9-12 → mid-morning`, `12-14 → lunch`, `14-17 → afternoon`, `17-20 → evening`, `20-23 → night`, `else late-night`. `dow 0,6 → weekend` else `weekday`. Mood akkor matchel ha `'any' = ANY(time_tags)` vagy a kontextus tagek bármelyikét tartalmazza.
-- Új-grace: az első 7 napban vagy <50 impression-ig nem retire-elhető (kivéve cap overflow-nál `created_at desc` tartja a frissebbeket).
+**config.toml**: `[functions.tiktok-generate] verify_jwt = false`
+
+### Implementációs sorrend
+1. Plan jóváhagyás
+2. Migration: `tiktok_videos` tábla + storage bucket + cron
+3. Secret kérés: `CREATOMATE_API_KEY` (Creatomate.com → API → key másolás)
+4. Edge function `tiktok-generate`
+5. Admin page + route + sidebar link
+6. Cron beállítás
+7. Manuális teszt 1 epizódon
+
+### Mit NEM tartalmaz (Fázis 2)
+- TikTok OAuth + draft inbox API push
+- Multi-variant A/B (több hook variáns)
+- Háttérzene
+- Saját voice clone
+
+Folytatjam a tábla migrációval és a secret kéréssel?
