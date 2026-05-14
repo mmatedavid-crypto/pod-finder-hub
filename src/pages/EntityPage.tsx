@@ -261,7 +261,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
         {featuredEps.length > 0 && (
-          <section className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 sm:p-6">
+          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">
                 Featuring {displayName}
@@ -294,7 +294,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
         </section>
 
         {rich && (
-          <section className="rounded-2xl border border-border/70 bg-card/40 p-5 sm:p-6">
+          <section className="sm:rounded-2xl sm:border sm:border-border/70 sm:bg-card/40 sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">Episodes worth hearing</h2>
               <p className="text-xs text-muted-foreground mt-1">Strong matches across the index.</p>
