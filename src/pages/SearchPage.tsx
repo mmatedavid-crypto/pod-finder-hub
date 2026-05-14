@@ -422,10 +422,14 @@ export default function SearchPage() {
 
         {(() => {
           const phrase = initial.trim().toLowerCase();
-          const heroPodcast = !loading && phrase.length >= 2 && podcasts.find((p) => {
-            const t = (p.title || "").toLowerCase();
-            const d = ((p as any).display_title || "").toLowerCase();
-            return t.includes(phrase) || d.includes(phrase);
+          // Word-boundary match so "ETH" doesn't promote "Ethics" / "Methodology".
+          const phraseRe = phrase.length >= 3
+            ? new RegExp(`(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`, "iu")
+            : null;
+          const heroPodcast = !loading && phraseRe && podcasts.find((p) => {
+            const t = (p.title || "");
+            const d = ((p as any).display_title || "");
+            return phraseRe.test(t) || phraseRe.test(d);
           });
           if (!heroPodcast) return null;
           const title = (heroPodcast as any).display_title || heroPodcast.title;
@@ -472,13 +476,15 @@ export default function SearchPage() {
 
         {initial && !loading && (podcasts.length > 0 || episodes.length > 0) && (() => {
           const phrase = initial.trim().toLowerCase();
-          const heroId = phrase.length >= 2 ? podcasts.find((p) => {
-            const t = (p.title || "").toLowerCase();
-            const d = ((p as any).display_title || "").toLowerCase();
-            return t.includes(phrase) || d.includes(phrase);
+          const phraseRe = phrase.length >= 3
+            ? new RegExp(`(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`, "iu")
+            : null;
+          const heroId = phraseRe ? podcasts.find((p) => {
+            const t = (p.title || "");
+            const d = ((p as any).display_title || "");
+            return phraseRe.test(t) || phraseRe.test(d);
           })?.id : undefined;
           const podcastsList = heroId ? podcasts.filter((p) => p.id !== heroId) : podcasts;
-          const topPodcastTitleHit = !!heroId;
           const podcastsSection = podcastsList.length > 0 && (
             <section>
               <h2 className="font-semibold mb-3">{heroId ? "More matching podcasts" : "Matching podcasts"} ({podcastsList.length})</h2>
@@ -487,7 +493,7 @@ export default function SearchPage() {
               </div>
             </section>
           );
-          const episodesSection = (
+          const episodesSection = episodes.length > 0 && (
             <section>
               <h2 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
                 Matching episodes ({episodes.length})
@@ -512,7 +518,8 @@ export default function SearchPage() {
           );
           return (
             <div className="mt-8 space-y-10">
-              {topPodcastTitleHit ? <>{podcastsSection}{episodesSection}</> : <>{episodesSection}{podcastsSection}</>}
+              {episodesSection}
+              {podcastsSection}
             </div>
           );
         })()}
