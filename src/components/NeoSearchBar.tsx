@@ -137,12 +137,13 @@ export default function NeoSearchBar({
   const displayValue = showCursor ? baseDisplay + (blinkOn ? "▮" : " ") : baseDisplay;
   const isReadOnly = mode === "ai-typing";
 
-  // Auto-grow textarea to fit content (single line by default, expands when wrapped)
+  // Auto-grow textarea to fit content. Add a small buffer so glyph ascenders
+  // (and the Matrix glow) don't get clipped at the top.
   useLayoutEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
+    ta.style.height = `${ta.scrollHeight + 2}px`;
   }, [displayValue, mode]);
 
   return (
