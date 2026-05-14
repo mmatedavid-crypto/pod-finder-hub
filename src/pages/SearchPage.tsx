@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search } from "lucide-react";
+
 import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
@@ -332,8 +332,6 @@ export default function SearchPage() {
           onExitAI={() => { setAiQuestion(null); }}
           placeholder="e.g. Nvidia data centers"
         />
-        {/* legacy Search icon import kept for results-empty section */}
-        <span className="hidden"><Search /></span>
         <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
           <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
           <p className="mt-2">
