@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     // Ticker queries: if cached understanding lacks a multi-word company name
     // (e.g. only `["ASTS"]` from a previous bug), force a fresh AI call so we
     // can recover the company name (e.g. "AST SpaceMobile") for the MUST-gate fallback.
-    const isTickerQ = /^[A-Z]{2,5}(\.[A-Z])?$/.test(q.trim());
+    const isTickerQ = /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(q.trim());
     if (isTickerQ && understanding) {
       const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
       if (!hasCompany) understanding = null;
@@ -179,9 +179,9 @@ Deno.serve(async (req) => {
     // force a ticker-intent understanding so the MUST-gate locks results to episodes
     // that actually mention the symbol — instead of letting the AI expand "ASTS" into
     // astrology / unrelated semantic neighbors.
-    const tickerMatch = q.trim().match(/^[A-Z]{2,5}(\.[A-Z])?$/);
+    const tickerMatch = q.trim().match(/^[A-Za-z]{2,5}(\.[A-Za-z])?$/);
     if (tickerMatch) {
-      const sym = tickerMatch[0];
+      const sym = tickerMatch[0].toUpperCase();
       // Preserve AI-discovered entities (e.g. "AST SpaceMobile" for "ASTS") so
       // the MUST-gate fallback can search by company name when no episode
       // mentions the bare ticker symbol. Also merge curated synonym mappings
