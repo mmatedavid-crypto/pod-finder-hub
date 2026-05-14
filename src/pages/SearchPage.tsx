@@ -8,15 +8,9 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
 import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
-import NeoSearchBar from "@/components/NeoSearchBar";
+import NeoSearchBar, { NeoTurn } from "@/components/NeoSearchBar";
 
 type SortKey = "best" | "newest" | "rank";
-type NeoContext = {
-  base: string;
-  refined: string;
-  reply: string;
-  phase: "refining" | "feedback";
-};
 
 const EXAMPLES = [
   "AI regulation",
