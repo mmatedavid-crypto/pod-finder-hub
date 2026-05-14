@@ -13,6 +13,8 @@ import SearchPage from "./pages/SearchPage.tsx";
 import AuthPage from "./pages/AuthPage.tsx";
 import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 import EntityPage from "./pages/EntityPage.tsx";
+import TopicHubPage from "./pages/TopicHubPage.tsx";
+import TopicsIndexPage from "./pages/TopicsIndexPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
