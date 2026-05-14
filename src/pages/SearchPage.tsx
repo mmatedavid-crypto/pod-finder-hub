@@ -197,7 +197,7 @@ export default function SearchPage() {
       // query looks like a name, ask PI byterm. The fallback fn also stages the
       // best matches into pi_feed_staging so the pipeline ingests them in minutes.
       const looksLikeName = fullPhrase.length >= 3 && /[a-zA-Z]/.test(fullPhrase);
-      if (rankedPs.length === 0 && looksLikeName) {
+      if (rankedPs.length === 0 && mapped.length === 0 && looksLikeName) {
         supabase.functions.invoke("search-pi-fallback", {
           body: { query: fullPhrase, maxStage: 5 },
         }).then(({ data, error }) => {
