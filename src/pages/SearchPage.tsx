@@ -422,10 +422,14 @@ export default function SearchPage() {
 
         {(() => {
           const phrase = initial.trim().toLowerCase();
-          const heroPodcast = !loading && phrase.length >= 2 && podcasts.find((p) => {
-            const t = (p.title || "").toLowerCase();
-            const d = ((p as any).display_title || "").toLowerCase();
-            return t.includes(phrase) || d.includes(phrase);
+          // Word-boundary match so "ETH" doesn't promote "Ethics" / "Methodology".
+          const phraseRe = phrase.length >= 3
+            ? new RegExp(`(^|[^\\p{L}\\p{N}])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}\\p{N}]|$)`, "iu")
+            : null;
+          const heroPodcast = !loading && phraseRe && podcasts.find((p) => {
+            const t = (p.title || "");
+            const d = ((p as any).display_title || "");
+            return phraseRe.test(t) || phraseRe.test(d);
           });
           if (!heroPodcast) return null;
           const title = (heroPodcast as any).display_title || heroPodcast.title;
