@@ -463,14 +463,7 @@ async function buildEntity(
     if (hit) { exemplar = hit; break; }
   }
 
-  // Pull cached AI profile (bio + episode summary) when available.
-  const { data: profile } = await supabase
-    .from("entity_profiles")
-    .select("display_name, bio, episodes_summary")
-    .eq("kind", kind)
-    .eq("slug", slug.toLowerCase())
-    .maybeSingle();
-
+  const profile = profileRow;
   const human = (profile as any)?.display_name || exemplar || slug.replace(/-/g, " ");
   const kindLabel = kind === "ticker" ? "Ticker" : kind.charAt(0).toUpperCase() + kind.slice(1);
   const title = `${human} — podcast episodes on Podiverzum`;
