@@ -18,6 +18,7 @@ import { recordVisit } from "@/lib/recentlyPlayed";
 import { extractKeyMoments } from "@/lib/keyMoments";
 import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
+import { logEpisodeEvent } from "@/lib/listenEvents";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
