@@ -247,7 +247,10 @@ export default function SearchPage() {
           const reply = String(data?.reply || "").trim();
           setNeoTurns((t) => [...t, { role: "assistant", content: reply || "oké, erre szűkítettem. jó irány, vagy menjünk mélyebbre?" }]);
           setNeoDone(false);
-        }, () => { setNeoThinking(false); });
+        }, () => {
+          setNeoThinking(false);
+          setNeoTurns((t) => [...t, { role: "assistant", content: "megvan az irány. mondd még, mire fókuszáljak?" }]);
+        });
       } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
@@ -384,7 +387,10 @@ export default function SearchPage() {
                   const r = String(data?.reply || "").trim();
                   setNeoTurns((t) => [...t, { role: "assistant", content: r || "oké. ez már közelebb van, folytassuk?" }]);
                   setNeoDone(false);
-                }, () => setNeoThinking(false));
+                }, () => {
+                  setNeoThinking(false);
+                  setNeoTurns((t) => [...t, { role: "assistant", content: "vettem. mit pontosítsak rajta?" }]);
+                });
                 expectChatRef.current = false;
               }
               window.scrollTo({ top: 0, behavior: "auto" });
