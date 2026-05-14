@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Search, Send, X } from "lucide-react";
 
 export type NeoTurn = { role: "assistant" | "user"; content: string };
@@ -38,11 +38,19 @@ export default function NeoSearchBar({
   const inAIMode = turns.length > 0;
   const [reply, setReply] = useState("");
   const [typedMap, setTypedMap] = useState<Record<number, string>>({});
+  const [closing, setClosing] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const replyTaRef = useRef<HTMLTextAreaElement>(null);
   const typewriterRef = useRef<number | null>(null);
   const reducedMotion = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset closing state whenever we (re)enter AI mode.
+  useEffect(() => { if (inAIMode) setClosing(false); }, [inAIMode]);
+
+  // Glitchy "decoded" overlay characters during exit animation.
+  const glitchChars = useMemo(() => "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ01<>/\\$#@*".split(""), []);
+  const randGlitch = (n: number) => Array.from({ length: n }, () => glitchChars[Math.floor(Math.random() * glitchChars.length)]).join("");
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
@@ -113,10 +121,21 @@ export default function NeoSearchBar({
   };
 
   const handleExit = () => {
+    if (closing) return;
     if (typewriterRef.current) window.clearTimeout(typewriterRef.current);
-    setReply("");
-    setTypedMap({});
-    onExitAI();
+    if (reducedMotion.current) {
+      setReply("");
+      setTypedMap({});
+      onExitAI();
+      return;
+    }
+    setClosing(true);
+    // Wait for the Matrix-style collapse to finish, then unmount.
+    window.setTimeout(() => {
+      setReply("");
+      setTypedMap({});
+      onExitAI();
+    }, 720);
   };
 
   // Auto-grow textareas
@@ -147,14 +166,26 @@ export default function NeoSearchBar({
     return (
       <form
         onSubmit={handleSubmit}
-        className="relative max-w-2xl scroll-mt-32 transition-shadow duration-300 neo-bar-glow"
+        className={`relative max-w-2xl scroll-mt-32 transition-shadow duration-300 neo-bar-glow neo-chat-enter ${closing ? "neo-chat-exit" : ""}`}
         role="search"
         aria-label="Conversational podcast search"
+        aria-busy={closing}
       >
-        <div className="neo-panel relative rounded-md px-3 py-3 pr-10">
+        <div className="neo-panel relative rounded-md px-3 pt-2 pb-3 pr-10 overflow-hidden">
+          {/* Header bar — small terminal chrome to feel like a real chat window */}
+          <div className="flex items-center gap-2 border-b border-[hsl(120_60%_30%/0.45)] pb-1.5 mb-2">
+            <span className="neo-text neo-pulse text-xs tracking-widest" aria-hidden>●</span>
+            <span className="neo-text text-[11px] uppercase tracking-[0.2em] opacity-80">
+              neo · secure channel
+            </span>
+            <span className="ml-auto neo-text text-[10px] opacity-60">
+              {done ? "session ended" : thinking ? "decrypting…" : "online"}
+            </span>
+          </div>
+
           <div
             ref={scrollRef}
-            className="max-h-[40vh] overflow-y-auto pr-1 space-y-2"
+            className="min-h-[140px] max-h-[55vh] overflow-y-auto pr-1 space-y-3 neo-scroll"
             aria-live="polite"
           >
             {turns.map((t, i) => {
@@ -172,9 +203,8 @@ export default function NeoSearchBar({
                 );
               }
               return (
-                <div key={i} className="flex gap-2 leading-7">
-                  <span className="shrink-0 text-muted-foreground select-none">›</span>
-                  <div className="whitespace-pre-wrap break-words text-foreground/90">
+                <div key={i} className="flex justify-end">
+                  <div className="neo-user-bubble max-w-[85%] whitespace-pre-wrap break-words rounded-md px-2.5 py-1 text-sm leading-6">
                     {t.content}
                   </div>
                 </div>
@@ -189,7 +219,7 @@ export default function NeoSearchBar({
           </div>
 
           {!done && (
-            <div className="mt-2 flex items-end gap-2 border-t border-border/40 pt-2">
+            <div className="mt-2 flex items-end gap-2 border-t border-[hsl(120_60%_30%/0.45)] pt-2">
               <span className="neo-text leading-7 select-none" aria-hidden>›</span>
               <textarea
                 ref={replyTaRef}
@@ -197,7 +227,7 @@ export default function NeoSearchBar({
                 rows={1}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setReply(e.target.value)}
-                disabled={thinking || isTyping}
+                disabled={thinking || isTyping || closing}
                 placeholder={thinking ? "thinking…" : isTyping ? "" : "type your answer…"}
                 enterKeyHint="send"
                 className="flex-1 min-h-[1.75rem] resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none whitespace-pre-wrap break-words neo-input-reply disabled:opacity-50"
@@ -213,6 +243,17 @@ export default function NeoSearchBar({
               </button>
             </div>
           )}
+
+          {/* Matrix scanlines + glitch overlay during exit */}
+          {closing && (
+            <div className="neo-exit-overlay pointer-events-none absolute inset-0">
+              <div className="neo-scanlines absolute inset-0" aria-hidden />
+              <div className="neo-glitch-text absolute inset-0 flex items-center justify-center neo-text text-xs tracking-[0.3em]" aria-hidden>
+                {randGlitch(18)}
+              </div>
+              <div className="neo-collapse-bar absolute inset-x-0 top-1/2" aria-hidden />
+            </div>
+          )}
         </div>
 
         <button
@@ -220,7 +261,8 @@ export default function NeoSearchBar({
           onClick={handleExit}
           aria-label="Close chat"
           className="neo-close-button absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-          title="Close"
+          title="Close (disconnect)"
+          disabled={closing}
         >
           <X className="h-4 w-4" />
         </button>
