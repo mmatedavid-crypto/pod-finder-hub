@@ -71,13 +71,26 @@ export function SiteHeader() {
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
         </nav>
         {isHome && (
-          <NavLink
-            to="/categories"
-            className="ml-auto sm:hidden inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LayoutGrid className="h-4 w-4" />
-            Categories
-          </NavLink>
+          <div className="ml-auto sm:hidden flex items-center gap-2.5 text-sm font-medium">
+            <NavLink
+              to="/topics"
+              className={({ isActive }) =>
+                `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+              }
+            >
+              Topics
+            </NavLink>
+            <span aria-hidden className="h-3 w-px bg-border" />
+            <NavLink
+              to="/categories"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1 transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+              }
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Categories
+            </NavLink>
+          </div>
         )}
         <div ref={wrapRef} className={`sm:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "block sm:block"}`}>
           <form
