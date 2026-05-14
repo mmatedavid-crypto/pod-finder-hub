@@ -326,7 +326,7 @@ export default function SearchPage() {
         )}
 
         {initial && (
-          <div className="flex flex-wrap gap-2 items-center mt-6 text-xs">
+          <div className="hidden sm:flex flex-wrap gap-2 items-center mt-6 text-xs">
             <span className="text-muted-foreground">Sort:</span>
             {([
               ["best", "Best match"],
@@ -350,6 +350,21 @@ export default function SearchPage() {
                 ))}
               </>
             )}
+          </div>
+        )}
+
+        {initial && !loading && (aiAnswer || aiAnswerLoading) && (
+          <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">AI overview</span>
+              {aiAnswerLoading && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+              )}
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+              {aiAnswer || <span className="text-muted-foreground">Synthesizing an overview from the top episodes…</span>}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-2">AI summary, may contain errors. Numbers reference the episodes below.</p>
           </div>
         )}
 
