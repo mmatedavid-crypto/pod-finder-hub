@@ -42,14 +42,17 @@ function monthBounds(ym: string, part?: string | null): { start: string; end: st
   if (!m) return null;
   const y = parseInt(m[1], 10), mo = parseInt(m[2], 10);
   if (mo < 1 || mo > 12) return null;
-  const monthStart = `${m[1]}-${m[2]}-01T00:00:00Z`;
-  const mid = `${m[1]}-${m[2]}-16T00:00:00Z`;
+  const pad = (n: number) => String(n).padStart(2, "0");
   const ny = mo === 12 ? y + 1 : y;
   const nm = mo === 12 ? 1 : mo + 1;
-  const monthEnd = `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00Z`;
-  // part=1 → days 1-15; part=2 → days 16-end; default → whole month (back-compat).
-  if (part === "1") return { start: monthStart, end: mid };
-  if (part === "2") return { start: mid, end: monthEnd };
+  const monthStart = `${m[1]}-${m[2]}-01T00:00:00Z`;
+  const monthEnd = `${ny}-${pad(nm)}-01T00:00:00Z`;
+  // Quarter-month splits to keep each sub-sitemap under Google's 50k URL cap.
+  // part=1 → 01-08, part=2 → 09-16, part=3 → 17-24, part=4 → 25-end. Legacy 1/2 → halves.
+  if (part === "1") return { start: monthStart, end: `${m[1]}-${m[2]}-09T00:00:00Z` };
+  if (part === "2") return { start: `${m[1]}-${m[2]}-09T00:00:00Z`, end: `${m[1]}-${m[2]}-17T00:00:00Z` };
+  if (part === "3") return { start: `${m[1]}-${m[2]}-17T00:00:00Z`, end: `${m[1]}-${m[2]}-25T00:00:00Z` };
+  if (part === "4") return { start: `${m[1]}-${m[2]}-25T00:00:00Z`, end: monthEnd };
   return { start: monthStart, end: monthEnd };
 }
 
