@@ -70,11 +70,16 @@ export default function SearchPage() {
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
-  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
-  const [neoContext, setNeoContext] = useState<NeoContext | null>(null);
+  const [neoTurns, setNeoTurns] = useState<NeoTurn[]>([]);
+  const [neoThinking, setNeoThinking] = useState(false);
+  const [neoDone, setNeoDone] = useState(false);
+  const neoTurnsRef = useRef<NeoTurn[]>([]);
+  const expectChatRef = useRef(false);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
   const refineAbortRef = useRef<AbortController | null>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => { neoTurnsRef.current = neoTurns; }, [neoTurns]);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
