@@ -348,6 +348,7 @@ export default function SearchPage() {
 
   return (
     <Layout>
+      {matrixEgg && <MatrixRain onDone={() => setMatrixEgg(false)} />}
       <Seo
         title={initial ? `${initial} — Podiverzum episode search` : "Search podcast episodes — Podiverzum"}
         description={initial
