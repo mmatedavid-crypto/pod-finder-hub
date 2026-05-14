@@ -151,16 +151,36 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     () => new Set(profile?.featured_episode_ids || []),
     [profile?.featured_episode_ids]
   );
+  // Heuristic: if the entity name appears in the episode title, treat as "featured"
+  // even if the AI curation hasn't picked it yet. Avoids putting obvious direct
+  // episodes into the "Also mentioning" bucket.
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const nameTokens = useMemo(() => {
+    const parts = norm(displayName).split(/\s+/).filter((t) => t.length >= 3);
+    return parts;
+  }, [displayName]);
+  const titleHitsEntity = (e: EpisodeLite) => {
+    const title = norm((e as any).title || "");
+    if (!title || nameTokens.length === 0) return false;
+    // For multi-word names (e.g., "Gabor Maté"), require ALL tokens present.
+    // For single-token names, the lone token must appear.
+    return nameTokens.every((t) => title.includes(t));
+  };
+  const effectiveFeaturedIds = useMemo(() => {
+    const set = new Set(featuredIdSet);
+    eps.forEach((e) => { if (titleHitsEntity(e)) set.add((e as any).id); });
+    return set;
+  }, [eps, featuredIdSet, nameTokens]);
   const featuredEps = useMemo(() => (
-    featuredIdSet.size
-      ? eps.filter((e) => featuredIdSet.has((e as any).id))
+    effectiveFeaturedIds.size
+      ? eps.filter((e) => effectiveFeaturedIds.has((e as any).id))
           .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
           .slice(0, 12)
       : []
-  ), [eps, featuredIdSet]);
+  ), [eps, effectiveFeaturedIds]);
   const mentionedEps = useMemo(() => (
-    featuredIdSet.size ? eps.filter((e) => !featuredIdSet.has((e as any).id)) : eps
-  ), [eps, featuredIdSet]);
+    effectiveFeaturedIds.size ? eps.filter((e) => !effectiveFeaturedIds.has((e as any).id)) : eps
+  ), [eps, effectiveFeaturedIds]);
   const newest = useMemo(() => (
     mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12)
   ), [mentionedEps]);
