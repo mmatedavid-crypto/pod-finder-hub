@@ -222,9 +222,15 @@ export default function SearchPage() {
         }, () => { /* ignore */ });
       }
 
+      // Continue the Neo conversation after a refinement before asking for more ambiguity.
+      if (neoContext?.refined === initial && neoContext.phase === "refining") {
+        setNeoContext({ ...neoContext, phase: "feedback" });
+        setAiQuestion(`I searched for “${initial}”. Do these results match what you meant?`);
+      }
+
       // Kick off the "Neo moment" refine probe in parallel — server decides
       // whether the query is ambiguous enough to ask a clarifying question.
-      if (mapped.length >= 6) {
+      if (!neoContext && mapped.length >= 6) {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
