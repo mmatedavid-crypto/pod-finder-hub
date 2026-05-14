@@ -31,7 +31,6 @@ export default function NeoSearchBar({
   onReply,
   turns,
   thinking,
-  done,
   onExitAI,
   placeholder,
 }: Props) {
@@ -138,7 +137,7 @@ export default function NeoSearchBar({
     }, 720);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
