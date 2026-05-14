@@ -156,6 +156,15 @@ Deno.serve(async (req) => {
       }
     } catch (e) { console.warn("cache read err", e); }
 
+    // Ticker queries: if cached understanding lacks a multi-word company name
+    // (e.g. only `["ASTS"]` from a previous bug), force a fresh AI call so we
+    // can recover the company name (e.g. "AST SpaceMobile") for the MUST-gate fallback.
+    const isTickerQ = /^[A-Z]{2,5}(\.[A-Z])?$/.test(q.trim());
+    if (isTickerQ && understanding) {
+      const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
+      if (!hasCompany) understanding = null;
+    }
+
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
     const [u, embVal, curated] = await Promise.all([
       understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
@@ -173,9 +182,16 @@ Deno.serve(async (req) => {
     const tickerMatch = q.trim().match(/^[A-Z]{2,5}(\.[A-Z])?$/);
     if (tickerMatch) {
       const sym = tickerMatch[0];
+      // Preserve AI-discovered entities (e.g. "AST SpaceMobile" for "ASTS") so
+      // the MUST-gate fallback can search by company name when no episode
+      // mentions the bare ticker symbol. Also merge curated synonym mappings
+      // (deterministic ticker→company table) — small AI models often fail to
+      // recognize obscure tickers like ASTS.
+      const aiEntities = (understanding?.entities || []).filter((e) => e && e.toUpperCase() !== sym);
+      const curatedCompanies = (curated.expansions || []).filter((e) => e && e.toUpperCase() !== sym);
       understanding = {
-        entities: Array.from(new Set([sym, ...((understanding?.entities) || [])])).slice(0, 8),
-        expanded_terms: [sym],
+        entities: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
+        expanded_terms: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
         synonyms: [],
         intent: "ticker",
         language: understanding?.language || "en",
@@ -184,8 +200,9 @@ Deno.serve(async (req) => {
       cachedRerank = null;
     }
 
-    // 3) Persist to cache (fire and forget)
-    if (!cacheHit) {
+    // 3) Persist to cache (fire and forget). Always upsert for ticker queries
+    // so refreshed understanding (with company name) overwrites stale entries.
+    if (!cacheHit || isTickerQ) {
       supa.from("search_query_cache").upsert({
         q_norm: qNorm,
         understanding: understanding,
@@ -193,7 +210,6 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).then(() => {}, (e) => console.warn("cache write", e));
     } else {
-      supa.rpc("noop").then(() => {}, () => {});
       supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
     }
 
@@ -221,8 +237,21 @@ Deno.serve(async (req) => {
     const entityTerms = rawEntities.slice(0, 8);
     const alphaLex = rawEntities.length > 0 ? 0.65 : 0.45;
 
+    // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
+    // episode tsv. Rewrite the lexical q to use the resolved company name(s)
+    // so the lex CTE can actually find matching episodes. Semantic side still
+    // uses the original embedding.
+    let lexQ = q;
+    if (tickerMatch) {
+      const companies = (curated.expansions || []).filter(Boolean);
+      if (companies.length) {
+        // websearch_to_tsquery OR-s quoted phrases when wrapped in OR keyword.
+        lexQ = companies.map((c) => `"${c}"`).join(" OR ");
+      }
+    }
+
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
-      q: q, // RAW query for lexical, not expanded
+      q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
       limit_n: Math.max(limit, 50),
       lang,
@@ -241,19 +270,25 @@ Deno.serve(async (req) => {
     // Single-word entities like "Apple" are too ambiguous and pull in noise
     // ("Apple Valley", "apple pie podcast") when used as a hard MUST gate.
     // Multi-word entities are specific enough to keep locked.
-    if ((rows?.length || 0) < 5 && mustGateApplied && understanding?.intent !== "ticker") {
+    if ((rows?.length || 0) < 5 && mustGateApplied) {
+      // For ticker intent: drop the bare symbol, keep multi-word company names
+      //   (e.g. "ASTS" → fall back to "AST SpaceMobile").
+      // For other intents: drop single-word ambiguous entities, keep multi-word.
       const strictTerms = requiredTerms.filter((t) => t.includes(" "));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
-      const retry = await supa.rpc("search_episodes_hybrid", {
-        q: q,
-        q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-        limit_n: Math.max(limit, 50),
-        lang,
-        required_terms: relaxedTerms,
-        entity_terms: entityTerms.length ? entityTerms : null,
-        alpha_lex: alphaLex,
-      });
-      if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+      // Skip retry if relaxation wouldn't change anything.
+      if (relaxedTerms?.join("|") !== requiredTerms.join("|")) {
+        const retry = await supa.rpc("search_episodes_hybrid", {
+          q: lexQ,
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          limit_n: Math.max(limit, 50),
+          lang,
+          required_terms: relaxedTerms,
+          entity_terms: entityTerms.length ? entityTerms : null,
+          alpha_lex: alphaLex,
+        });
+        if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+      }
     }
     const tRpc = Date.now() - t0 - tEmb;
 
