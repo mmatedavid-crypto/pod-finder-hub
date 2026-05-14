@@ -222,30 +222,43 @@ export default function SearchPage() {
         }, () => { /* ignore */ });
       }
 
-      // Continue the Neo conversation after a refinement before asking for more ambiguity.
-      if (neoContext?.refined === initial && neoContext.phase === "refining") {
-        setNeoContext({ ...neoContext, phase: "feedback" });
-        setAiQuestion(`I searched for “${initial}”. Do these results match what you meant?`);
-      }
+      // Conversational AI:
+      // - If this search was triggered by a user reply (expectChatRef), call search-chat
+      //   to produce a contextual reaction + maybe a follow-up.
+      // - Otherwise, on the very first search with enough ambiguity, call search-refine
+      //   for the initial "Neo moment" question.
+      const topResults = mapped.slice(0, 6).map((e: any) => ({
+        title: e.display_title || e.title,
+        podcast: e.podcasts?.title || "",
+        summary: (e.ai_summary || e.summary || "").slice(0, 200),
+      }));
 
-      // Kick off the "Neo moment" refine probe in parallel — server decides
-      // whether the query is ambiguous enough to ask a clarifying question.
-      if (!neoContext && mapped.length >= 6) {
+      if (expectChatRef.current) {
+        expectChatRef.current = false;
+        const cctrl = new AbortController();
+        chatAbortRef.current = cctrl;
+        setNeoThinking(true);
+        supabase.functions.invoke("search-chat", {
+          body: { messages: neoTurnsRef.current, q: initial, topResults },
+        }).then(({ data, error }) => {
+          if (cancelled || cctrl.signal.aborted) return;
+          setNeoThinking(false);
+          if (error) return;
+          const reply = String(data?.reply || "").trim();
+          const isDone = !!data?.done;
+          if (reply) setNeoTurns((t) => [...t, { role: "assistant", content: reply }]);
+          if (isDone) setNeoDone(true);
+        }, () => { setNeoThinking(false); });
+      } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
-          body: {
-            q: initial,
-            topResults: mapped.slice(0, 6).map((e: any) => ({
-              title: e.display_title || e.title,
-              podcast: e.podcasts?.title || "",
-              summary: (e.ai_summary || e.summary || "").slice(0, 200),
-            })),
-          },
+          body: { q: initial, topResults },
         }).then(({ data, error }) => {
           if (cancelled || rctrl.signal.aborted || error) return;
           if (data?.should_clarify && data?.question) {
-            setAiQuestion(String(data.question));
+            setNeoTurns([{ role: "assistant", content: String(data.question) }]);
+            setNeoDone(false);
           }
         }, () => { /* ignore */ });
       }
