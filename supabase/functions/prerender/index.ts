@@ -407,36 +407,53 @@ async function buildEntity(
     kind === "company" ? "companies" :
     kind === "ticker" ? "tickers" : "ingredients";
 
-  // Match by slugified comparison: fetch a generous batch then filter in JS.
-  // For tickers we can match exact uppercase value.
-  const matchValue = kind === "ticker" ? slug.toUpperCase() : slug;
+  // Prefer the cached entity_profile (canonical episode_ids), fall back to array scan.
+  const { data: profileRow } = await supabase
+    .from("entity_profiles")
+    .select("display_name, bio, episodes_summary, episode_ids")
+    .eq("kind", kind)
+    .eq("slug", slug.toLowerCase())
+    .maybeSingle();
 
-  const { data } = await supabase
-    .from("episodes")
-    .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
-    .contains(arrayCol, [matchValue])
-    .order("published_at", { ascending: false })
-    .limit(60);
-
-  let rows = (data ?? []) as Array<Record<string, any>>;
-  // Fallback: if no exact match, scan a wider batch and slugify-compare.
-  if (!rows.length) {
-    const { data: wide } = await supabase
+  let rows: Array<Record<string, any>> = [];
+  const profileEpIds = ((profileRow as any)?.episode_ids ?? []) as string[];
+  if (profileEpIds.length) {
+    const { data: epRows } = await supabase
       .from("episodes")
       .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
-      .not(arrayCol, "is", null)
+      .in("id", profileEpIds.slice(0, 200))
+      .order("published_at", { ascending: false });
+    rows = (epRows ?? []) as Array<Record<string, any>>;
+  }
+
+  if (!rows.length) {
+    // Match by slugified comparison: fetch a generous batch then filter in JS.
+    const matchValue = kind === "ticker" ? slug.toUpperCase() : slug;
+    const { data } = await supabase
+      .from("episodes")
+      .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
+      .contains(arrayCol, [matchValue])
       .order("published_at", { ascending: false })
-      .limit(500);
-    rows = ((wide ?? []) as Array<Record<string, any>>).filter((r) =>
-      ((r as any)[arrayCol] as string[] | null)?.some((v) => slugify(v, kind) === slug),
-    );
+      .limit(60);
+    rows = (data ?? []) as Array<Record<string, any>>;
+    if (!rows.length) {
+      const { data: wide } = await supabase
+        .from("episodes")
+        .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
+        .not(arrayCol, "is", null)
+        .order("published_at", { ascending: false })
+        .limit(1000);
+      rows = ((wide ?? []) as Array<Record<string, any>>).filter((r) =>
+        ((r as any)[arrayCol] as string[] | null)?.some((v) => slugify(v, kind) === slug),
+      );
+    }
   }
   // EN-only filter
   rows = rows.filter((r: any) => {
     const lang = r.podcast?.language;
     return !lang || /^en/i.test(lang);
   });
-  if (!rows.length) return null;
+  if (!rows.length && !profileRow) return null;
 
   // Pick an exemplar value from the matched episode arrays for proper casing.
   let exemplar: string | null = null;
