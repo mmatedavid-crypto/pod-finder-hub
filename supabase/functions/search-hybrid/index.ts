@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     // Ticker queries: if cached understanding lacks a multi-word company name
     // (e.g. only `["ASTS"]` from a previous bug), force a fresh AI call so we
     // can recover the company name (e.g. "AST SpaceMobile") for the MUST-gate fallback.
-    const isTickerQ = /^[A-Z]{2,5}(\.[A-Z])?$/.test(q.trim());
+    const isTickerQ = /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(q.trim());
     if (isTickerQ && understanding) {
       const hasCompany = (understanding.entities || []).some((e) => typeof e === "string" && e.includes(" "));
       if (!hasCompany) understanding = null;
