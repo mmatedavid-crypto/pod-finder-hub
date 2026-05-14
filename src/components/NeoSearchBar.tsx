@@ -38,11 +38,19 @@ export default function NeoSearchBar({
   const inAIMode = turns.length > 0;
   const [reply, setReply] = useState("");
   const [typedMap, setTypedMap] = useState<Record<number, string>>({});
+  const [closing, setClosing] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const replyTaRef = useRef<HTMLTextAreaElement>(null);
   const typewriterRef = useRef<number | null>(null);
   const reducedMotion = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset closing state whenever we (re)enter AI mode.
+  useEffect(() => { if (inAIMode) setClosing(false); }, [inAIMode]);
+
+  // Glitchy "decoded" overlay characters during exit animation.
+  const glitchChars = useMemo(() => "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ01<>/\\$#@*".split(""), []);
+  const randGlitch = (n: number) => Array.from({ length: n }, () => glitchChars[Math.floor(Math.random() * glitchChars.length)]).join("");
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
