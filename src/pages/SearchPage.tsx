@@ -11,6 +11,12 @@ import { episodeScore } from "@/lib/episodeRank";
 import NeoSearchBar from "@/components/NeoSearchBar";
 
 type SortKey = "best" | "newest" | "rank";
+type NeoContext = {
+  base: string;
+  refined: string;
+  reply: string;
+  phase: "refining" | "feedback";
+};
 
 const EXAMPLES = [
   "AI regulation",
@@ -20,6 +26,10 @@ const EXAMPLES = [
   "European politics",
   "founder interviews",
 ];
+
+function isAffirmativeReply(reply: string): boolean {
+  return /^(yes|yeah|yep|ok|okay|sure|good|great|right|correct|works|igen|jó|jo|rendben|stimmel|talál|talal|megfelel|ez az)\b/i.test(reply.trim());
+}
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
@@ -67,6 +77,7 @@ export default function SearchPage() {
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const [aiQuestion, setAiQuestion] = useState<string | null>(null);
+  const [neoContext, setNeoContext] = useState<NeoContext | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
   const refineAbortRef = useRef<AbortController | null>(null);
@@ -79,7 +90,7 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
-    setAiQuestion(null);
+    if (!neoContext) setAiQuestion(null);
     answerAbortRef.current?.abort();
     refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
