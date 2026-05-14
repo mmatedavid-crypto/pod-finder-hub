@@ -8,6 +8,7 @@ import { Search } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
+import NeoSearchBar from "@/components/NeoSearchBar";
 
 type SortKey = "best" | "newest" | "rank";
 
