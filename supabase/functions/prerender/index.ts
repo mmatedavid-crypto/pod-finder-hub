@@ -407,7 +407,19 @@ async function buildEntity(
     kind === "company" ? "companies" :
     kind === "ticker" ? "tickers" : "ingredients";
 
-  // Prefer the cached entity_profile (canonical episode_ids), fall back to array scan.
+  // For topics, prefer the curated topic_hubs row (alias-aggregated, AI-bio).
+  let hubRow: any = null;
+  if (kind === "topic") {
+    const { data: hub } = await supabase
+      .from("topic_hubs")
+      .select("title, bio, episodes_summary, episode_ids, featured_episode_ids, aliases")
+      .eq("slug", slug.toLowerCase())
+      .eq("active", true)
+      .maybeSingle();
+    hubRow = hub;
+  }
+
+  // Cached entity_profile (canonical episode_ids).
   const { data: profileRow } = await supabase
     .from("entity_profiles")
     .select("display_name, bio, episodes_summary, episode_ids")
@@ -416,12 +428,16 @@ async function buildEntity(
     .maybeSingle();
 
   let rows: Array<Record<string, any>> = [];
+  // Topic hub episode set wins when present (covers all aliases).
+  const hubEpIds = ((hubRow?.featured_episode_ids ?? []).concat(hubRow?.episode_ids ?? []) as string[])
+    .filter((v, i, a) => v && a.indexOf(v) === i);
   const profileEpIds = ((profileRow as any)?.episode_ids ?? []) as string[];
-  if (profileEpIds.length) {
+  const seedIds = hubEpIds.length ? hubEpIds : profileEpIds;
+  if (seedIds.length) {
     const { data: epRows } = await supabase
       .from("episodes")
       .select(`title, slug, published_at, ai_summary, ${arrayCol}, podcast:podcasts!inner(title, display_title, slug, language, rss_status)`)
-      .in("id", profileEpIds.slice(0, 200))
+      .in("id", seedIds.slice(0, 200))
       .order("published_at", { ascending: false });
     rows = (epRows ?? []) as Array<Record<string, any>>;
   }
@@ -443,8 +459,10 @@ async function buildEntity(
         .not(arrayCol, "is", null)
         .order("published_at", { ascending: false })
         .limit(1000);
+      const aliases = (hubRow?.aliases ?? []) as string[];
+      const aliasSlugs = new Set([slug, ...aliases.map((a) => slugify(a, kind))]);
       rows = ((wide ?? []) as Array<Record<string, any>>).filter((r) =>
-        ((r as any)[arrayCol] as string[] | null)?.some((v) => slugify(v, kind) === slug),
+        ((r as any)[arrayCol] as string[] | null)?.some((v) => aliasSlugs.has(slugify(v, kind))),
       );
     }
   }
@@ -453,7 +471,7 @@ async function buildEntity(
     const lang = r.podcast?.language;
     return !lang || /^en/i.test(lang);
   });
-  if (!rows.length && !profileRow) return null;
+  if (!rows.length && !profileRow && !hubRow) return null;
 
   // Pick an exemplar value from the matched episode arrays for proper casing.
   let exemplar: string | null = null;
