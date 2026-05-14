@@ -84,6 +84,13 @@ export default {
     const url = new URL(request.url);
     const ua = request.headers.get("user-agent") || "";
 
+    // Canonical host enforcement: www.podiverzum.com → podiverzum.com (301).
+    // Keeps bots, prerender cache keys, and canonical tags on a single host.
+    if (url.hostname === "www.podiverzum.com") {
+      const target = `https://podiverzum.com${url.pathname}${url.search}`;
+      return Response.redirect(target, 301);
+    }
+
     // Block requests with no/empty User-Agent — real browsers and legit bots
     // always send one. Empty UA = scraper / direct API hit. Allow /sitemap.xml
     // and robots.txt because some fetchers omit UA on those.
