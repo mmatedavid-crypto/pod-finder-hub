@@ -482,11 +482,11 @@ async function buildEntity(
   }
 
   const profile = profileRow;
-  const human = (profile as any)?.display_name || exemplar || slug.replace(/-/g, " ");
+  const human = hubRow?.title || (profile as any)?.display_name || exemplar || slug.replace(/-/g, " ");
   const kindLabel = kind === "ticker" ? "Ticker" : kind.charAt(0).toUpperCase() + kind.slice(1);
   const title = `${human} — podcast episodes on Podiverzum`;
-  const bio = (profile as any)?.bio?.trim();
-  const epsSummary = (profile as any)?.episodes_summary?.trim();
+  const bio = (hubRow?.bio || (profile as any)?.bio || "").trim();
+  const epsSummary = (hubRow?.episodes_summary || (profile as any)?.episodes_summary || "").trim();
   const desc = truncate(
     bio || epsSummary || `Podcast episodes that discuss ${human}, ranked by relevance, freshness and source quality on Podiverzum.`,
     300,
