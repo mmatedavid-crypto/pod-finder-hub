@@ -381,24 +381,24 @@ export default function SearchPage() {
               setNeoDone(false);
               setNeoThinking(false);
               expectChatRef.current = false;
+              setRefineExtra("");
               setParams({ q: v });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             onReply={(reply) => {
               // Append the user's turn immediately for instant feedback.
               setNeoTurns((t) => [...t, { role: "user", content: reply }]);
-              // Build the next refined query: append the user's reply to the current query.
-              const composed = `${initial} ${reply}`.trim();
-              setQ(composed);
+              // Refinement extras are kept INTERNALLY so the search bar stays clean.
+              // The bar continues to show the original ?q query the user typed.
+              const nextExtra = `${refineExtra} ${reply}`.trim();
               expectChatRef.current = true;
               setNeoThinking(true);
-              if (composed !== initial) {
-                setParams({ q: composed });
+              if (nextExtra !== refineExtra) {
+                setRefineExtra(nextExtra);
               } else {
-                // Same query — kick off a chat-only round (results unchanged).
-                const topResults: any[] = [];
+                // No-op refinement — chat-only round.
                 supabase.functions.invoke("search-chat", {
-                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: q0, topResults },
+                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: `${initial} ${nextExtra}`.trim(), topResults: [] },
                 }).then(({ data, error }) => {
                   setNeoThinking(false);
                   if (error) {
