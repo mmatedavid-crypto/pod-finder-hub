@@ -111,8 +111,6 @@ export default function NeoSearchBar({
       if (!trimmed) return;
       onReply(originalQ, trimmed);
       setReply("");
-      setMode("idle");
-      setTyped("");
       return;
     }
     if (value.trim()) onSubmit(value.trim());
