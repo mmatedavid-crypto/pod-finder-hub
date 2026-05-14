@@ -124,10 +124,17 @@ export default function NeoSearchBar({
     onExitAI();
   };
 
-  // Show a trailing block cursor while typing, or while waiting for the user to start replying
+  // Trailing block cursor while typing or waiting for reply. Blink via interval.
   const showCursor = mode === "ai-typing" || (mode === "ai-asking" && reply.length === 0);
+  const [blinkOn, setBlinkOn] = useState(true);
+  useEffect(() => {
+    if (!showCursor) { setBlinkOn(true); return; }
+    if (mode === "ai-typing") { setBlinkOn(true); return; } // solid while typing
+    const id = window.setInterval(() => setBlinkOn((b) => !b), 530);
+    return () => window.clearInterval(id);
+  }, [showCursor, mode]);
   const baseDisplay = inAIMode ? (mode === "user-replying" ? reply : typed) : value;
-  const displayValue = showCursor ? baseDisplay + "▮" : baseDisplay;
+  const displayValue = showCursor ? baseDisplay + (blinkOn ? "▮" : " ") : baseDisplay;
   const isReadOnly = mode === "ai-typing";
 
   // Auto-grow textarea to fit content (single line by default, expands when wrapped)
