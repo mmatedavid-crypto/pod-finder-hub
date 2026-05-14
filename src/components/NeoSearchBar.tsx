@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Send, X } from "lucide-react";
 
 export type NeoTurn = { role: "assistant" | "user"; content: string };
@@ -12,7 +12,7 @@ interface Props {
   turns: NeoTurn[];
   /** True while the AI is "thinking" (search + chat call in flight). */
   thinking?: boolean;
-  /** True when the conversation is over and user can dismiss. */
+  /** Legacy flag from the assistant; Neo mode stays open until explicit close. */
   done?: boolean;
   onExitAI: () => void;
   placeholder?: string;
@@ -31,7 +31,6 @@ export default function NeoSearchBar({
   onReply,
   turns,
   thinking,
-  done,
   onExitAI,
   placeholder,
 }: Props) {
@@ -39,8 +38,8 @@ export default function NeoSearchBar({
   const [reply, setReply] = useState("");
   const [typedMap, setTypedMap] = useState<Record<number, string>>({});
   const [closing, setClosing] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  const replyTaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
   const typewriterRef = useRef<number | null>(null);
   const reducedMotion = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -99,14 +98,14 @@ export default function NeoSearchBar({
 
   // Focus reply textarea when AI is waiting for an answer
   useEffect(() => {
-    if (inAIMode && !thinking && !done && lastTurn?.role === "assistant" &&
+    if (inAIMode && !thinking && !closing && lastTurn?.role === "assistant" &&
         typedMap[lastIdx] === lastTurn.content) {
-      replyTaRef.current?.focus({ preventScroll: true });
+      replyInputRef.current?.focus({ preventScroll: true });
     }
-  }, [inAIMode, thinking, done, lastIdx, lastTurn, typedMap]);
+  }, [inAIMode, thinking, closing, lastIdx, lastTurn, typedMap]);
 
   const isTyping = !!lastTurn && lastTurn.role === "assistant" && typedMap[lastIdx] !== lastTurn.content;
-  const canSendReply = !thinking && !done && !isTyping && reply.trim().length > 0;
+  const canSendReply = !thinking && !isTyping && !closing && reply.trim().length > 0;
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -138,23 +137,7 @@ export default function NeoSearchBar({
     }, 720);
   };
 
-  // Auto-grow textareas
-  useLayoutEffect(() => {
-    const ta = taRef.current;
-    if (ta) {
-      ta.style.height = "auto";
-      ta.style.height = `${ta.scrollHeight + 2}px`;
-    }
-  }, [value]);
-  useLayoutEffect(() => {
-    const ta = replyTaRef.current;
-    if (ta) {
-      ta.style.height = "auto";
-      ta.style.height = `${ta.scrollHeight + 2}px`;
-    }
-  }, [reply]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -179,7 +162,7 @@ export default function NeoSearchBar({
               neo · secure channel
             </span>
             <span className="ml-auto neo-text text-[10px] opacity-60">
-              {done ? "session ended" : thinking ? "decrypting…" : "online"}
+              {thinking ? "decrypting…" : "online"}
             </span>
           </div>
 
@@ -218,19 +201,18 @@ export default function NeoSearchBar({
             )}
           </div>
 
-          {!done && (
+          {!closing && (
             <div className="mt-2 flex items-end gap-2 border-t border-[hsl(120_60%_30%/0.45)] pt-2">
               <span className="neo-text leading-7 select-none" aria-hidden>›</span>
-              <textarea
-                ref={replyTaRef}
+              <input
+                ref={replyInputRef}
                 value={reply}
-                rows={1}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setReply(e.target.value)}
                 disabled={thinking || isTyping || closing}
                 placeholder={thinking ? "thinking…" : isTyping ? "" : "type your answer…"}
                 enterKeyHint="send"
-                className="flex-1 min-h-[1.75rem] resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-7 outline-none whitespace-pre-wrap break-words neo-input-reply disabled:opacity-50"
+                className="flex-1 min-h-[1.75rem] min-w-0 border-0 bg-transparent p-0 text-base leading-7 outline-none neo-input-reply disabled:opacity-50"
               />
               <button
                 type="submit"
@@ -278,15 +260,15 @@ export default function NeoSearchBar({
       aria-label="Search podcast episodes"
     >
       <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-      <textarea
-        ref={taRef}
+      <input
+        ref={inputRef}
+        type="search"
         value={value}
-        rows={1}
         onKeyDown={handleKeyDown}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder || "e.g. Nvidia data centers"}
         enterKeyHint="search"
-        className="w-full min-h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border whitespace-pre-wrap break-words bg-card border-border focus:border-accent"
+        className="w-full h-[3.75rem] pl-10 pr-24 py-4 rounded-md border outline-none transition-colors block leading-7 box-border bg-card border-border focus:border-accent"
       />
       <button
         type="submit"
