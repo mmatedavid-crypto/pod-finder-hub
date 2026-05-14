@@ -9,6 +9,9 @@ import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
 import NeoSearchBar, { NeoTurn } from "@/components/NeoSearchBar";
+import MatrixRain from "@/components/MatrixRain";
+
+const MATRIX_RE = /^\s*(the\s+)?matrix\s*$/i;
 
 type SortKey = "best" | "newest" | "rank";
 
@@ -76,7 +79,16 @@ export default function SearchPage() {
   const answerAbortRef = useRef<AbortController | null>(null);
   const refineAbortRef = useRef<AbortController | null>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
+  const [matrixEgg, setMatrixEgg] = useState(false);
+  const matrixSeenRef = useRef<string>("");
   useEffect(() => { neoTurnsRef.current = neoTurns; }, [neoTurns]);
+
+  useEffect(() => {
+    if (initial && MATRIX_RE.test(initial) && matrixSeenRef.current !== initial) {
+      matrixSeenRef.current = initial;
+      setMatrixEgg(true);
+    }
+  }, [initial]);
 
   useEffect(() => { setQ(initial); }, [initial]);
 
