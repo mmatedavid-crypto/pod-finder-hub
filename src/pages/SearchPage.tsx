@@ -21,9 +21,6 @@ const EXAMPLES = [
   "founder interviews",
 ];
 
-function isAffirmativeReply(reply: string): boolean {
-  return /^(yes|yeah|yep|ok|okay|sure|good|great|right|correct|works|igen|jó|jo|rendben|stimmel|talál|talal|megfelel|ez az)\b/i.test(reply.trim());
-}
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
