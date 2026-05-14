@@ -121,10 +121,21 @@ export default function NeoSearchBar({
   };
 
   const handleExit = () => {
+    if (closing) return;
     if (typewriterRef.current) window.clearTimeout(typewriterRef.current);
-    setReply("");
-    setTypedMap({});
-    onExitAI();
+    if (reducedMotion.current) {
+      setReply("");
+      setTypedMap({});
+      onExitAI();
+      return;
+    }
+    setClosing(true);
+    // Wait for the Matrix-style collapse to finish, then unmount.
+    window.setTimeout(() => {
+      setReply("");
+      setTypedMap({});
+      onExitAI();
+    }, 720);
   };
 
   // Auto-grow textareas
