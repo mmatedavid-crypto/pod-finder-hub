@@ -197,8 +197,9 @@ Deno.serve(async (req) => {
       cachedRerank = null;
     }
 
-    // 3) Persist to cache (fire and forget)
-    if (!cacheHit) {
+    // 3) Persist to cache (fire and forget). Always upsert for ticker queries
+    // so refreshed understanding (with company name) overwrites stale entries.
+    if (!cacheHit || isTickerQ) {
       supa.from("search_query_cache").upsert({
         q_norm: qNorm,
         understanding: understanding,
@@ -206,7 +207,6 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).then(() => {}, (e) => console.warn("cache write", e));
     } else {
-      supa.rpc("noop").then(() => {}, () => {});
       supa.from("search_query_cache").update({ hits: 1, updated_at: new Date().toISOString() }).eq("q_norm", qNorm).then(() => {}, () => {});
     }
 
