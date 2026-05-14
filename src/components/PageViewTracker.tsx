@@ -28,6 +28,7 @@ export default function PageViewTracker() {
           full_url: window.location.href,
           referrer: document.referrer || null,
           viewport_width: window.innerWidth,
+          user_agent: navigator.userAgent || null,
           user_id: uid,
           utm_source: utm("utm_source"),
           utm_medium: utm("utm_medium"),
