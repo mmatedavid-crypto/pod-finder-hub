@@ -184,11 +184,14 @@ Deno.serve(async (req) => {
       const sym = tickerMatch[0];
       // Preserve AI-discovered entities (e.g. "AST SpaceMobile" for "ASTS") so
       // the MUST-gate fallback can search by company name when no episode
-      // mentions the bare ticker symbol.
+      // mentions the bare ticker symbol. Also merge curated synonym mappings
+      // (deterministic ticker→company table) — small AI models often fail to
+      // recognize obscure tickers like ASTS.
       const aiEntities = (understanding?.entities || []).filter((e) => e && e.toUpperCase() !== sym);
+      const curatedCompanies = (curated.expansions || []).filter((e) => e && e.toUpperCase() !== sym);
       understanding = {
-        entities: [sym, ...aiEntities].slice(0, 8),
-        expanded_terms: [sym, ...aiEntities].slice(0, 8),
+        entities: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
+        expanded_terms: Array.from(new Set([sym, ...curatedCompanies, ...aiEntities])).slice(0, 8),
         synonyms: [],
         intent: "ticker",
         language: understanding?.language || "en",
