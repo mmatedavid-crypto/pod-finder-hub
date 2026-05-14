@@ -317,34 +317,36 @@ export default function SearchPage() {
         <p className="text-muted-foreground mb-4 text-sm">
           Search by topic, guest, company, show, ticker or idea.
         </p>
-        <NeoSearchBar
-          value={q}
-          onChange={setQ}
-          onSubmit={(v) => {
-            setAiQuestion(null);
-            setParams({ q: v });
-            window.scrollTo({ top: 0, behavior: "auto" });
-          }}
-          onReply={(orig, reply) => {
-            const composed = `${orig} ${reply}`.trim();
-            setQ(composed);
-            setAiQuestion(null);
-            setParams({ q: composed });
-            window.scrollTo({ top: 0, behavior: "auto" });
-          }}
-          aiQuestion={aiQuestion}
-          originalQ={initial}
-          onExitAI={() => { setAiQuestion(null); }}
-          placeholder="e.g. Nvidia data centers"
-        />
-        <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
-          <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
-          <p className="mt-2">
-            Use <code className="px-1 bg-secondary rounded">+</code> before a word to require it,
-            for example <code className="px-1 bg-secondary rounded">+Nvidia GPU</code>.
-            Use quotes for exact phrases.
-          </p>
-        </details>
+        <div className="sticky top-[calc(env(safe-area-inset-top)+4.75rem)] z-30 -mx-4 px-4 py-2 bg-background/95 backdrop-blur sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+          <NeoSearchBar
+            value={q}
+            onChange={setQ}
+            onSubmit={(v) => {
+              setAiQuestion(null);
+              setParams({ q: v });
+              window.scrollTo({ top: 0, behavior: "auto" });
+            }}
+            onReply={(orig, reply) => {
+              const composed = `${orig} ${reply}`.trim();
+              setQ(composed);
+              setAiQuestion(null);
+              setParams({ q: composed });
+              window.scrollTo({ top: 0, behavior: "auto" });
+            }}
+            aiQuestion={aiQuestion}
+            originalQ={initial}
+            onExitAI={() => { setAiQuestion(null); }}
+            placeholder="e.g. Nvidia data centers"
+          />
+          <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
+            <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
+            <p className="mt-2">
+              Use <code className="px-1 bg-secondary rounded">+</code> before a word to require it,
+              for example <code className="px-1 bg-secondary rounded">+Nvidia GPU</code>.
+              Use quotes for exact phrases.
+            </p>
+          </details>
+        </div>
 
         {!initial && (
           <div className="flex flex-wrap gap-2 mt-3">
