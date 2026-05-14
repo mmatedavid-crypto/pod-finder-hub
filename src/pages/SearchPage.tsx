@@ -11,6 +11,12 @@ import { episodeScore } from "@/lib/episodeRank";
 import NeoSearchBar from "@/components/NeoSearchBar";
 
 type SortKey = "best" | "newest" | "rank";
+type NeoContext = {
+  base: string;
+  refined: string;
+  reply: string;
+  phase: "refining" | "feedback";
+};
 
 const EXAMPLES = [
   "AI regulation",
@@ -20,6 +26,10 @@ const EXAMPLES = [
   "European politics",
   "founder interviews",
 ];
+
+function isAffirmativeReply(reply: string): boolean {
+  return /^(yes|yeah|yep|ok|okay|sure|good|great|right|correct|works|igen|jó|jo|rendben|stimmel|talál|talal|megfelel|ez az)\b/i.test(reply.trim());
+}
 
 function escapeIlike(s: string) { return s.replace(/[%,_]/g, " ").replace(/[(),]/g, " "); }
 
@@ -67,6 +77,7 @@ export default function SearchPage() {
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
   const [piFallback, setPiFallback] = useState<{ candidates: any[]; staged: number } | null>(null);
   const [aiQuestion, setAiQuestion] = useState<string | null>(null);
+  const [neoContext, setNeoContext] = useState<NeoContext | null>(null);
   const lastLoggedRef = useRef<string>("");
   const answerAbortRef = useRef<AbortController | null>(null);
   const refineAbortRef = useRef<AbortController | null>(null);
@@ -79,7 +90,7 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
-    setAiQuestion(null);
+    if (!neoContext) setAiQuestion(null);
     answerAbortRef.current?.abort();
     refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
@@ -211,9 +222,15 @@ export default function SearchPage() {
         }, () => { /* ignore */ });
       }
 
+      // Continue the Neo conversation after a refinement before asking for more ambiguity.
+      if (neoContext?.refined === initial && neoContext.phase === "refining") {
+        setNeoContext({ ...neoContext, phase: "feedback" });
+        setAiQuestion(`I searched for “${initial}”. Do these results match what you meant?`);
+      }
+
       // Kick off the "Neo moment" refine probe in parallel — server decides
       // whether the query is ambiguous enough to ask a clarifying question.
-      if (mapped.length >= 6) {
+      if (!neoContext && mapped.length >= 6) {
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
@@ -323,19 +340,36 @@ export default function SearchPage() {
             onChange={setQ}
             onSubmit={(v) => {
               setAiQuestion(null);
+              setNeoContext(null);
               setParams({ q: v });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             onReply={(orig, reply) => {
+              if (neoContext?.phase === "feedback") {
+                if (isAffirmativeReply(reply)) {
+                  setAiQuestion(null);
+                  setNeoContext(null);
+                  return;
+                }
+                const next = `${neoContext.refined} ${reply}`.trim();
+                setQ(next);
+                setNeoContext({ base: neoContext.base, refined: next, reply, phase: "refining" });
+                setAiQuestion(`Got it. Searching for “${next}”…`);
+                setParams({ q: next });
+                window.scrollTo({ top: 0, behavior: "auto" });
+                return;
+              }
+
               const composed = `${orig} ${reply}`.trim();
               setQ(composed);
-              setAiQuestion(null);
+              setNeoContext({ base: orig, refined: composed, reply, phase: "refining" });
+              setAiQuestion(`Got it. Searching for “${composed}”…`);
               setParams({ q: composed });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
             aiQuestion={aiQuestion}
             originalQ={initial}
-            onExitAI={() => { setAiQuestion(null); }}
+            onExitAI={() => { setAiQuestion(null); setNeoContext(null); }}
             placeholder="e.g. Nvidia data centers"
           />
           <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
