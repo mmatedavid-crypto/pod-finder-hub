@@ -166,6 +166,24 @@ Deno.serve(async (req) => {
     if (!q_embedding) q_embedding = embVal;
     const tEmb = Date.now() - t0;
 
+    // Ticker override: if raw query is a US-style ticker symbol (e.g. ASTS, NVDA, BRK.B),
+    // force a ticker-intent understanding so the MUST-gate locks results to episodes
+    // that actually mention the symbol — instead of letting the AI expand "ASTS" into
+    // astrology / unrelated semantic neighbors.
+    const tickerMatch = q.trim().match(/^[A-Z]{2,5}(\.[A-Z])?$/);
+    if (tickerMatch) {
+      const sym = tickerMatch[0];
+      understanding = {
+        entities: Array.from(new Set([sym, ...((understanding?.entities) || [])])).slice(0, 8),
+        expanded_terms: [sym],
+        synonyms: [],
+        intent: "ticker",
+        language: understanding?.language || "en",
+      };
+      // Bust any stale rerank cache for this query (previous astrology-poisoned ranking).
+      cachedRerank = null;
+    }
+
     // 3) Persist to cache (fire and forget)
     if (!cacheHit) {
       supa.from("search_query_cache").upsert({
@@ -223,7 +241,7 @@ Deno.serve(async (req) => {
     // Single-word entities like "Apple" are too ambiguous and pull in noise
     // ("Apple Valley", "apple pie podcast") when used as a hard MUST gate.
     // Multi-word entities are specific enough to keep locked.
-    if ((rows?.length || 0) < 5 && mustGateApplied) {
+    if ((rows?.length || 0) < 5 && mustGateApplied && understanding?.intent !== "ticker") {
       const strictTerms = requiredTerms.filter((t) => t.includes(" "));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
       const retry = await supa.rpc("search_episodes_hybrid", {
