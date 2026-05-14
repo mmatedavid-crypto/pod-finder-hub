@@ -352,37 +352,51 @@ export default function SearchPage() {
             value={q}
             onChange={setQ}
             onSubmit={(v) => {
-              setAiQuestion(null);
-              setNeoContext(null);
+              chatAbortRef.current?.abort();
+              refineAbortRef.current?.abort();
+              setNeoTurns([]);
+              setNeoDone(false);
+              setNeoThinking(false);
+              expectChatRef.current = false;
               setParams({ q: v });
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
-            onReply={(orig, reply) => {
-              if (neoContext?.phase === "feedback") {
-                if (isAffirmativeReply(reply)) {
-                  setAiQuestion(null);
-                  setNeoContext(null);
-                  return;
-                }
-                const next = `${neoContext.refined} ${reply}`.trim();
-                setQ(next);
-                setNeoContext({ base: neoContext.base, refined: next, reply, phase: "refining" });
-                setAiQuestion(`Got it. Searching for “${next}”…`);
-                setParams({ q: next });
-                window.scrollTo({ top: 0, behavior: "auto" });
-                return;
-              }
-
-              const composed = `${orig} ${reply}`.trim();
+            onReply={(reply) => {
+              // Append the user's turn immediately for instant feedback.
+              setNeoTurns((t) => [...t, { role: "user", content: reply }]);
+              // Build the next refined query: append the user's reply to the current query.
+              const composed = `${initial} ${reply}`.trim();
               setQ(composed);
-              setNeoContext({ base: orig, refined: composed, reply, phase: "refining" });
-              setAiQuestion(`Got it. Searching for “${composed}”…`);
-              setParams({ q: composed });
+              expectChatRef.current = true;
+              setNeoThinking(true);
+              if (composed !== initial) {
+                setParams({ q: composed });
+              } else {
+                // Same query — kick off a chat-only round (results unchanged).
+                const topResults: any[] = [];
+                supabase.functions.invoke("search-chat", {
+                  body: { messages: [...neoTurnsRef.current, { role: "user", content: reply }], q: initial, topResults },
+                }).then(({ data, error }) => {
+                  setNeoThinking(false);
+                  if (error) return;
+                  const r = String(data?.reply || "").trim();
+                  if (r) setNeoTurns((t) => [...t, { role: "assistant", content: r }]);
+                  if (data?.done) setNeoDone(true);
+                }, () => setNeoThinking(false));
+                expectChatRef.current = false;
+              }
               window.scrollTo({ top: 0, behavior: "auto" });
             }}
-            aiQuestion={aiQuestion}
-            originalQ={initial}
-            onExitAI={() => { setAiQuestion(null); setNeoContext(null); }}
+            turns={neoTurns}
+            thinking={neoThinking}
+            done={neoDone}
+            onExitAI={() => {
+              chatAbortRef.current?.abort();
+              setNeoTurns([]);
+              setNeoDone(false);
+              setNeoThinking(false);
+              expectChatRef.current = false;
+            }}
             placeholder="e.g. Nvidia data centers"
           />
           <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
