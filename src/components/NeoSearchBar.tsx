@@ -177,7 +177,7 @@ export default function NeoSearchBar({
         role="search"
         aria-label={MATRIX_DOC}
       >
-        <div className="relative min-h-[5.25rem] rounded-md border border-[hsl(120_80%_45%)] bg-black/80 px-3 py-4 pl-10 pr-24">
+        <div className="neo-panel relative min-h-[5.25rem] rounded-md px-3 py-4 pl-10 pr-24">
           <span
             className="absolute left-3 top-[1.05rem] text-base leading-none neo-text neo-pulse"
             aria-hidden
