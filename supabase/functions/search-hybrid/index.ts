@@ -30,6 +30,44 @@ function normalizeQ(q: string): string {
   return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
+const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
+  eth: ["Ethereum", "Ether"],
+  btc: ["Bitcoin"],
+  sol: ["Solana"],
+  xrp: ["XRP Ledger", "Ripple"],
+  ada: ["Cardano"],
+  doge: ["Dogecoin"],
+  avax: ["Avalanche"],
+  link: ["Chainlink"],
+  dot: ["Polkadot"],
+  matic: ["Polygon"],
+};
+
+const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
+
+function compactMarketSymbol(q: string): string | null {
+  const t = q.trim();
+  return /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t) ? t.toUpperCase() : null;
+}
+
+function uniqueClean(values: string[], max = 12): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const v = String(raw || "").trim();
+    const key = v.toLowerCase();
+    if (!v || seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function quoteWebSearchTerm(term: string): string {
+  return term.includes(" ") ? `"${term.replace(/"/g, " ").trim()}"` : term;
+}
+
 async function embedRaw(q: string): Promise<number[] | null> {
   if (!GEMINI_API_KEY) return null;
   try {
