@@ -177,7 +177,7 @@ export default function NeoSearchBar({
         onChange={(e) => {
           if (isReadOnly) return;
           // Strip the trailing cursor character if it's been included
-          const v = e.target.value.replace(/▮$/, "");
+          const v = e.target.value.replace(/[▮ ]+$/, "");
           if (mode === "ai-asking" || mode === "user-replying") {
             setReply(v);
             setMode("user-replying");
