@@ -317,18 +317,23 @@ export default function SearchPage() {
         <p className="text-muted-foreground mb-4 text-sm">
           Search by topic, guest, company, show, ticker or idea.
         </p>
-        <form onSubmit={(e) => { e.preventDefault(); setParams({ q }); }} className="relative max-w-2xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. Nvidia data centers"
-            className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
-          />
-          <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
-            Search
-          </button>
-        </form>
+        <NeoSearchBar
+          value={q}
+          onChange={setQ}
+          onSubmit={(v) => { setAiQuestion(null); setParams({ q: v }); }}
+          onReply={(orig, reply) => {
+            const composed = `${orig} ${reply}`.trim();
+            setQ(composed);
+            setAiQuestion(null);
+            setParams({ q: composed });
+          }}
+          aiQuestion={aiQuestion}
+          originalQ={initial}
+          onExitAI={() => { setAiQuestion(null); }}
+          placeholder="e.g. Nvidia data centers"
+        />
+        {/* legacy Search icon import kept for results-empty section */}
+        <span className="hidden"><Search /></span>
         <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
           <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
           <p className="mt-2">
