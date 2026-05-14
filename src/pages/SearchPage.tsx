@@ -89,7 +89,8 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
-    if (!neoContext) setAiQuestion(null);
+    // Neo turns are NOT cleared here — the search effect re-runs on every refined query
+    // and we want the chat history to persist. Clear only on a brand-new ?q (handled in onSubmit).
     answerAbortRef.current?.abort();
     refineAbortRef.current?.abort();
     if (!initial) { setPodcasts([]); setEpisodes([]); setAiAnswerLoading(false); return; }
