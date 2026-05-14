@@ -202,7 +202,7 @@ export default function NeoSearchBar({
               ? ""
               : (placeholder || "e.g. Nvidia data centers")
         }
-        className={`w-full pl-10 pr-24 py-3 rounded-md border outline-none transition-colors resize-none overflow-hidden leading-6 ${
+        className={`w-full pl-10 pr-24 py-3 rounded-md border outline-none transition-colors resize-none overflow-hidden block align-top leading-7 box-border ${
           inAIMode
             ? `${mode === "user-replying" ? "neo-input-reply" : "neo-input neo-text"} border-[hsl(120_80%_45%)] bg-black/80`
             : "bg-card border-border focus:border-accent"
