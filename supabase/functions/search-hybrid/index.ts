@@ -173,9 +173,13 @@ Deno.serve(async (req) => {
     const tickerMatch = q.trim().match(/^[A-Z]{2,5}(\.[A-Z])?$/);
     if (tickerMatch) {
       const sym = tickerMatch[0];
+      // Preserve AI-discovered entities (e.g. "AST SpaceMobile" for "ASTS") so
+      // the MUST-gate fallback can search by company name when no episode
+      // mentions the bare ticker symbol.
+      const aiEntities = (understanding?.entities || []).filter((e) => e && e.toUpperCase() !== sym);
       understanding = {
-        entities: Array.from(new Set([sym, ...((understanding?.entities) || [])])).slice(0, 8),
-        expanded_terms: [sym],
+        entities: [sym, ...aiEntities].slice(0, 8),
+        expanded_terms: [sym, ...aiEntities].slice(0, 8),
         synonyms: [],
         intent: "ticker",
         language: understanding?.language || "en",
