@@ -270,8 +270,9 @@ Deno.serve(async (req) => {
     // filler (e.g. "the", "best", "podcast", "best podcast"), return zero
     // state instead of dragging in random vector neighbors.
     {
-      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 2);
-      const meaningful = tokens.filter((t) => !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
+      // v5: include 1-char tokens so single-letter queries ("a", "i") trigger the gate.
+      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 1);
+      const meaningful = tokens.filter((t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
       if (tokens.length > 0 && meaningful.length === 0) {
         return new Response(JSON.stringify({
           episodes: [],
@@ -328,7 +329,7 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 1000),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
@@ -425,24 +426,21 @@ Deno.serve(async (req) => {
         if (idfErr) throw idfErr;
         idfRpcOk = true;
         const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
-        const UNKNOWN_THRESHOLD = 5; // v4: df < 5 treated as unknown (gibberish edge cases)
+        const UNKNOWN_THRESHOLD = 1; // v5b: only df=0 counts as truly unknown (gibberish)
         const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
         rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
-        // v4: count both df=0 and df<5 as "effectively unknown" so the nonsense
-        // gate catches gibberish that happens to share a few stray tokens.
         const dfMap = new Map(rows.map((r) => [r.token, r.df]));
         unknownTokenCount = rareGateTokens.filter((t) => {
           const df = dfMap.get(t);
-          return df === undefined ? false : df < UNKNOWN_THRESHOLD;
+          // missing row from RPC = df=0 (token not present in corpus). Count as unknown.
+          return df === undefined ? true : df < UNKNOWN_THRESHOLD;
         }).length;
       } catch (e) { console.warn("token_idf err", e); }
     }
 
-    // Nonsense gate: if every meaningful token is *confirmed* unknown to the
-    // corpus AND the AI did not detect any entity → bail out with zero
-    // results instead of letting the vector pass return random neighbors of
-    // nonsense (e.g. "asdkfjhqwerty" → garbage). Requires the IDF RPC to have
-    // actually succeeded — never trigger on RPC failure.
+    // Nonsense gate: every meaningful token confirmed unknown to the corpus
+    // AND no AI-detected entity → bail with zero results. (v5: kept entity
+    // check loose — even unverified entity names mean the AI saw signal.)
     if (
       idfRpcOk &&
       !isTickerQ &&
