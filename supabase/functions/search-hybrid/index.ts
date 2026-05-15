@@ -472,17 +472,19 @@ Deno.serve(async (req) => {
     // v11: Spell-correction layer. Before declaring "no known tokens", try
     // pg_trgm fuzzy-match each unknown token against the corpus token cache
     // (df>=50, similarity>=0.6). If at least one swap recovers a known
-    // token, rewrite the query and re-embed. Skip uppercase tokens (likely
-    // tickers/acronyms) — handled by the ticker path.
-    let spellCorrections: Array<{ from: string; to: string }> = [];
-    if (
-      idfRpcOk &&
-      !isTickerQ &&
-      unknownTokens.length > 0 &&
-      trustedEntitiesCount(rawEntities, rareGateTokens) === 0
-    ) {
+    // token, rewrite q + qNorm and re-embed so the rest of the pipeline
+    // uses the corrected query. Skip uppercase tokens (likely tickers/acronyms).
+    const spellCorrections: Array<{ from: string; to: string }> = [];
+    const rawEntitiesPre = (understanding?.entities || [])
+      .map((s) => String(s || "").trim())
+      .filter((s) => s.length >= 3 && s.length <= 60);
+    const trustedEntitiesPre = rawEntitiesPre.filter((e) => {
+      if (e.includes(" ")) return true;
+      const tk = e.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      return !(tk.length === 1 && rareGateTokens.includes(tk[0]));
+    });
+    if (idfRpcOk && !isTickerQ && unknownTokens.length > 0 && trustedEntitiesPre.length === 0) {
       const correctable = unknownTokens.filter((t) => {
-        // skip if the original raw query token had any uppercase letter (tickers, brand acronyms)
         const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
         const m = q.match(re);
         if (m && /[A-Z]/.test(m[0])) return false;
@@ -498,15 +500,17 @@ Deno.serve(async (req) => {
         } catch (e) { console.warn("spell rpc err", e); }
       }
       if (spellCorrections.length) {
-        // Rewrite the working query strings.
         let rewritten = q;
         for (const c of spellCorrections) {
           rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
         }
-        // Re-embed the corrected query (best-effort, short timeout).
+        // Mutate q + qNorm so the rest of the pipeline uses the corrected text.
+        q = rewritten;
+        qNorm = normalizeQ(rewritten);
+        // Re-embed (best effort); fall back to original embedding on failure.
         const newEmb = await embed(rewritten);
         if (newEmb) q_embedding = newEmb;
-        // Re-run IDF on corrected tokens to refresh known/unknown sets.
+        // Re-run IDF on corrected tokens.
         const newGateTokens = tokenizeForRareGate(rewritten, false);
         try {
           const { data: idfRows2 } = await supa.rpc("token_idf", { p_tokens: newGateTokens });
@@ -516,23 +520,7 @@ Deno.serve(async (req) => {
           unknownTokens = newGateTokens.filter((t) => (df2.get(t) ?? 0) < 1);
           unknownTokenCount = unknownTokens.length;
         } catch { /* ignore */ }
-        // Replace the query used downstream for lexical/cache.
-        // We mutate `q` and `qNorm` so the rest of the pipeline uses the corrected text.
-        (globalThis as any).__noop = rewritten; // prevent eslint unused warn in some builds
-        // eslint-disable-next-line no-param-reassign
-        // (q is a local const — shadow with corrected string below where it's used)
       }
-    }
-    // Apply correction to the local query strings used downstream.
-    let qWorking = q;
-    let qNormWorking = qNorm;
-    if (spellCorrections.length) {
-      let rewritten = q;
-      for (const c of spellCorrections) {
-        rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
-      }
-      qWorking = rewritten;
-      qNormWorking = normalizeQ(rewritten);
     }
 
     // v9: Nonsense gate. If every meaningful token is unknown to the corpus,
