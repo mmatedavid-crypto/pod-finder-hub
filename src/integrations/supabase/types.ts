@@ -443,6 +443,45 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_chunks: {
+        Row: {
+          chunk_idx: number
+          content_hash: string
+          embedding: string
+          episode_id: string
+          id: string
+          model: string
+          podcast_id: string
+          source: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          chunk_idx: number
+          content_hash: string
+          embedding: string
+          episode_id: string
+          id?: string
+          model: string
+          podcast_id: string
+          source: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          chunk_idx?: number
+          content_hash?: string
+          embedding?: string
+          episode_id?: string
+          id?: string
+          model?: string
+          podcast_id?: string
+          source?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       episode_embeddings: {
         Row: {
           content_hash: string
@@ -512,6 +551,63 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_transcripts: {
+        Row: {
+          attempts: number
+          created_at: string
+          episode_id: string
+          error: string | null
+          fetched_at: string | null
+          format: string | null
+          language: string | null
+          last_attempt_at: string | null
+          next_attempt_at: string | null
+          podcast_id: string
+          source: string | null
+          status: string
+          text: string | null
+          transcript_url: string | null
+          updated_at: string
+          word_count: number | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          episode_id: string
+          error?: string | null
+          fetched_at?: string | null
+          format?: string | null
+          language?: string | null
+          last_attempt_at?: string | null
+          next_attempt_at?: string | null
+          podcast_id: string
+          source?: string | null
+          status?: string
+          text?: string | null
+          transcript_url?: string | null
+          updated_at?: string
+          word_count?: number | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          episode_id?: string
+          error?: string | null
+          fetched_at?: string | null
+          format?: string | null
+          language?: string | null
+          last_attempt_at?: string | null
+          next_attempt_at?: string | null
+          podcast_id?: string
+          source?: string | null
+          status?: string
+          text?: string | null
+          transcript_url?: string | null
+          updated_at?: string
+          word_count?: number | null
+        }
+        Relationships: []
+      }
       episodes: {
         Row: {
           ai_enriched_at: string | null
@@ -519,6 +615,9 @@ export type Database = {
           ai_summary: string | null
           apple_url: string | null
           audio_url: string | null
+          chunks_source_hash: string | null
+          chunks_status: string | null
+          chunks_updated_at: string | null
           companies: string[] | null
           created_at: string
           description: string | null
@@ -532,6 +631,7 @@ export type Database = {
           id: string
           image_url: string | null
           ingredients: string[] | null
+          next_transcript_check_at: string | null
           people: string[] | null
           podcast_id: string
           published_at: string | null
@@ -545,6 +645,7 @@ export type Database = {
           tickers: string[] | null
           title: string
           topics: string[] | null
+          transcript_status: string | null
           updated_at: string
           youtube_url: string | null
         }
@@ -554,6 +655,9 @@ export type Database = {
           ai_summary?: string | null
           apple_url?: string | null
           audio_url?: string | null
+          chunks_source_hash?: string | null
+          chunks_status?: string | null
+          chunks_updated_at?: string | null
           companies?: string[] | null
           created_at?: string
           description?: string | null
@@ -567,6 +671,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          next_transcript_check_at?: string | null
           people?: string[] | null
           podcast_id: string
           published_at?: string | null
@@ -580,6 +685,7 @@ export type Database = {
           tickers?: string[] | null
           title: string
           topics?: string[] | null
+          transcript_status?: string | null
           updated_at?: string
           youtube_url?: string | null
         }
@@ -589,6 +695,9 @@ export type Database = {
           ai_summary?: string | null
           apple_url?: string | null
           audio_url?: string | null
+          chunks_source_hash?: string | null
+          chunks_status?: string | null
+          chunks_updated_at?: string | null
           companies?: string[] | null
           created_at?: string
           description?: string | null
@@ -602,6 +711,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           ingredients?: string[] | null
+          next_transcript_check_at?: string | null
           people?: string[] | null
           podcast_id?: string
           published_at?: string | null
@@ -615,6 +725,7 @@ export type Database = {
           tickers?: string[] | null
           title?: string
           topics?: string[] | null
+          transcript_status?: string | null
           updated_at?: string
           youtube_url?: string | null
         }
@@ -2056,6 +2167,14 @@ export type Database = {
         Args: { p_dow: number; p_hour: number }
         Returns: string[]
       }
+      chunk_candidate_stats: {
+        Args: never
+        Returns: {
+          episodes_with_chunks: number
+          pending: number
+          total_chunks: number
+        }[]
+      }
       claim_ai_jobs: {
         Args: { _limit: number; _lock_seconds?: number }
         Returns: {
@@ -2143,6 +2262,9 @@ export type Database = {
           ai_summary: string | null
           apple_url: string | null
           audio_url: string | null
+          chunks_source_hash: string | null
+          chunks_status: string | null
+          chunks_updated_at: string | null
           companies: string[] | null
           created_at: string
           description: string | null
@@ -2156,6 +2278,7 @@ export type Database = {
           id: string
           image_url: string | null
           ingredients: string[] | null
+          next_transcript_check_at: string | null
           people: string[] | null
           podcast_id: string
           published_at: string | null
@@ -2169,6 +2292,7 @@ export type Database = {
           tickers: string[] | null
           title: string
           topics: string[] | null
+          transcript_status: string | null
           updated_at: string
           youtube_url: string | null
         }[]
@@ -2336,6 +2460,21 @@ export type Database = {
         Args: { _batch?: number; _table: string }
         Returns: number
       }
+      search_episode_chunks: {
+        Args: {
+          candidate_pool?: number
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          best_chunk_idx: number
+          best_source: string
+          best_text: string
+          episode_id: string
+          podcast_id: string
+          similarity: number
+        }[]
+      }
       search_episodes_hybrid: {
         Args: {
           alpha_lex?: number
@@ -2364,6 +2503,20 @@ export type Database = {
           mrr: number
           ndcg10: number
           query: string
+        }[]
+      }
+      select_chunk_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          description: string
+          display_title: string
+          id: string
+          podcast_category: string
+          podcast_id: string
+          podcast_title: string
+          shadow_rank_tier: string
+          transcript_source: string
+          transcript_text: string
         }[]
       }
       select_embed_candidates: {
@@ -2399,11 +2552,29 @@ export type Database = {
           topics: string[]
         }[]
       }
+      select_transcript_scout_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          audio_url: string
+          episode_url: string
+          guid: string
+          id: string
+          podcast_id: string
+          podcast_rss_url: string
+          rss_url: string
+          shadow_rank_tier: string
+          youtube_url: string
+        }[]
+      }
       set_categorize_runner_schedule: {
         Args: { _schedule: string }
         Returns: string
       }
       set_deep_hydration_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_embed_chunks_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
@@ -2445,6 +2616,10 @@ export type Database = {
         Returns: undefined
       }
       set_title_cleanup_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_transcript_scout_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
@@ -2510,6 +2685,15 @@ export type Database = {
         Returns: {
           df: number
           token: string
+        }[]
+      }
+      transcript_scout_stats: {
+        Args: never
+        Returns: {
+          failed: number
+          found: number
+          not_available: number
+          unchecked: number
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
