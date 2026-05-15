@@ -270,8 +270,9 @@ Deno.serve(async (req) => {
     // filler (e.g. "the", "best", "podcast", "best podcast"), return zero
     // state instead of dragging in random vector neighbors.
     {
-      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 2);
-      const meaningful = tokens.filter((t) => !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
+      // v5: include 1-char tokens so single-letter queries ("a", "i") trigger the gate.
+      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 1);
+      const meaningful = tokens.filter((t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
       if (tokens.length > 0 && meaningful.length === 0) {
         return new Response(JSON.stringify({
           episodes: [],
@@ -328,7 +329,7 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1500),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 1000),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
@@ -425,30 +426,49 @@ Deno.serve(async (req) => {
         if (idfErr) throw idfErr;
         idfRpcOk = true;
         const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
-        const UNKNOWN_THRESHOLD = 5; // v4: df < 5 treated as unknown (gibberish edge cases)
+        const UNKNOWN_THRESHOLD = 1; // v5b: only df=0 counts as truly unknown (gibberish)
         const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
         rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
-        // v4: count both df=0 and df<5 as "effectively unknown" so the nonsense
-        // gate catches gibberish that happens to share a few stray tokens.
         const dfMap = new Map(rows.map((r) => [r.token, r.df]));
         unknownTokenCount = rareGateTokens.filter((t) => {
           const df = dfMap.get(t);
-          return df === undefined ? false : df < UNKNOWN_THRESHOLD;
+          // missing row from RPC = df=0 (token not present in corpus). Count as unknown.
+          return df === undefined ? true : df < UNKNOWN_THRESHOLD;
         }).length;
       } catch (e) { console.warn("token_idf err", e); }
     }
 
+    // v5: Entity-validation gate. AI sometimes hallucinates entities from
+    // gibberish ("asdkfjhqwerty" → fake "company"). Validate each detected
+    // entity against the corpus IDF: if NONE of its tokens appear with df>=5,
+    // we treat the entity as unverified for the nonsense-gate decision.
+    let entitiesCorpusVerified = rawEntities.length > 0;
+    if (idfRpcOk && rawEntities.length > 0) {
+      const entTokens = Array.from(new Set(
+        rawEntities.flatMap((e) => e.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3))
+      )).slice(0, 12);
+      if (entTokens.length) {
+        try {
+          const { data: entIdf } = await supa.rpc("token_idf", { p_tokens: entTokens });
+          const rows = ((entIdf as Array<{ token: string; df: number }>) || []);
+          const verifiedTokens = new Set(rows.filter((r) => r.df >= 5).map((r) => r.token));
+          entitiesCorpusVerified = rawEntities.some((e) =>
+            e.toLowerCase().split(/[^a-z0-9]+/).some((t) => verifiedTokens.has(t))
+          );
+        } catch (e) { console.warn("entity_idf err", e); }
+      } else {
+        entitiesCorpusVerified = false;
+      }
+    }
+
     // Nonsense gate: if every meaningful token is *confirmed* unknown to the
-    // corpus AND the AI did not detect any entity → bail out with zero
-    // results instead of letting the vector pass return random neighbors of
-    // nonsense (e.g. "asdkfjhqwerty" → garbage). Requires the IDF RPC to have
-    // actually succeeded — never trigger on RPC failure.
+    // corpus AND the AI did not detect any corpus-verified entity → bail out.
     if (
       idfRpcOk &&
       !isTickerQ &&
       rareGateTokens.length > 0 &&
       unknownTokenCount === rareGateTokens.length &&
-      rawEntities.length === 0
+      !entitiesCorpusVerified
     ) {
       return new Response(JSON.stringify({
         episodes: [],
