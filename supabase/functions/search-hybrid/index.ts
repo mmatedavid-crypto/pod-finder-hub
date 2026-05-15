@@ -469,9 +469,36 @@ Deno.serve(async (req) => {
         reason: "no_known_tokens",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens], 6);
-    const entityTerms = rawEntities.slice(0, 8);
-    const alphaLex = isTickerQ ? 0.8 : rawEntities.length > 0 ? 0.65 : 0.45;
+    // v8: Phrase MUST gate. For 2-4 token non-ticker queries, treat the
+    // whole phrase as a required substring. Kills compositional-rarity
+    // hallucinations ("Cursor IDE" → sermons, "react hooks" → Chicago Bears)
+    // since neither token alone is rare but the bigram has near-zero df.
+    const phraseTokens = qNorm.split(/[^a-z0-9]+/).filter(
+      (t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
+    );
+    const phrasePool: string[] = [];
+    if (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
+      phrasePool.push(phraseTokens.join(" "));
+    }
+
+    // v8: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
+    // Adds canonical names so brand queries ("Joe Rogan", "Cursor", "Devin AI")
+    // boost the right episodes even when AI understanding misses them.
+    let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
+    if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      try {
+        const { data: resolved } = await supa.rpc("resolve_query_entities", {
+          p_q: q, p_max: 6, p_threshold: 0.45,
+        });
+        if (Array.isArray(resolved)) resolvedEntities = resolved as any;
+      } catch (e) { console.warn("resolve_query_entities err", e); }
+    }
+    const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
+
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens, ...phrasePool], 8);
+    const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
+    const phraseTerms = uniqueClean([...phrasePool, ...resolvedNames], 6);
+    const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
     // episode tsv. Rewrite the lexical q to use the resolved company name(s)
@@ -512,6 +539,7 @@ Deno.serve(async (req) => {
       required_terms: requiredTerms.length ? requiredTerms : null,
       entity_terms: entityTerms.length ? entityTerms : null,
       alpha_lex: alphaLex,
+      phrase_terms: phraseTerms.length ? phraseTerms : null,
     });
     if (error) {
       console.error("rpc err", error);
@@ -520,9 +548,6 @@ Deno.serve(async (req) => {
     let mustGateApplied = requiredTerms.length > 0;
     let mustGateRelaxed = false;
     let mustGateDropped = false;
-    // Preserve strict hits at the top — fallback passes only APPEND new ids
-    // after the strict ones, so a query like "jaguar" still shows the
-    // exact-match episodes first, then semantic neighbors below.
     const strictRows = rows || [];
     const strictHitIds = new Set(strictRows.map((r: any) => r.episode_id));
     const strictIds = new Set(strictHitIds);
@@ -536,11 +561,29 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Pass 2 — relaxed gate (multi-word entities only).
+    // Pass 2 — drop phrase requirement, keep entity / rare-token gate.
+    if (strictRows.length < 5 && mustGateApplied && phrasePool.length) {
+      const noPhraseTerms = requiredTerms.filter((t) => !phrasePool.includes(t));
+      if (noPhraseTerms.length !== requiredTerms.length) {
+        const retry = await supa.rpc("search_episodes_hybrid", {
+          q: lexQ,
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          limit_n: Math.max(limit, 50),
+          lang,
+          required_terms: noPhraseTerms.length ? noPhraseTerms : null,
+          entity_terms: entityTerms.length ? entityTerms : null,
+          alpha_lex: alphaLex,
+          phrase_terms: phraseTerms.length ? phraseTerms : null,
+        });
+        if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
+      }
+    }
+
+    // Pass 3 — relaxed gate (multi-word entities only).
     if (strictRows.length < 5 && mustGateApplied) {
-      const strictTerms = requiredTerms.filter((t) => t.includes(" "));
+      const strictTerms = requiredTerms.filter((t) => t.includes(" ") && !phrasePool.includes(t));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
-      if (relaxedTerms?.join("|") !== requiredTerms.join("|")) {
+      if ((relaxedTerms?.join("|") || "") !== requiredTerms.join("|")) {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
@@ -549,15 +592,15 @@ Deno.serve(async (req) => {
           required_terms: relaxedTerms,
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
+          phrase_terms: phraseTerms.length ? phraseTerms : null,
         });
         if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
       }
     }
-    // Pass 3 — drop gate entirely, semantic-tilted, append below strict.
-    // Skip drop-gate fallback for ticker queries — semantic neighbors of a
-    // bare symbol (e.g. "NBIS" → "Nobel"-cluster) are misleading. Better to
-    // return zero results so the PI fallback / empty-state UI kicks in.
-    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ) {
+    // Pass 4 — drop gate entirely, semantic-tilted.
+    // Skip when a phrase MUST is present: bare semantic neighbors of "Cursor IDE"
+    // (sermons / Chicago Bears) are exactly the hallucination class we're killing.
+    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
@@ -566,6 +609,7 @@ Deno.serve(async (req) => {
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
         alpha_lex: Math.min(alphaLex, 0.35),
+        phrase_terms: phraseTerms.length ? phraseTerms : null,
       });
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
     }

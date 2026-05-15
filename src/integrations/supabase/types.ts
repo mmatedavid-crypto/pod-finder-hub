@@ -2293,6 +2293,15 @@ export type Database = {
         Returns: Json
       }
       refresh_homepage_feed: { Args: never; Returns: undefined }
+      resolve_query_entities: {
+        Args: { p_max?: number; p_q: string; p_threshold?: number }
+        Returns: {
+          display_name: string
+          kind: string
+          similarity: number
+          slug: string
+        }[]
+      }
       search_backfill_batch: {
         Args: { _batch?: number; _table: string }
         Returns: number
@@ -2318,6 +2327,7 @@ export type Database = {
               entity_terms?: string[]
               lang?: string
               limit_n?: number
+              phrase_terms?: string[]
               q: string
               q_embedding?: string
               required_terms?: string[]
