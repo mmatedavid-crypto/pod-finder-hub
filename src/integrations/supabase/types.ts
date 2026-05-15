@@ -1324,6 +1324,7 @@ export type Database = {
       }
       search_events: {
         Row: {
+          confidence_band: string | null
           created_at: string
           fallback_used: boolean
           id: string
@@ -1334,6 +1335,7 @@ export type Database = {
           viewport_width: number | null
         }
         Insert: {
+          confidence_band?: string | null
           created_at?: string
           fallback_used?: boolean
           id?: string
@@ -1344,6 +1346,7 @@ export type Database = {
           viewport_width?: number | null
         }
         Update: {
+          confidence_band?: string | null
           created_at?: string
           fallback_used?: boolean
           id?: string
@@ -1676,6 +1679,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      token_df_cache: {
+        Row: {
+          computed_at: string
+          df: number
+          token: string
+        }
+        Insert: {
+          computed_at?: string
+          df: number
+          token: string
+        }
+        Update: {
+          computed_at?: string
+          df?: number
+          token?: string
+        }
+        Relationships: []
       }
       topic_hubs: {
         Row: {
@@ -2447,6 +2468,13 @@ export type Database = {
           title: string
           website_url: string
           youtube_url: string
+        }[]
+      }
+      token_idf: {
+        Args: { p_tokens: string[] }
+        Returns: {
+          df: number
+          token: string
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
