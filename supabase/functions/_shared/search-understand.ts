@@ -14,8 +14,37 @@ export type Understanding = {
 
 const EMPTY: Understanding = { entities: [], expanded_terms: [], synonyms: [], intent: "topic", language: "en" };
 
+// In-memory circuit breaker. If the AI gateway times out or 5xx's repeatedly,
+// short-circuit subsequent calls for COOLDOWN_MS so we don't waste latency on
+// known-bad upstream. Resets automatically.
+const CB_FAIL_THRESHOLD = 3;
+const CB_WINDOW_MS = 60_000;
+const CB_COOLDOWN_MS = 60_000;
+const cbFails: number[] = [];
+let cbOpenUntil = 0;
+
+function cbAllow(): boolean {
+  const now = Date.now();
+  if (now < cbOpenUntil) return false;
+  // prune
+  while (cbFails.length && now - cbFails[0] > CB_WINDOW_MS) cbFails.shift();
+  return true;
+}
+
+function cbRecordFail() {
+  const now = Date.now();
+  cbFails.push(now);
+  while (cbFails.length && now - cbFails[0] > CB_WINDOW_MS) cbFails.shift();
+  if (cbFails.length >= CB_FAIL_THRESHOLD) {
+    cbOpenUntil = now + CB_COOLDOWN_MS;
+    cbFails.length = 0;
+    console.warn("understand circuit_breaker_open for", CB_COOLDOWN_MS, "ms");
+  }
+}
+
 export async function understandQuery(q: string, timeoutMs = 1500): Promise<Understanding> {
   if (!LOVABLE_API_KEY || !q) return EMPTY;
+  if (!cbAllow()) return EMPTY;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
