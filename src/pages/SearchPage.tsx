@@ -9,7 +9,14 @@ import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
 import NeoSearchBar, { NeoTurn } from "@/components/NeoSearchBar";
+import NeoChips, { type NeoChip, isNeoMuted, isRefined, markRefined } from "@/components/NeoChips";
 import MatrixRain from "@/components/MatrixRain";
+
+type NeoRefine = { mode: "off" | "ambiguity" | "zero_hit"; message: string; chips: NeoChip[] };
+
+function qHash(q: string): string {
+  return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
 
 const MATRIX_RE = /^\s*(the\s+)?matrix\s*$/i;
 
