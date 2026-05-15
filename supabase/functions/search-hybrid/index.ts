@@ -453,6 +453,7 @@ Deno.serve(async (req) => {
         cache_hit: cacheHit,
         must_gate: mustGateApplied,
         must_gate_relaxed: mustGateRelaxed,
+        must_gate_dropped: mustGateDropped,
         alpha_lex: alphaLex,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
