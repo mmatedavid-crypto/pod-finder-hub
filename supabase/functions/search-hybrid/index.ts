@@ -1137,6 +1137,7 @@ Deno.serve(async (req) => {
         podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle, count: podcastPinIds.length } : null,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
         engine: engineRaw,
+        chunks_augmented: chunkAugmented,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
