@@ -31,6 +31,7 @@ export default function NeoSearchBar({
   onReply,
   turns,
   thinking,
+  done,
   onExitAI,
   placeholder,
 }: Props) {
