@@ -447,6 +447,41 @@ Deno.serve(async (req) => {
       });
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
     }
+
+    // Pass 4 — TICKER SECTOR FALLBACK. If a ticker query has no strict hits,
+    // re-embed using "{Company} {sector hint}" and run a semantic-only RPC.
+    // This avoids the "NBIS → Nobel cluster" failure mode by anchoring the
+    // vector search to the ticker's actual industry instead of the symbol.
+    let sectorFallback = false;
+    let sectorHint: string | null = null;
+    if (isTickerQ && marketSymbol && strictRows.length === 0) {
+      const sectorTerms = MARKET_SYMBOL_SECTORS[marketSymbol.toLowerCase()] || "";
+      const companyName = symbolAliases[0]
+        || rawEntities.find((t) => t.toUpperCase() !== marketSymbol)
+        || (curated.expansions || [])[0]
+        || marketSymbol;
+      const sectorQText = `${companyName} ${sectorTerms}`.trim();
+      if (sectorQText && sectorTerms) {
+        const sectorEmb = await embed(sectorQText);
+        if (sectorEmb) {
+          const retry3 = await supa.rpc("search_episodes_hybrid", {
+            q: companyName,
+            q_embedding: `[${sectorEmb.join(",")}]`,
+            limit_n: Math.max(limit, 30),
+            lang,
+            required_terms: null,
+            entity_terms: null,
+            alpha_lex: 0.15, // semantic-heavy
+          });
+          if (!retry3.error && retry3.data?.length) {
+            appendNew(retry3.data);
+            sectorFallback = true;
+            sectorHint = sectorTerms.split(" ").slice(0, 5).join(" ");
+          }
+        }
+      }
+    }
+
     rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
 
