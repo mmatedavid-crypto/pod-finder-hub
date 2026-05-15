@@ -363,6 +363,26 @@ Deno.serve(async (req) => {
         if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
       }
     }
+    // Final fallback: if even relaxed gate yields <5 results AND we have an
+    // embedding, drop the MUST gate entirely so pure semantic neighbors can
+    // surface (e.g. "jaguar animal" → safari/wildlife episodes that never
+    // mention "jaguar"). Lex side still scores via lexQ (raw + synonyms).
+    let mustGateDropped = false;
+    if ((rows?.length || 0) < 5 && mustGateApplied && q_embedding) {
+      const retry2 = await supa.rpc("search_episodes_hybrid", {
+        q: lexQ,
+        q_embedding: `[${q_embedding.join(",")}]`,
+        limit_n: Math.max(limit, 50),
+        lang,
+        required_terms: null,
+        entity_terms: entityTerms.length ? entityTerms : null,
+        alpha_lex: Math.min(alphaLex, 0.35), // tilt toward semantic
+      });
+      if (!retry2.error && (retry2.data?.length || 0) > (rows?.length || 0)) {
+        rows = retry2.data;
+        mustGateDropped = true;
+      }
+    }
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
