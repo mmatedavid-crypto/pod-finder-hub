@@ -143,7 +143,16 @@ export default function SearchPage() {
         }
         const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
-        return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked, sectorFallback: !!data?.sector_fallback, sectorHint: data?.sector_hint || "", tickerSymbol: data?.ticker_symbol || "" };
+        return {
+          mapped: next,
+          semantic: !!data?.semantic,
+          reranked: !!data?.reranked,
+          sectorFallback: !!data?.sector_fallback,
+          sectorHint: data?.sector_hint || "",
+          tickerSymbol: data?.ticker_symbol || "",
+          fallbackKind: (data?.fallback_kind as "ticker" | "person" | "company" | null) || null,
+          confidenceBand: (data?.confidence_band as "high" | "medium" | "low") || "high",
+        };
       };
 
       // Search v2: hybrid lexical + semantic. Two-phase for fast first paint:
