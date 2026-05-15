@@ -1,113 +1,113 @@
-## Search Quality v12 — Best-in-class push
+# Chunking + Transcript Scout
 
-Skip #1 (click feedback) — `episode_events` még nem gyűjtött elég adatot. Visszatérünk ~2 hét múlva.
-
-Ship #2 + #3 + #4 + #5. Sorrend = növekvő kockázat, mindegyik fallback-barát.
+Két párhuzamos pipeline. A chunking azonnal javít minden epizódon; a scout S/A tieren hozza a "valódi tartalmat" ahol publisher/YT már megcsinálta nekünk.
 
 ---
 
-### Layer A — Intent-driven freshness decay (#2)
+## Part A — Chunking pipeline (minden tier)
 
-**Cél:** Friss hírek előre, evergreen tartalom változatlan.
-
-**Hol:** `search_episodes_hybrid` RPC (új migration).
-
-**Logika:** új paraméter `p_decay_lambda float default 0`. Score-hoz hozzáad:
+### 1. Új tábla: `episode_chunks`
 ```
-+ p_decay_lambda * exp(-0.02 * EXTRACT(days FROM now() - published_at))
+id uuid pk
+episode_id uuid
+chunk_idx smallint              -- 0,1,2…
+source text                     -- 'description' | 'transcript_rss' | 'transcript_youtube'
+text text                       -- 800 char chunk
+embedding vector(768)
+content_hash text               -- text sha → idempotens upsert
+model text
+updated_at timestamptz
+UNIQUE(episode_id, source, chunk_idx)
 ```
-- `intent ∈ {news, company, ticker}` → λ = 0.15
-- `intent ∈ {evergreen, topic, person}` → λ = 0 (jelenlegi viselkedés)
-- default = 0 (fallback-safe)
+HNSW cosine index az `embedding`-en. Public read RLS, admin write.
 
-`search-hybrid/index.ts`-ben az understanding.intent alapján állítjuk.
+### 2. Új edge function: `embed-chunks-runner`
+- Forrás priority: ha van transcript → azt chunkolja, különben `episodes.description`
+- Splitter: 800 char window, 200 overlap, mondat-határnál tör (ahol lehet)
+- Skip ha: total_text < 1000 char (ott már a sima embedding elég)
+- Batch 50 episode/hívás, concurrency 4, Gemini `embedding-001` 768d (mint episode-embed)
+- Idempotens: content_hash diff → re-embed; egyébként skip
+- Budget: $1/day (chunk volume nagy, de 1× backfill)
+- Adaptive cron RPC `set_embed_chunks_schedule` (1m/5m/15m allowlist)
 
-**Kockázat:** Zero. Ha intent=topic (default), semmi nem változik.
+### 3. Cron jobid 40
+Init `*/5`, adaptív, async invoke.
 
----
-
-### Layer B — Bigram entity MUST gate (#3)
-
-**Cél:** "Joe Rogan" query soha ne hozzon olyan epizódot, ahol csak "Joe" vagy csak "Rogan" szerepel külön.
-
-**Hol:** `search-hybrid/index.ts`, a meglévő `phrase_terms` boost mellé.
-
-**Logika:** Ha `understanding.intent === "person"` ÉS a query bigramja egyezik egy detektált entitással (entities[] tartalmazza a teljes bigramot) → a bigram bekerül `required_terms`-be (MUST gate). Ha 0 hit → entity fallback pyramid kapja el (már működik).
-
-**Kockázat:** Alacsony. Csak person intent-nél aktív. Fallback létezik.
-
----
-
-### Layer C — HyDE query expansion (#5)
-
-**Cél:** Konceptuális query-k ("how to grow a SaaS startup") jobb semantic recall.
-
-**Hol:** új edge function `search-hyde` (de inline a search-hybrid-be hívva), VAGY inline `_shared/search-hyde.ts`.
-
-**Logika:**
-1. Cache check: `search_hyde_cache(query_norm PK, hyde_text, embedding vector(768), created_at)`. TTL 7 nap.
-2. Cache miss → Lovable AI Gateway, model `google/gemini-2.5-flash-lite`, prompt: *"Write a single 2-sentence hypothetical podcast episode description that would perfectly answer this query: {q}. No preamble."* Timeout 1500ms, circuit breaker reuse.
-3. Embed a HyDE szöveget (`google/gemini-embedding-001`, 768d).
-4. Hybrid search-be két query embedding megy:
-   - `original_emb` (jelenlegi)
-   - `hyde_emb` (új, súly 0.4)
-5. Vector pass: `0.6 * cosine(orig) + 0.4 * cosine(hyde)`.
-
-**Mikor:** Csak ha `intent ∈ {topic, question}` ÉS query length > 3 token. Person/ticker/company query-knél kihagyva (ott entity pinning erősebb).
-
-**Kockázat:** Közepes. Latency +200-400ms cache miss esetén. Cache hit ~5ms. Cache hiánya esetén fallback az eredeti embedding.
+### 4. Search integration (search-hybrid)
+- Új RPC `search_episode_chunks(query_embedding, limit)` → top-N chunk → group by episode_id, take MAX(similarity)
+- Merge chunk-score-t az existing semantic score-ba: `episode_score = max(episode_emb_sim, chunk_max_sim)`
+- Feature flag `chunks_enabled` (default true v13-tól), backwards-compatible
 
 ---
 
-### Layer D — Cross-encoder reranker (#4)
+## Part B — Transcript Scout (S/A tier only)
 
-**Cél:** Top-30 → top-10 finomhangolás cross-encoder modellel. NDCG@10 +15-20pp.
+### 1. Új tábla: `episode_transcripts`
+```
+episode_id uuid pk
+source text                     -- 'rss' | 'youtube'
+transcript_url text
+format text                     -- 'srt' | 'vtt' | 'json' | 'txt'
+text text                       -- plain text (timecodes stripped)
+word_count integer
+language text
+fetched_at timestamptz
+last_attempt_at timestamptz
+attempts integer default 0
+status text                     -- 'found' | 'not_available' | 'failed'
+error text
+```
+Public read, admin write.
 
-**Provider választás:**
-- **Cohere Rerank API** (`rerank-v3.5`) — $2/1000 search, ~150ms p50, legjobb minőség. Új secret: `COHERE_API_KEY`.
-- Alternatíva: Lovable AI Gateway nem támogat dedicated rerank endpoint-ot, így Cohere a praktikus út.
+### 2. Episodes tábla bővítés
+```
+ALTER TABLE episodes ADD COLUMN transcript_status text DEFAULT 'unchecked';
+-- 'unchecked' | 'found' | 'not_available'
+ADD COLUMN next_transcript_check_at timestamptz;
+```
 
-**Hol:** `search-hybrid/index.ts`, a meglévő MMR diversity előtt.
+### 3. Új edge function: `transcript-scout-runner`
+Két forrás, sorrendben próbálva:
 
-**Logika:**
-1. Top-30 candidate-et (most top-10-et adunk vissza, kibővítjük 30-ra a hybrid RPC-ben).
-2. Cohere rerank hívás: query + 30 episode_text (title + show_notes első 500 char).
-3. Új sorrend → top-10. Az MMR diversity utána fut a re-rankelt listán.
-4. Circuit breaker: 3 fail / 60s → cooldown 60s, közben sima hybrid sorrend.
-5. Budget guard: napi $2 cap (`app_settings.cohere_rerank_daily_spent` counter, reset éjfélkor). Cap elérve → skip rerank.
+**(a) RSS `<podcast:transcript>` tag**
+- Letölti a podcast RSS-t (cache: 1 letöltés / podcast / run, parse N item)
+- `<podcast:transcript url="…" type="application/srt"/>` szerű tagek keresése
+- Letölt → SRT/VTT/JSON parse → plain text
+- Limit: 200 KB / transcript
 
-**Mikor:** Csak ha confidence_band ∈ {medium, high} ÉS top-30 hit count ≥ 10. Low confidence vagy <10 hit esetén nincs értelme.
+**(b) YouTube auto-captions**
+- Csak ha `episodes.youtube_url IS NOT NULL`
+- npm `youtube-transcript` package-szel (Deno-compatible) vagy direkt `https://www.youtube.com/api/timedtext?lang=en&v=…`
+- VTT/JSON parse → plain text
+- Skip ha nincs caption track
 
-**Kockázat:** Közepes-magas. Külső függés (Cohere). Latency +150-200ms. Mitigation: circuit breaker + daily cap + skip-on-fail.
+**Logika**
+- Csak S/A tier podcastok episode-jaira (`podcasts.shadow_rank_tier IN ('S','A')`)
+- Backoff: 1 sikertelen → 7 nap, 2 → 30 nap, 3 → never (status='not_available')
+- Batch 50/run, concurrency 4
+- Idempotens: `episode_transcripts.episode_id` PK
+- **Költség: $0** (csak HTTP fetch)
+
+### 4. Cron jobid 41 — `transcript-scout-runner`
+Init `*/10`, adaptív (`set_transcript_scout_schedule`).
+
+### 5. Hook → chunking pipeline
+Új transcript landol → `embed-chunks-runner` látja (content_hash diff) → automatikusan újrachunkol az új text alapján → meglévő `description`-chunkokat törli azon episode-ra, transcript-chunkokat ír.
 
 ---
 
-### Migrations
+## Sorrend (egy session)
+1. Migration: `episode_chunks` + `episode_transcripts` táblák, RLS, indexek, RPC-k, episodes oszlopok, cron jobok 40/41
+2. `embed-chunks-runner` edge function + adaptive RPC
+3. `transcript-scout-runner` edge function + adaptive RPC
+4. `search-hybrid` integration (chunk score merge, feature flag)
+5. Memory frissítés
+6. Backfill kick-off (manual invoke 1×)
 
-1. `search_episodes_hybrid` RPC új paraméter `p_decay_lambda`.
-2. Új tábla `search_hyde_cache(query_norm text PK, hyde_text text, embedding vector(768), created_at timestamptz)`. RLS: public read, service write. HNSW index nem kell (lookup PK-n).
-3. Új `app_settings` kulcs `cohere_rerank_daily_spent` JSON `{date, spent_cents}`.
+## Mit NEM csinálunk most
+- ❌ ASR / Whisper (nincs pénz, dokumentált)
+- ❌ B/C tier scout (csak S/A — később bővíthető)
+- ❌ Apple/Spotify (nincs publikus API)
+- ❌ Transcript chunking nélkül semantic search-be tolás (a chunking az egyetlen interface)
 
-### Secrets needed
-
-- **`COHERE_API_KEY`** — User add-secret hívás kell. Layer D blokkolva amíg meg nincs.
-
-### Deployment sorrend
-
-1. Migration (decay param + hyde cache + cohere counter).
-2. `search-hybrid` redeploy (#2 + #3 + #5 inline).
-3. User adds `COHERE_API_KEY` secret.
-4. `search-hybrid` redeploy (#4 reranker bekapcsolva).
-
-### Backward compat
-
-Minden új mező optional. Ha bármelyik réteg kiesik (cohere down, hyde timeout, gemini circuit breaker open), a v11 baseline pipeline futáson marad.
-
-### Testing
-
-Smoke test queries (a meglévő admin NDCG dashboard méri majd):
-- "Joe Rogan" → person+bigram MUST → exact matches only
-- "AI agents" → topic+HyDE → tágabb semantic recall + rerank
-- "ASTS earnings" → ticker+freshness decay → friss tartalom előre
-- "huberma" → spell correction (v11) → továbbra is működik
-- "react hooks tutorial" → topic+HyDE+rerank → mély hit
+Akkor most beleugrok a migrációba. Mehet?
