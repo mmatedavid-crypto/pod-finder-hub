@@ -2489,6 +2489,15 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      suggest_token_corrections: {
+        Args: { p_tokens: string[] }
+        Returns: {
+          df: number
+          similarity: number
+          suggestion: string
+          token: string
+        }[]
+      }
       token_idf: {
         Args: { p_tokens: string[] }
         Returns: {
