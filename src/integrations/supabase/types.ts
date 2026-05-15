@@ -2198,6 +2198,15 @@ export type Database = {
           title: string
         }[]
       }
+      match_podcast_by_name: {
+        Args: { p_max?: number; p_q: string; p_threshold?: number }
+        Returns: {
+          podcast_id: string
+          similarity: number
+          slug: string
+          title: string
+        }[]
+      }
       match_podcasts_by_embedding: {
         Args: {
           p_embedding: string
