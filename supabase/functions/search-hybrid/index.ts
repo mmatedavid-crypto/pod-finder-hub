@@ -990,6 +990,7 @@ Deno.serve(async (req) => {
         ticker_symbol: isTickerQ ? marketSymbol : null,
         confidence_band: confidenceBand,
         rare_tokens: rareTokens,
+        spell_corrections: spellCorrections.length ? spellCorrections : null,
         alpha_lex: alphaLex,
         podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle, count: podcastPinIds.length } : null,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
