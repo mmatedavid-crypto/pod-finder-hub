@@ -300,8 +300,8 @@ Deno.serve(async (req) => {
     //   v10 = + IDF rare-token MUST gate + entity-fallback pyramid + confidence
     //   v11 = + spell correction
     //   v12 = + freshness decay + bigram MUST + HyDE + Cohere rerank
-    const engineRaw = String(body.engine || "v12").toLowerCase();
-    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 12; })();
+    const engineRaw = String(body.engine || "v13").toLowerCase();
+    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
     const FF = {
       threePassMust: engN >= 9,
       mmrDiversity: engN >= 9,
@@ -312,6 +312,7 @@ Deno.serve(async (req) => {
       bigramMust: engN >= 12,
       hyde: engN >= 12,
       cohere: engN >= 12,
+      chunkAugment: engN >= 13, // v13: passage-level chunk vector recall
     };
 
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
