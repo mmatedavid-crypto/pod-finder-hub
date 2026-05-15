@@ -80,6 +80,7 @@ export default function SearchPage() {
   const [neoTurns, setNeoTurns] = useState<NeoTurn[]>([]);
   const [neoThinking, setNeoThinking] = useState(false);
   const [neoDone, setNeoDone] = useState(false);
+  const [neoRefine, setNeoRefine] = useState<NeoRefine | null>(null);
   const neoTurnsRef = useRef<NeoTurn[]>([]);
   const expectChatRef = useRef(false);
   const lastLoggedRef = useRef<string>("");
