@@ -141,20 +141,8 @@ async function fetchAndParseTranscript(url: string): Promise<{ text: string; for
   if (!res.ok) return null;
   const cl = Number(res.headers.get("content-length") || "0");
   if (cl > MAX_TRANSCRIPT_BYTES) return null;
-  const reader = res.body?.getReader();
-  if (!reader) return null;
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (value) {
-      total += value.length;
-      if (total > MAX_TRANSCRIPT_BYTES) { try { reader.cancel(); } catch {} ; return null; }
-      chunks.push(value);
-    }
-  }
-  const body = new TextDecoder().decode(new Uint8Array(chunks.flatMap((c) => Array.from(c))));
+  const body = await readCapped(res, MAX_TRANSCRIPT_BYTES);
+  if (!body) return null;
   const format = detectFormat(res.headers.get("content-type"), body, url);
   let text = "";
   if (format === "json") text = jsonTranscriptToText(body);
