@@ -598,7 +598,9 @@ Deno.serve(async (req) => {
       }
     }
     // Pass 4 — drop gate entirely, semantic-tilted.
-    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ) {
+    // Skip when a phrase MUST is present: bare semantic neighbors of "Cursor IDE"
+    // (sermons / Chicago Bears) are exactly the hallucination class we're killing.
+    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
