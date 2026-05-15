@@ -28,6 +28,7 @@ export default function AdminSearchInsightsPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
+  const [ndcg, setNdcg] = useState<NdcgRow[]>([]);
   const [windowDays, setWindowDays] = useState<1 | 7 | 30>(7);
 
   useEffect(() => {
