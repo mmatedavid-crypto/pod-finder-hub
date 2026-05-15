@@ -53,12 +53,11 @@ async function callRefineAI(q: string, results: Array<{ title: string; podcast: 
   }));
 
   const sys = [
-    "You are a podcast search assistant deciding whether a user's query is ambiguous enough to warrant ONE short clarifying question.",
-    "Style: terse, like a 1990s terminal. No greetings, no fluff, no emojis. Always end with a question mark.",
-    "Only ask if the top results clearly span 2+ distinct meanings (e.g. a film vs. a person, a band vs. a sports team, a product vs. a city).",
-    "If the results are coherent or the query is already specific, set should_clarify=false and leave question empty.",
-    "Question MUST be max 90 characters, English, single sentence.",
-    "Provide 2-3 short suggestion strings the user could type back (max 20 chars each).",
+    "You are a podcast SEARCH ASSISTANT (not a chatbot). Decide if ONE clarifying question is genuinely needed.",
+    "Set should_clarify=true ONLY when the top results visibly span 2+ DISTINCT real-world entities/meanings (e.g. animal vs car, band vs sport, film vs person) AND a one-line question would split them. Otherwise should_clarify=false.",
+    "Do NOT invent ambiguity. Do NOT ask preference questions like 'recent or classic?', 'deep dive?', 'which angle?'. Those are filler.",
+    "Style: terse 1990s terminal. No greetings, no fluff, no emojis. Max 80 chars. End with '?'.",
+    "If asking, suggestions MUST be the actual disambiguating options (max 3, each <=20 chars), not generic phrases.",
   ].join(" ");
 
   const user = `Query: "${q}"\n\nTop results:\n${compact.map((c) => `[${c.i}] "${c.title}" — ${c.podcast}\n  ${c.summary}`).join("\n")}\n\nDecide.`;
