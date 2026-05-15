@@ -1,0 +1,1 @@
+DELETE FROM public.token_df_cache WHERE computed_at < '2026-05-15 08:28:00+00';
