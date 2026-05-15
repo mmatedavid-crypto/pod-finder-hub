@@ -308,6 +308,19 @@ Deno.serve(async (req) => {
         // websearch_to_tsquery OR-s quoted phrases when wrapped in OR keyword.
         lexQ = companies.map(quoteWebSearchTerm).join(" OR ");
       }
+    } else {
+      // Non-ticker: OR the raw query with curated + AI synonyms so a lexical
+      // hit on a synonym (e.g. "panthera onca" for "jaguar animal") still
+      // counts. Falls back to original q if no synonyms exist.
+      const synExpansions = uniqueClean([
+        ...(curated.expansions || []),
+        ...((understanding?.synonyms as string[]) || []),
+        ...((understanding?.expanded_terms as string[]) || []),
+      ], 6).filter((t) => t.toLowerCase() !== q.toLowerCase());
+      if (synExpansions.length) {
+        const parts = [quoteWebSearchTerm(q), ...synExpansions.map(quoteWebSearchTerm)];
+        lexQ = parts.join(" OR ");
+      }
     }
 
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
