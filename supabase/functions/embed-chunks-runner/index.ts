@@ -22,6 +22,18 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 }
 
+// Strip control chars (except \n\t) and lone UTF-16 surrogates that break
+// supabase-js JSON encoding → "invalid input syntax for type json" on insert.
+function sanitizeForJson(s: string): string {
+  if (!s) return "";
+  // Remove control chars except newline/tab
+  let out = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+  // Strip lone high/low surrogates (unpaired UTF-16)
+  out = out.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "");
+  out = out.replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "$1");
+  return out;
+}
+
 // Sentence-aware chunker. Tries to break on sentence boundaries within ±150 chars
 // of the target window end; otherwise hard-cuts at chunkSize.
 function chunkText(text: string, chunkSize = 800, overlap = 200): string[] {
@@ -161,7 +173,7 @@ Deno.serve(async (req) => {
               podcast_id: e.podcast_id,
               chunk_idx: idx,
               source,
-              text,
+              text: sanitizeForJson(text),
               embedding: `[${vec.join(",")}]`,
               content_hash: hash,
               model,
