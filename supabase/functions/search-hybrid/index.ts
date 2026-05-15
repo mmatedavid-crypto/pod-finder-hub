@@ -887,6 +887,35 @@ Deno.serve(async (req) => {
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
+    // v12: Cohere cross-encoder reranker. Runs BEFORE the LLM rerank — if it
+    // succeeds, we skip the Gemini rerank (cross-encoder is strictly better
+    // for relevance, ~150ms vs ~1500ms). Skipped on low confidence (no
+    // signal worth refining), <10 hits (not enough to reorder), and when the
+    // daily $2 budget is exhausted.
+    let cohereRerankUsed = false;
+    let cohereLatency = 0;
+    if (
+      ordered.length >= 10 &&
+      (confidenceBand === "high" || confidenceBand === "medium") &&
+      !sectorFallback
+    ) {
+      const candidates: CohereRerankInput[] = ordered.slice(0, 30).map((e: any) => ({
+        id: e.id,
+        text: `${e.podcasts?.title || ""} — ${e.title || ""}\n${(e.ai_summary || e.summary || e.description || "").slice(0, 500)}`,
+      }));
+      const co = await cohereRerank(supa, q, candidates, Math.min(30, candidates.length));
+      if (co && co.ids.length) {
+        cohereRerankUsed = true;
+        cohereLatency = co.latency_ms;
+        const rank = new Map(co.ids.map((id, i) => [id, i]));
+        const head = ordered
+          .filter((e: any) => rank.has(e.id))
+          .sort((a: any, b: any) => (rank.get(a.id)! - rank.get(b.id)!));
+        const tail = ordered.filter((e: any) => !rank.has(e.id));
+        ordered = [...head, ...tail];
+      }
+    }
+
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
     if (wantRerank) {
