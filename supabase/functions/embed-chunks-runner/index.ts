@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
               podcast_id: e.podcast_id,
               chunk_idx: idx,
               source,
-              text,
+              text: sanitizeForJson(text),
               embedding: `[${vec.join(",")}]`,
               content_hash: hash,
               model,
