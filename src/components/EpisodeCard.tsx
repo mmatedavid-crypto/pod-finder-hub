@@ -153,6 +153,13 @@ export function EpisodeCard({
               <ExternalLink className="h-3 w-3" /> Listen
             </a>
           )}
+          <Link
+            to={`/podcast/${p.slug}/${e.slug}#similar`}
+            className="text-muted-foreground hover:text-primary"
+            title="Find episodes similar to this one"
+          >
+            More like this →
+          </Link>
         </div>
       </div>
     </article>
