@@ -70,12 +70,32 @@ const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", 
 
 // Stop-words excluded from rare-token MUST gate (common English + podcast filler).
 const RARE_GATE_STOPWORDS = new Set([
-  "the","and","for","with","that","this","from","what","when","where","how","why","who","which",
-  "are","was","were","has","have","had","but","not","you","your","our","their","they","them",
-  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","into","out",
-  "best","top","new","latest","good","great","like","just","only","one","two","three",
-  "all","any","some","more","most","very","much","even","than","then","also","only",
+  // articles / aux / pronouns
+  "a","an","the","is","am","are","was","were","be","been","being","do","does","did","done",
+  "has","have","had","having","of","in","on","at","to","by","as","or","if","it","its","i","me","my",
+  "we","us","our","he","she","him","her","his","they","them","their","you","your","yours","myself",
+  // conjunctions / prepositions / qualifiers
+  "and","but","not","no","so","up","off","out","into","over","under","than","then","also","only","very",
+  "for","with","that","this","from","what","when","where","how","why","who","which","whom","whose",
+  // podcast filler
+  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","best","top","new",
+  "latest","good","great","like","just","one","two","three","all","any","some","more","most","much","even",
 ]);
+
+// Pure-noise patterns: single repeated char (aaaaa), keyboard mashes, alphanum mix without vowels.
+function looksLikeGibberish(t: string): boolean {
+  if (t.length < 4) return false;
+  // single-char repetition
+  if (/^(.)\1{3,}$/.test(t)) return true;
+  // letter+digit mix that isn't a known token shape (e.g. "12345abc", "abc123xyz")
+  if (/[a-z]/.test(t) && /\d/.test(t) && t.length <= 10 && !/^[a-z]+\d{1,4}$/.test(t)) {
+    // exclude common patterns like "gpt4", "h100", "rtx4090"
+    if (!/^(gpt|llama|claude|gemini|rtx|gtx|h|a|b|m|i|core|ipv|ip|mp|mp3|mp4|h264|h265|w|wd|sd|hd)\d/.test(t)) return true;
+  }
+  // long token with no vowels (rough keyboard-mash heuristic)
+  if (t.length >= 6 && !/[aeiouy]/.test(t)) return true;
+  return false;
+}
 
 // Tokenize raw query for IDF lookup. Skip ticker symbols (own gate), short tokens, stopwords.
 function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
