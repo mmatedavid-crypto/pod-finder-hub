@@ -469,9 +469,36 @@ Deno.serve(async (req) => {
         reason: "no_known_tokens",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens], 6);
-    const entityTerms = rawEntities.slice(0, 8);
-    const alphaLex = isTickerQ ? 0.8 : rawEntities.length > 0 ? 0.65 : 0.45;
+    // v8: Phrase MUST gate. For 2-4 token non-ticker queries, treat the
+    // whole phrase as a required substring. Kills compositional-rarity
+    // hallucinations ("Cursor IDE" → sermons, "react hooks" → Chicago Bears)
+    // since neither token alone is rare but the bigram has near-zero df.
+    const phraseTokens = qNorm.split(/[^a-z0-9]+/).filter(
+      (t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
+    );
+    const phrasePool: string[] = [];
+    if (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
+      phrasePool.push(phraseTokens.join(" "));
+    }
+
+    // v8: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
+    // Adds canonical names so brand queries ("Joe Rogan", "Cursor", "Devin AI")
+    // boost the right episodes even when AI understanding misses them.
+    let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
+    if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      try {
+        const { data: resolved } = await supa.rpc("resolve_query_entities", {
+          p_q: q, p_max: 6, p_threshold: 0.45,
+        });
+        if (Array.isArray(resolved)) resolvedEntities = resolved as any;
+      } catch (e) { console.warn("resolve_query_entities err", e); }
+    }
+    const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
+
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens, ...phrasePool], 8);
+    const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
+    const phraseTerms = uniqueClean([...phrasePool, ...resolvedNames], 6);
+    const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
     // episode tsv. Rewrite the lexical q to use the resolved company name(s)
