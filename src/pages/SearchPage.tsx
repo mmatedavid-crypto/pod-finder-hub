@@ -462,6 +462,25 @@ export default function SearchPage() {
             }}
             placeholder="e.g. Nvidia data centers"
           />
+          {neoRefine && neoTurns.length === 0 && (
+            <NeoChips
+              mode={neoRefine.mode === "off" ? "ambiguity" : neoRefine.mode}
+              message={neoRefine.message}
+              chips={neoRefine.chips}
+              defaultExpanded={neoRefine.mode === "zero_hit"}
+              onPick={(chip) => {
+                markRefined(qHash(initial));
+                setNeoRefine(null);
+                const next = `${refineExtra} ${chip.query}`.trim();
+                setRefineExtra(next);
+                window.scrollTo({ top: 0, behavior: "auto" });
+              }}
+              onDismiss={() => {
+                markRefined(qHash(initial));
+                setNeoRefine(null);
+              }}
+            />
+          )}
           <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
             <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
             <p className="mt-2">
