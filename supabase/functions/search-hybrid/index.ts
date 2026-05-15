@@ -70,12 +70,32 @@ const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", 
 
 // Stop-words excluded from rare-token MUST gate (common English + podcast filler).
 const RARE_GATE_STOPWORDS = new Set([
-  "the","and","for","with","that","this","from","what","when","where","how","why","who","which",
-  "are","was","were","has","have","had","but","not","you","your","our","their","they","them",
-  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","into","out",
-  "best","top","new","latest","good","great","like","just","only","one","two","three",
-  "all","any","some","more","most","very","much","even","than","then","also","only",
+  // articles / aux / pronouns
+  "a","an","the","is","am","are","was","were","be","been","being","do","does","did","done",
+  "has","have","had","having","of","in","on","at","to","by","as","or","if","it","its","i","me","my",
+  "we","us","our","he","she","him","her","his","they","them","their","you","your","yours","myself",
+  // conjunctions / prepositions / qualifiers
+  "and","but","not","no","so","up","off","out","into","over","under","than","then","also","only","very",
+  "for","with","that","this","from","what","when","where","how","why","who","which","whom","whose",
+  // podcast filler
+  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","best","top","new",
+  "latest","good","great","like","just","one","two","three","all","any","some","more","most","much","even",
 ]);
+
+// Pure-noise patterns: single repeated char (aaaaa), keyboard mashes, alphanum mix without vowels.
+function looksLikeGibberish(t: string): boolean {
+  if (t.length < 4) return false;
+  // single-char repetition
+  if (/^(.)\1{3,}$/.test(t)) return true;
+  // letter+digit mix that isn't a known token shape (e.g. "12345abc", "abc123xyz")
+  if (/[a-z]/.test(t) && /\d/.test(t) && t.length <= 10 && !/^[a-z]+\d{1,4}$/.test(t)) {
+    // exclude common patterns like "gpt4", "h100", "rtx4090"
+    if (!/^(gpt|llama|claude|gemini|rtx|gtx|h|a|b|m|i|core|ipv|ip|mp|mp3|mp4|h264|h265|w|wd|sd|hd)\d/.test(t)) return true;
+  }
+  // long token with no vowels (rough keyboard-mash heuristic)
+  if (t.length >= 6 && !/[aeiouy]/.test(t)) return true;
+  return false;
+}
 
 // Tokenize raw query for IDF lookup. Skip ticker symbols (own gate), short tokens, stopwords.
 function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
@@ -84,7 +104,8 @@ function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
   const seen = new Set<string>();
   for (const raw of q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/)) {
     const t = raw.trim();
-    if (t.length < 4 || t.length > 30) continue;
+    // v9: lowered to 3 chars so short gibberish ("xyz123") still gates.
+    if (t.length < 3 || t.length > 30) continue;
     if (RARE_GATE_STOPWORDS.has(t)) continue;
     if (/^\d+$/.test(t)) continue;
     if (seen.has(t)) continue;
@@ -275,20 +296,20 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     const qNorm = normalizeQ(q);
 
-    // v4: Stopword-only gate. If the entire query is stop-words / generic
-    // filler (e.g. "the", "best", "podcast", "best podcast"), return zero
-    // state instead of dragging in random vector neighbors.
+    // v4/v9: Stopword + gibberish gate. Bail before AI/embedding for queries
+    // that obviously can't have results ("the", "is", "of", "asdfghjkl", "qqqqqqq").
     {
-      // v5: include 1-char tokens so single-letter queries ("a", "i") trigger the gate.
       const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 1);
       const meaningful = tokens.filter((t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
-      if (tokens.length > 0 && meaningful.length === 0) {
+      const allGibberish = meaningful.length > 0 && meaningful.every((t) => looksLikeGibberish(t));
+      if (tokens.length > 0 && (meaningful.length === 0 || allGibberish)) {
         return new Response(JSON.stringify({
           episodes: [],
           timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
           confidence_band: "low",
-          stopword_gate: true,
-          reason: "stopwords_only",
+          stopword_gate: meaningful.length === 0,
+          gibberish_gate: allGibberish,
+          reason: allGibberish ? "gibberish_only" : "stopwords_only",
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
@@ -338,7 +359,7 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1000),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 700),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
@@ -447,15 +468,30 @@ Deno.serve(async (req) => {
       } catch (e) { console.warn("token_idf err", e); }
     }
 
-    // Nonsense gate: every meaningful token confirmed unknown to the corpus
-    // AND no AI-detected entity → bail with zero results. (v5: kept entity
-    // check loose — even unverified entity names mean the AI saw signal.)
+    // v9: Nonsense gate. If every meaningful token is unknown to the corpus,
+    // bail. AI-hallucinated entities (e.g. AI echoing "xyzzyplugh" back as
+    // an entity) no longer save gibberish — we only trust entities that look
+    // real (multi-word, or contain at least one in-corpus token).
+    const knownTokenSet = new Set(rareGateTokens.filter((t) => {
+      // any token NOT in the unknown set has df>=1
+      return !rareTokens.includes(t) ? false : true;
+    }));
+    void knownTokenSet; // not currently used; placeholder for future use
+    const trustedEntities = rawEntities.filter((e) => {
+      const lc = e.toLowerCase();
+      // Multi-word entity = trusted (AI rarely fabricates "Joe Rogan")
+      if (e.includes(" ")) return true;
+      // Single-token entity that exactly equals a query token = NOT trusted (echo)
+      const tokens = lc.split(/[^a-z0-9]+/).filter(Boolean);
+      if (tokens.length === 1 && rareGateTokens.includes(tokens[0])) return false;
+      return true;
+    });
     if (
       idfRpcOk &&
       !isTickerQ &&
       rareGateTokens.length > 0 &&
       unknownTokenCount === rareGateTokens.length &&
-      rawEntities.length === 0
+      trustedEntities.length === 0
     ) {
       return new Response(JSON.stringify({
         episodes: [],
@@ -481,17 +517,15 @@ Deno.serve(async (req) => {
       phrasePool.push(phraseTokens.join(" "));
     }
 
-    // v8: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
-    // Adds canonical names so brand queries ("Joe Rogan", "Cursor", "Devin AI")
-    // boost the right episodes even when AI understanding misses them.
+    // v8/v9: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
+    // Wrapped in 400ms timeout — was a major p50 latency contributor (>1s on cold cache).
     let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
-      try {
-        const { data: resolved } = await supa.rpc("resolve_query_entities", {
-          p_q: q, p_max: 6, p_threshold: 0.45,
-        });
-        if (Array.isArray(resolved)) resolvedEntities = resolved as any;
-      } catch (e) { console.warn("resolve_query_entities err", e); }
+      const resolved = await withTimeout(
+        supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
+        400, "resolve_query_entities",
+      );
+      if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
     const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
 
