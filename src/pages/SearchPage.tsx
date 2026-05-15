@@ -169,7 +169,11 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic);
-        if (r1.sectorFallback && r1.tickerSymbol) setSectorFallback({ symbol: r1.tickerSymbol, hint: r1.sectorHint });
+        setConfidenceBand(r1.confidenceBand);
+        if (r1.sectorFallback && r1.fallbackKind) {
+          const sym = r1.tickerSymbol || (understanding => "")(0) || initial;
+          setSectorFallback({ symbol: r1.tickerSymbol || initial, hint: r1.sectorHint, kind: r1.fallbackKind });
+        }
         setLoading(false);
 
         // Phase 2: rerank (with cache). Fire-and-forget update.
