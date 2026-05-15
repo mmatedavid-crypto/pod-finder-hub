@@ -505,16 +505,20 @@ Deno.serve(async (req) => {
         reason: "no_known_tokens",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    // v8: Phrase MUST gate. For 2-4 token non-ticker queries, treat the
-    // whole phrase as a required substring. Kills compositional-rarity
-    // hallucinations ("Cursor IDE" → sermons, "react hooks" → Chicago Bears)
-    // since neither token alone is rare but the bigram has near-zero df.
+    // v11: Phrase MUST gate → token-AND. Previously we required the full phrase
+    // as a contiguous substring ("react hooks" word-boundary), which killed
+    // recall on conceptual queries (e.g. an episode about useEffect that
+    // never literally writes "react hooks"). Now each phrase token is
+    // individually required (AND semantics) — both "react" AND "hooks" must
+    // appear somewhere in the episode. The contiguous phrase still gets a
+    // separate +0.15 boost via phrase_terms (handled by the RPC).
     const phraseTokens = qNorm.split(/[^a-z0-9]+/).filter(
-      (t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
+      (t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
     );
     const phrasePool: string[] = [];
     if (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
-      phrasePool.push(phraseTokens.join(" "));
+      // Push individual tokens (AND), not the joined phrase (contiguous).
+      for (const t of phraseTokens) phrasePool.push(t);
     }
 
     // v8/v9: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
