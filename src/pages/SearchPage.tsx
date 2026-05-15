@@ -111,6 +111,7 @@ export default function SearchPage() {
   useEffect(() => {
     setBroadened(false);
     setSemanticUsed(false);
+    setSectorFallback(null);
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
