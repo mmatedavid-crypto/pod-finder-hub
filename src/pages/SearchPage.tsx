@@ -708,10 +708,22 @@ export default function SearchPage() {
                 )}
                 {sectorFallback && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                    No exact mentions of {sectorFallback.symbol} — showing related episodes about {sectorFallback.hint}
+                    {sectorFallback.kind === "ticker"
+                      ? `No exact mentions of ${sectorFallback.symbol} — showing related episodes about ${sectorFallback.hint}`
+                      : `No exact mentions of "${sectorFallback.symbol}" — showing related episodes about ${sectorFallback.hint}`}
                   </span>
                 )}
-                {semanticUsed && !sectorFallback && (
+                {!sectorFallback && confidenceBand === "low" && episodes.length > 0 && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
+                    Loose matches — try a more specific query
+                  </span>
+                )}
+                {!sectorFallback && confidenceBand === "medium" && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                    Some loose matches included
+                  </span>
+                )}
+                {semanticUsed && !sectorFallback && confidenceBand === "high" && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                     including related ideas
                   </span>
