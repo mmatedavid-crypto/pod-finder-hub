@@ -68,6 +68,42 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
 
 const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
 
+// Sector hints for ticker zero-hit fallback. When no episode mentions a
+// ticker / company, we re-embed using "{Company} {sector hint}" and run a
+// semantic-only search so users see topically related episodes (e.g. for
+// NBIS → AI cloud / GPU infra) instead of a useless empty page or random
+// vector neighbors of the bare symbol ("NBIS" → "Nobel" cluster).
+const MARKET_SYMBOL_SECTORS: Record<string, string> = {
+  nbis: "AI cloud computing GPU infrastructure data centers hyperscaler",
+  asts: "satellite communications space-based mobile broadband",
+  smci: "AI server hardware data center GPU infrastructure",
+  pltr: "data analytics enterprise AI software defense tech",
+  rddt: "social media online communities user-generated content",
+  arm: "semiconductor chip design ARM architecture mobile processors",
+  coin: "cryptocurrency exchange digital assets bitcoin trading",
+  hood: "retail trading brokerage fintech investing app",
+  rivn: "electric vehicles EV trucks automotive startups",
+  lcid: "luxury electric vehicles EV automotive",
+  mstr: "bitcoin treasury enterprise software cryptocurrency",
+  nvda: "GPU AI chips semiconductor accelerated computing",
+  tsla: "electric vehicles autonomous driving energy storage",
+  amd: "semiconductor CPU GPU chips data center",
+  meta: "social media VR augmented reality advertising platform",
+  goog: "search advertising cloud computing AI Android",
+  googl: "search advertising cloud computing AI Android",
+  msft: "cloud computing Azure enterprise software AI Copilot",
+  aapl: "consumer electronics iPhone services ecosystem",
+  amzn: "ecommerce AWS cloud computing logistics",
+  nflx: "streaming video entertainment subscription content",
+  tsm: "semiconductor foundry chip manufacturing advanced nodes",
+  eth: "ethereum smart contracts DeFi blockchain",
+  btc: "bitcoin cryptocurrency digital gold store of value",
+  sol: "solana blockchain web3 high-performance L1",
+  xrp: "ripple cross-border payments crypto",
+  doge: "dogecoin meme cryptocurrency",
+  avax: "avalanche blockchain L1 DeFi",
+};
+
 function compactMarketSymbol(q: string): string | null {
   const t = q.trim();
   return /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t) ? t.toUpperCase() : null;
