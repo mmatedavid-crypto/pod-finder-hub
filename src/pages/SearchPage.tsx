@@ -171,6 +171,7 @@ export default function SearchPage() {
           reranked = r2.reranked;
           setEpisodes(mapped);
           setSemanticUsed(r2.semantic || r2.reranked);
+          if (r2.sectorFallback && r2.tickerSymbol) setSectorFallback({ symbol: r2.tickerSymbol, hint: r2.sectorHint });
         }, () => { /* ignore */ });
       } catch (err) {
         if (cancelled) return;
