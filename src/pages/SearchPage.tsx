@@ -643,7 +643,7 @@ export default function SearchPage() {
                   </span>
                 )}
               </h2>
-              <EpisodeList items={episodes} terms={flatTerms} showEntities />
+              <EpisodeList items={episodes} terms={flatTerms} showEntities searchQuery={initial} />
             </section>
           );
           return (

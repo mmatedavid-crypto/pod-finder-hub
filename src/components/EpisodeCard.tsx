@@ -48,8 +48,8 @@ function HL({ text, terms }: { text: string; terms?: string[] }) {
 }
 
 export function EpisodeCard({
-  e, showTopics = false, terms, showEntities = false,
-}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean }) {
+  e, showTopics = false, terms, showEntities = false, searchQuery, searchRank,
+}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean; searchQuery?: string; searchRank?: number }) {
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
@@ -71,7 +71,11 @@ export function EpisodeCard({
         </div>
       </Link>
       <div className="min-w-0 flex-1">
-        <Link to={`/podcast/${p.slug}/${e.slug}`} className="font-semibold leading-snug line-clamp-2 group-hover:underline tracking-tight">
+        <Link
+          to={`/podcast/${p.slug}/${e.slug}`}
+          onClick={() => searchQuery && logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "original", searchQuery, searchRank })}
+          className="font-semibold leading-snug line-clamp-2 group-hover:underline tracking-tight"
+        >
           <HL text={epTitle} terms={terms} />
         </Link>
         <div className="text-xs text-muted-foreground mt-1.5 flex flex-wrap gap-x-2 gap-y-1 items-center">
@@ -147,12 +151,19 @@ export function EpisodeCard({
               href={e.audio_url}
               target="_blank"
               rel="noreferrer"
-              onClick={() => logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "audio" })}
+              onClick={() => logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "audio", searchQuery, searchRank })}
               className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
             >
               <ExternalLink className="h-3 w-3" /> Listen
             </a>
           )}
+          <Link
+            to={`/podcast/${p.slug}/${e.slug}#similar`}
+            className="text-muted-foreground hover:text-primary"
+            title="Find episodes similar to this one"
+          >
+            More like this →
+          </Link>
         </div>
       </div>
     </article>
@@ -160,14 +171,14 @@ export function EpisodeCard({
 }
 
 export function EpisodeList({
-  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false,
-}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean }) {
+  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false, searchQuery,
+}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; searchQuery?: string }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
   const desktop = (
     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:shadow-elevated overflow-hidden -mx-4 sm:mx-0`}>
-      {items.map((e) => (
+      {items.map((e, idx) => (
         <li key={e.id} className="transition-colors">
-          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
         </li>
       ))}
     </ul>
@@ -177,9 +188,9 @@ export function EpisodeList({
     <>
       <div className="sm:hidden -mx-4">
         <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-12 pb-2 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {items.map((e) => (
+          {items.map((e, idx) => (
             <div key={e.id} className="snap-start shrink-0 w-[78vw] max-w-[340px] rounded-xl border border-border/70 bg-card/60 surface overflow-hidden">
-              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
             </div>
           ))}
         </div>

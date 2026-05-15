@@ -479,6 +479,8 @@ export type Database = {
           platform: string | null
           podcast_id: string | null
           referrer: string | null
+          search_query: string | null
+          search_rank: number | null
           user_id: string | null
           viewport_width: number | null
         }
@@ -490,6 +492,8 @@ export type Database = {
           platform?: string | null
           podcast_id?: string | null
           referrer?: string | null
+          search_query?: string | null
+          search_rank?: number | null
           user_id?: string | null
           viewport_width?: number | null
         }
@@ -501,6 +505,8 @@ export type Database = {
           platform?: string | null
           podcast_id?: string | null
           referrer?: string | null
+          search_query?: string | null
+          search_rank?: number | null
           user_id?: string | null
           viewport_width?: number | null
         }
@@ -2302,6 +2308,17 @@ export type Database = {
               sem_rank: number
             }[]
           }
+      search_ndcg_weekly: {
+        Args: { p_min_impressions?: number }
+        Returns: {
+          clicks: number
+          ctr: number
+          impressions: number
+          mrr: number
+          ndcg10: number
+          query: string
+        }[]
+      }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {

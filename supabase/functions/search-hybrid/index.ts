@@ -450,6 +450,36 @@ Deno.serve(async (req) => {
         });
     }
 
+    // Podcast-level diversity (soft MMR): cap repeats per podcast in the ranked
+    // list so a single show can't monopolize the top-10. Strict hits are
+    // never demoted; excess episodes get pushed below the cap boundary.
+    const diversify = (list: any[]): any[] => {
+      if (list.length <= 5) return list;
+      const caps: Array<{ until: number; max: number }> = [
+        { until: 10, max: 2 },
+        { until: 20, max: 3 },
+      ];
+      const counts = new Map<string, number>();
+      const kept: any[] = [];
+      const overflow: any[] = [];
+      for (const e of list) {
+        const pid = e.podcast_id || e.podcasts?.slug || "unknown";
+        if (strictHitIds.has(e.id)) {
+          kept.push(e);
+          counts.set(pid, (counts.get(pid) || 0) + 1);
+          continue;
+        }
+        const pos = kept.length;
+        const cap = caps.find((c) => pos < c.until);
+        const cur = counts.get(pid) || 0;
+        if (cap && cur >= cap.max) { overflow.push(e); continue; }
+        kept.push(e);
+        counts.set(pid, cur + 1);
+      }
+      return [...kept, ...overflow];
+    };
+    ordered = diversify(ordered);
+
     return new Response(
       JSON.stringify({
         episodes: ordered.slice(0, limit),

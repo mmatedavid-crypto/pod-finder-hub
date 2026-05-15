@@ -70,7 +70,7 @@ export function SimilarEpisodes({ episodeId, limit = 6 }: { episodeId: string; l
 
   if (loading || items.length === 0) return null;
   return (
-    <section className="mt-10">
+    <section id="similar" className="mt-10 scroll-mt-24">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="h-4 w-4 text-primary" />
         <h2 className="font-semibold">Similar episodes</h2>

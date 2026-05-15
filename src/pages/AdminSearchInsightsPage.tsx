@@ -13,12 +13,22 @@ type Row = {
   created_at: string;
 };
 
+type NdcgRow = {
+  query: string;
+  impressions: number;
+  clicks: number;
+  ctr: number | null;
+  ndcg10: number;
+  mrr: number;
+};
+
 export default function AdminSearchInsightsPage() {
   
   const nav = useNavigate();
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
+  const [ndcg, setNdcg] = useState<NdcgRow[]>([]);
   const [windowDays, setWindowDays] = useState<1 | 7 | 30>(7);
 
   useEffect(() => {
@@ -37,6 +47,8 @@ export default function AdminSearchInsightsPage() {
           .order("created_at", { ascending: false })
           .limit(5000);
         setRows((r as Row[]) || []);
+        const { data: nd } = await (supabase as any).rpc("search_ndcg_weekly", { p_min_impressions: 5 });
+        setNdcg(((nd as NdcgRow[]) || []).slice(0, 30));
       }
       setReady(true);
     })();
@@ -87,6 +99,41 @@ export default function AdminSearchInsightsPage() {
           <Stat label="Fallback used" value={`${stats.fallback} (${pct(stats.fallback, stats.total)}%)`} />
           <Stat label="Avg results" value={stats.avg.toFixed(1)} />
         </div>
+
+        <section>
+          <h2 className="font-semibold mb-2">Ranking quality (NDCG@10, last 7d)</h2>
+          <p className="text-xs text-muted-foreground mb-2">Higher = clicks land closer to rank 1. Based on episode_events with search_query+search_rank.</p>
+          {ndcg.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No data yet — collect a few days of search clicks first.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary text-xs">
+                  <tr>
+                    <th className="text-left px-3 py-2">Query</th>
+                    <th className="text-right px-3 py-2">Impressions</th>
+                    <th className="text-right px-3 py-2">Clicks</th>
+                    <th className="text-right px-3 py-2">CTR %</th>
+                    <th className="text-right px-3 py-2">NDCG@10</th>
+                    <th className="text-right px-3 py-2">MRR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ndcg.map((r) => (
+                    <tr key={r.query} className="border-t border-border">
+                      <td className="px-3 py-2"><a href={`/search?q=${encodeURIComponent(r.query)}`} className="hover:underline">{r.query}</a></td>
+                      <td className="px-3 py-2 text-right">{r.impressions}</td>
+                      <td className="px-3 py-2 text-right">{r.clicks}</td>
+                      <td className="px-3 py-2 text-right">{r.ctr ?? 0}</td>
+                      <td className="px-3 py-2 text-right">{r.ndcg10.toFixed(3)}</td>
+                      <td className="px-3 py-2 text-right">{r.mrr.toFixed(3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <section>
           <h2 className="font-semibold mb-2">Top queries</h2>
