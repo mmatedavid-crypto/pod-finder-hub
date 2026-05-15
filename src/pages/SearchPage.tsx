@@ -251,8 +251,8 @@ export default function SearchPage() {
       // Conversational AI:
       // - If this search was triggered by a user reply (expectChatRef), call search-chat
       //   to produce a contextual reaction + maybe a follow-up.
-      // - Otherwise, on the very first search with enough ambiguity, call search-refine
-      //   for the initial "Neo moment" question.
+      // - Otherwise, on the first search ask search-refine for verified disambiguation chips
+      //   (silent badge mode), unless the user already refined this query or muted Neo.
       const topResults = mapped.slice(0, 6).map((e: any) => ({
         title: e.display_title || e.title,
         podcast: e.podcasts?.title || "",
@@ -283,16 +283,35 @@ export default function SearchPage() {
           setNeoTurns((t) => [...t, { role: "assistant", content: "locked in." }]);
           setNeoDone(true);
         });
-      } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
+      } else if (
+        neoTurnsRef.current.length === 0 &&
+        !isNeoMuted() &&
+        !isRefined(qHash(initial))
+      ) {
+        // Build the rich payload for chip aggregation from the actual top-50 results.
+        const richTop = mapped.slice(0, 50).map((e: any) => ({
+          podcastTitle: e.podcasts?.title || "",
+          podcastSlug: e.podcasts?.slug || "",
+          categoryPrimary: e.podcasts?.category || "",
+          people: Array.isArray(e.people) ? e.people : [],
+          companies: Array.isArray(e.companies) ? e.companies : [],
+          topics: Array.isArray(e.topics) ? e.topics : [],
+          publishedAt: e.published_at || null,
+        }));
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
-          body: { q: q0, topResults },
+          body: {
+            q: q0,
+            topResults: richTop,
+            topTitles: mapped.slice(0, 3).map((e: any) => e.display_title || e.title),
+            totalHits: mapped.length,
+            strictHitCount: mapped.length, // approximation; semantic-only counts as zero-strict via empty mapped
+          },
         }).then(({ data, error }) => {
-          if (cancelled || rctrl.signal.aborted || error) return;
-          if (data?.should_clarify && data?.question) {
-            setNeoTurns([{ role: "assistant", content: String(data.question) }]);
-            setNeoDone(false);
+          if (cancelled || rctrl.signal.aborted || error || !data) return;
+          if (data.mode && data.mode !== "off" && Array.isArray(data.chips) && data.chips.length > 0) {
+            setNeoRefine(data as NeoRefine);
           }
         }, () => { /* ignore */ });
       }
