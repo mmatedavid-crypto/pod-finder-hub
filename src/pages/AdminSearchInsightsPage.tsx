@@ -13,6 +13,15 @@ type Row = {
   created_at: string;
 };
 
+type NdcgRow = {
+  query: string;
+  impressions: number;
+  clicks: number;
+  ctr: number | null;
+  ndcg10: number;
+  mrr: number;
+};
+
 export default function AdminSearchInsightsPage() {
   
   const nav = useNavigate();
