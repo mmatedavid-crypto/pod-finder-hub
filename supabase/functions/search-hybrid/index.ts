@@ -539,6 +539,7 @@ Deno.serve(async (req) => {
       required_terms: requiredTerms.length ? requiredTerms : null,
       entity_terms: entityTerms.length ? entityTerms : null,
       alpha_lex: alphaLex,
+      phrase_terms: phraseTerms.length ? phraseTerms : null,
     });
     if (error) {
       console.error("rpc err", error);
@@ -547,9 +548,6 @@ Deno.serve(async (req) => {
     let mustGateApplied = requiredTerms.length > 0;
     let mustGateRelaxed = false;
     let mustGateDropped = false;
-    // Preserve strict hits at the top — fallback passes only APPEND new ids
-    // after the strict ones, so a query like "jaguar" still shows the
-    // exact-match episodes first, then semantic neighbors below.
     const strictRows = rows || [];
     const strictHitIds = new Set(strictRows.map((r: any) => r.episode_id));
     const strictIds = new Set(strictHitIds);
@@ -563,11 +561,29 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Pass 2 — relaxed gate (multi-word entities only).
+    // Pass 2 — drop phrase requirement, keep entity / rare-token gate.
+    if (strictRows.length < 5 && mustGateApplied && phrasePool.length) {
+      const noPhraseTerms = requiredTerms.filter((t) => !phrasePool.includes(t));
+      if (noPhraseTerms.length !== requiredTerms.length) {
+        const retry = await supa.rpc("search_episodes_hybrid", {
+          q: lexQ,
+          q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
+          limit_n: Math.max(limit, 50),
+          lang,
+          required_terms: noPhraseTerms.length ? noPhraseTerms : null,
+          entity_terms: entityTerms.length ? entityTerms : null,
+          alpha_lex: alphaLex,
+          phrase_terms: phraseTerms.length ? phraseTerms : null,
+        });
+        if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
+      }
+    }
+
+    // Pass 3 — relaxed gate (multi-word entities only).
     if (strictRows.length < 5 && mustGateApplied) {
-      const strictTerms = requiredTerms.filter((t) => t.includes(" "));
+      const strictTerms = requiredTerms.filter((t) => t.includes(" ") && !phrasePool.includes(t));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
-      if (relaxedTerms?.join("|") !== requiredTerms.join("|")) {
+      if ((relaxedTerms?.join("|") || "") !== requiredTerms.join("|")) {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
@@ -576,14 +592,12 @@ Deno.serve(async (req) => {
           required_terms: relaxedTerms,
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
+          phrase_terms: phraseTerms.length ? phraseTerms : null,
         });
         if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
       }
     }
-    // Pass 3 — drop gate entirely, semantic-tilted, append below strict.
-    // Skip drop-gate fallback for ticker queries — semantic neighbors of a
-    // bare symbol (e.g. "NBIS" → "Nobel"-cluster) are misleading. Better to
-    // return zero results so the PI fallback / empty-state UI kicks in.
+    // Pass 4 — drop gate entirely, semantic-tilted.
     if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
@@ -593,6 +607,7 @@ Deno.serve(async (req) => {
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
         alpha_lex: Math.min(alphaLex, 0.35),
+        phrase_terms: phraseTerms.length ? phraseTerms : null,
       });
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
     }
