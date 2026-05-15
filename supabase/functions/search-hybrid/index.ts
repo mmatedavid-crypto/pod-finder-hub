@@ -396,7 +396,10 @@ Deno.serve(async (req) => {
       }
     }
     // Pass 3 — drop gate entirely, semantic-tilted, append below strict.
-    if (strictRows.length < 5 && mustGateApplied && q_embedding) {
+    // Skip drop-gate fallback for ticker queries — semantic neighbors of a
+    // bare symbol (e.g. "NBIS" → "Nobel"-cluster) are misleading. Better to
+    // return zero results so the PI fallback / empty-state UI kicks in.
+    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
