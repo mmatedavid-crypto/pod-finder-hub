@@ -1,74 +1,113 @@
-# Search anti-hallucination upgrade — 3 layers
+## Search Quality v12 — Best-in-class push
 
-Cél: a globális "vektor pass bármit visszahoz, ami nem releváns" anomália megszüntetése. Három réteg együtt = ~80% lefedés.
+Skip #1 (click feedback) — `episode_events` még nem gyűjtött elég adatot. Visszatérünk ~2 hét múlva.
 
----
-
-## 1. Rare-token MUST gate (univerzális szigorítás)
-
-**Mit csinál:** Ha a query bármely tokenje "ritka" a korpuszban (magas IDF), akkor az a token **kötelező** lex match-é válik. Ha nincs olyan epizód ami tartalmazza → no result + sector/entity fallback. Nincs többé "Nbis → Nobel" típusú hallucináció.
-
-**Hol:** `supabase/functions/search-hybrid/index.ts`
-- IDF lookup: új RPC `token_idf(tokens text[]) returns table(token text, df bigint)` — `episodes` tábla `search_text` tokenjein document frequency. Cache-elve 1 órára egy `token_df_cache` táblában (admin írás).
-- Logika: ha bármely token `df < 200` (≈ 0.03% korpusz) ÉS hossza ≥ 3 → bekerül `required_terms`-be a hybrid RPC-nek (a meglévő MUST gate mechanizmus már megvan).
-- Stop-word és ticker szimbólumok kivételek (a ticker ágon már külön MUST gate van).
-
-**Eredmény:** "Aravind Srinivas", "xAI Colossus", "Nbis", "ASTS" stb. queries automatikusan szigorúak — nem kell manuális alias.
+Ship #2 + #3 + #4 + #5. Sorrend = növekvő kockázat, mindegyik fallback-barát.
 
 ---
 
-## 2. Confidence score + soft banner
+### Layer A — Intent-driven freshness decay (#2)
 
-**Mit csinál:** A találati lista átlagos relevanciáját 0-1 skálán mérjük. Alacsony confidence = "Related episodes about X" banner a "results" helyett. Felhasználó látja, hogy ez nem exact match.
+**Cél:** Friss hírek előre, evergreen tartalom változatlan.
 
-**Hol:**
-- `search-hybrid/index.ts`: top-10 átlag `match_confidence = (avg_lex_norm × 0.5) + (entity_match_ratio × 0.3) + (rare_token_coverage × 0.2)`. Response-ba új mező: `confidence: number` és `confidence_band: "high" | "medium" | "low"` (>0.6 / 0.3-0.6 / <0.3).
-- `src/pages/SearchPage.tsx`: low band → szürke banner: *"Showing related episodes — no exact matches for "{q}""*. Medium band → diszkrét chip: *"Loose matches"*.
+**Hol:** `search_episodes_hybrid` RPC (új migration).
 
-**Eredmény:** Soha nem ígérünk hamis pontosságot. A user dönti el, érdemes-e tovább böngészni.
+**Logika:** új paraméter `p_decay_lambda float default 0`. Score-hoz hozzáad:
+```
++ p_decay_lambda * exp(-0.02 * EXTRACT(days FROM now() - published_at))
+```
+- `intent ∈ {news, company, ticker}` → λ = 0.15
+- `intent ∈ {evergreen, topic, person}` → λ = 0 (jelenlegi viselkedés)
+- default = 0 (fallback-safe)
 
----
+`search-hybrid/index.ts`-ben az understanding.intent alapján állítjuk.
 
-## 3. Entity fallback pyramid (a sector fallback általánosítása)
-
-**Mit csinál:** Az NBIS sector fallback mechanizmust kiterjesztjük minden detektált entitás-típusra, az `entities` táblát használva (LIVE).
-
-**Hol:** `supabase/functions/search-hybrid/index.ts`
-- Új helper: `entityFallback(query, understanding)`:
-  - **Person query** (intent="person"): ha a person szerepel `entity_profiles`-ban → re-embed `{person_name} {top 3 topics from profile}` és semantic-only pass.
-  - **Company query** (intent="company"): re-embed `{company_name} {industry_terms}` (most `MARKET_SYMBOL_SECTORS` + új `COMPANY_SECTORS` map a top ~50 cégre, vagy entity_profile bio-ból kinyert kulcsszavak).
-  - **Topic query**: ha van matching `topic_hubs` slug → már működik a /topic route, search-ben csak banner: *"Visit topic page: {hub}"*.
-  - **Ticker query**: meglévő sector fallback marad.
-- Mindegyik fallback `sector_fallback: true`-val + `fallback_kind: "person" | "company" | "ticker" | "topic"` + `fallback_hint`-tel jelölve.
-- `SearchPage.tsx`: banner szöveg dinamikus a `fallback_kind` alapján (pl. *"No exact mentions of Aravind Srinivas — showing related episodes about AI search and Perplexity"*).
-
-**Eredmény:** Bármilyen entity-szerű query-re értelmes fallback, nem random vektor-szomszédok.
+**Kockázat:** Zero. Ha intent=topic (default), semmi nem változik.
 
 ---
 
-## Technikai részletek (külön szekció)
+### Layer B — Bigram entity MUST gate (#3)
 
-**Migration:**
-- `token_df_cache(token text PK, df bigint, computed_at timestamptz)` + RLS (admin write, public read) + `compute_token_df(tokens text[])` SECURITY DEFINER függvény ami `unnest(string_to_array(lower(search_text), ' '))` aggregálással számol.
-- Opcionális: ha lassú, lazy-fill — első hit cache-eli, utána olcsó.
+**Cél:** "Joe Rogan" query soha ne hozzon olyan epizódot, ahol csak "Joe" vagy csak "Rogan" szerepel külön.
 
-**Confidence képlet komponensek:**
-- `avg_lex_norm`: top-10 lex score / max lex score (0-1)
-- `entity_match_ratio`: hány top-10 epizódban szerepel min. 1 detected entity / 10
-- `rare_token_coverage`: hány rare token van lefedve top-10-ben / total rare tokens
+**Hol:** `search-hybrid/index.ts`, a meglévő `phrase_terms` boost mellé.
 
-**Banner UX:**
-- High: nincs banner, normál "Results" header.
-- Medium: `<Badge variant="outline">Loose matches</Badge>` a header mellett.
-- Low: full banner card a lista fölött, halvány bg, info ikon, szöveg + "Try a different query" link.
+**Logika:** Ha `understanding.intent === "person"` ÉS a query bigramja egyezik egy detektált entitással (entities[] tartalmazza a teljes bigramot) → a bigram bekerül `required_terms`-be (MUST gate). Ha 0 hit → entity fallback pyramid kapja el (már működik).
 
-**Telemetry:** `search_events` tábla `result_count` mellé új `confidence_band` (text). Admin dashboard-on új oszlop a Top queries táblában → később priorizálni tudjuk az alias-okat.
+**Kockázat:** Alacsony. Csak person intent-nél aktív. Fallback létezik.
 
-**Backward-compat:** Minden új mező optional a response-ban, a frontend `?? fallback`-kel kezeli.
+---
 
-**Deployment:** 1 migration + `search-hybrid` redeploy + frontend.
+### Layer C — HyDE query expansion (#5)
 
-**Becsült hatás:**
-- Hallucinációk eltüntetése: ~70% (rare-token gate)
-- User trust növelés: jelentős (confidence banner)
-- Zero-result UX javítás: jelentős (entity fallback pyramid)
+**Cél:** Konceptuális query-k ("how to grow a SaaS startup") jobb semantic recall.
+
+**Hol:** új edge function `search-hyde` (de inline a search-hybrid-be hívva), VAGY inline `_shared/search-hyde.ts`.
+
+**Logika:**
+1. Cache check: `search_hyde_cache(query_norm PK, hyde_text, embedding vector(768), created_at)`. TTL 7 nap.
+2. Cache miss → Lovable AI Gateway, model `google/gemini-2.5-flash-lite`, prompt: *"Write a single 2-sentence hypothetical podcast episode description that would perfectly answer this query: {q}. No preamble."* Timeout 1500ms, circuit breaker reuse.
+3. Embed a HyDE szöveget (`google/gemini-embedding-001`, 768d).
+4. Hybrid search-be két query embedding megy:
+   - `original_emb` (jelenlegi)
+   - `hyde_emb` (új, súly 0.4)
+5. Vector pass: `0.6 * cosine(orig) + 0.4 * cosine(hyde)`.
+
+**Mikor:** Csak ha `intent ∈ {topic, question}` ÉS query length > 3 token. Person/ticker/company query-knél kihagyva (ott entity pinning erősebb).
+
+**Kockázat:** Közepes. Latency +200-400ms cache miss esetén. Cache hit ~5ms. Cache hiánya esetén fallback az eredeti embedding.
+
+---
+
+### Layer D — Cross-encoder reranker (#4)
+
+**Cél:** Top-30 → top-10 finomhangolás cross-encoder modellel. NDCG@10 +15-20pp.
+
+**Provider választás:**
+- **Cohere Rerank API** (`rerank-v3.5`) — $2/1000 search, ~150ms p50, legjobb minőség. Új secret: `COHERE_API_KEY`.
+- Alternatíva: Lovable AI Gateway nem támogat dedicated rerank endpoint-ot, így Cohere a praktikus út.
+
+**Hol:** `search-hybrid/index.ts`, a meglévő MMR diversity előtt.
+
+**Logika:**
+1. Top-30 candidate-et (most top-10-et adunk vissza, kibővítjük 30-ra a hybrid RPC-ben).
+2. Cohere rerank hívás: query + 30 episode_text (title + show_notes első 500 char).
+3. Új sorrend → top-10. Az MMR diversity utána fut a re-rankelt listán.
+4. Circuit breaker: 3 fail / 60s → cooldown 60s, közben sima hybrid sorrend.
+5. Budget guard: napi $2 cap (`app_settings.cohere_rerank_daily_spent` counter, reset éjfélkor). Cap elérve → skip rerank.
+
+**Mikor:** Csak ha confidence_band ∈ {medium, high} ÉS top-30 hit count ≥ 10. Low confidence vagy <10 hit esetén nincs értelme.
+
+**Kockázat:** Közepes-magas. Külső függés (Cohere). Latency +150-200ms. Mitigation: circuit breaker + daily cap + skip-on-fail.
+
+---
+
+### Migrations
+
+1. `search_episodes_hybrid` RPC új paraméter `p_decay_lambda`.
+2. Új tábla `search_hyde_cache(query_norm text PK, hyde_text text, embedding vector(768), created_at timestamptz)`. RLS: public read, service write. HNSW index nem kell (lookup PK-n).
+3. Új `app_settings` kulcs `cohere_rerank_daily_spent` JSON `{date, spent_cents}`.
+
+### Secrets needed
+
+- **`COHERE_API_KEY`** — User add-secret hívás kell. Layer D blokkolva amíg meg nincs.
+
+### Deployment sorrend
+
+1. Migration (decay param + hyde cache + cohere counter).
+2. `search-hybrid` redeploy (#2 + #3 + #5 inline).
+3. User adds `COHERE_API_KEY` secret.
+4. `search-hybrid` redeploy (#4 reranker bekapcsolva).
+
+### Backward compat
+
+Minden új mező optional. Ha bármelyik réteg kiesik (cohere down, hyde timeout, gemini circuit breaker open), a v11 baseline pipeline futáson marad.
+
+### Testing
+
+Smoke test queries (a meglévő admin NDCG dashboard méri majd):
+- "Joe Rogan" → person+bigram MUST → exact matches only
+- "AI agents" → topic+HyDE → tágabb semantic recall + rerank
+- "ASTS earnings" → ticker+freshness decay → friss tartalom előre
+- "huberma" → spell correction (v11) → továbbra is működik
+- "react hooks tutorial" → topic+HyDE+rerank → mély hit

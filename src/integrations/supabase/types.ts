@@ -1358,6 +1358,27 @@ export type Database = {
         }
         Relationships: []
       }
+      search_hyde_cache: {
+        Row: {
+          created_at: string
+          embedding: string | null
+          hyde_text: string
+          q_norm: string
+        }
+        Insert: {
+          created_at?: string
+          embedding?: string | null
+          hyde_text: string
+          q_norm: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string | null
+          hyde_text?: string
+          q_norm?: string
+        }
+        Relationships: []
+      }
       search_query_cache: {
         Row: {
           created_at: string
@@ -2315,39 +2336,25 @@ export type Database = {
         Args: { _batch?: number; _table: string }
         Returns: number
       }
-      search_episodes_hybrid:
-        | {
-            Args: {
-              lang?: string
-              limit_n?: number
-              q: string
-              q_embedding?: string
-            }
-            Returns: {
-              episode_id: string
-              lex_rank: number
-              score: number
-              sem_rank: number
-            }[]
-          }
-        | {
-            Args: {
-              alpha_lex?: number
-              entity_terms?: string[]
-              lang?: string
-              limit_n?: number
-              phrase_terms?: string[]
-              q: string
-              q_embedding?: string
-              required_terms?: string[]
-            }
-            Returns: {
-              episode_id: string
-              lex_rank: number
-              score: number
-              sem_rank: number
-            }[]
-          }
+      search_episodes_hybrid: {
+        Args: {
+          alpha_lex?: number
+          entity_terms?: string[]
+          lang?: string
+          limit_n?: number
+          p_decay_lambda?: number
+          phrase_terms?: string[]
+          q: string
+          q_embedding?: string
+          required_terms?: string[]
+        }
+        Returns: {
+          episode_id: string
+          lex_rank: number
+          score: number
+          sem_rank: number
+        }[]
+      }
       search_ndcg_weekly: {
         Args: { p_min_impressions?: number }
         Returns: {

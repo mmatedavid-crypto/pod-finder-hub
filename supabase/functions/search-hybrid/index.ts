@@ -4,6 +4,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
+import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
+import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -595,7 +597,50 @@ Deno.serve(async (req) => {
     const contiguousPhrase = (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4)
       ? [phraseTokens.join(" ")] : [];
     const phraseTerms = uniqueClean([...contiguousPhrase, ...resolvedNames], 6);
+
+    // v12: Bigram entity MUST gate. For person/company intent queries, if the
+    // user typed a multi-word entity that EXACTLY matches an AI-detected entity
+    // (e.g. "Joe Rogan" → entities=["Joe Rogan"]), push the contiguous bigram
+    // into required_terms. This prevents the result list from drifting to
+    // episodes that mention "Joe" or "Rogan" separately. Falls back via the
+    // existing entity fallback pyramid if 0 hits.
+    const intent = String(understanding?.intent || "").toLowerCase();
+    if (
+      (intent === "person" || intent === "company") &&
+      contiguousPhrase.length &&
+      rawEntities.some((e) => e.toLowerCase() === contiguousPhrase[0].toLowerCase())
+    ) {
+      if (!requiredTerms.includes(contiguousPhrase[0])) requiredTerms.push(contiguousPhrase[0]);
+    }
+
     const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+
+    // v12: Intent-driven freshness decay. News/ticker/company queries get a
+    // small recency boost; topic/person/evergreen stay neutral. The RPC adds
+    // p_decay_lambda * exp(-0.02 * days_old) to each row's score.
+    const decayLambda = (intent === "news" || intent === "ticker" || intent === "company") ? 0.15 : 0;
+
+    // v12: HyDE expansion. For broad topical/question queries, generate a
+    // hypothetical episode description via LLM, embed it, and blend with the
+    // original embedding (60/40). Cached 7d. Skip ticker/person/company —
+    // entity pinning is stronger there.
+    let hydeUsed = false;
+    let hydeCacheHit: boolean | null = null;
+    if (
+      q_embedding &&
+      (intent === "topic" || intent === "question" || intent === "") &&
+      !isTickerQ &&
+      qNorm.split(/\s+/).filter(Boolean).length >= 3
+    ) {
+      try {
+        const hyde = await getHydeExpansion(supa, qNorm, q);
+        if (hyde && hyde.embedding.length === 768) {
+          q_embedding = blendEmbeddings(q_embedding, hyde.embedding, 0.6);
+          hydeUsed = true;
+          hydeCacheHit = hyde.cache_hit;
+        }
+      } catch (e) { console.warn("hyde err", e); }
+    }
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
     // episode tsv. Rewrite the lexical q to use the resolved company name(s)
@@ -636,6 +681,7 @@ Deno.serve(async (req) => {
       required_terms: requiredTerms.length ? requiredTerms : null,
       entity_terms: entityTerms.length ? entityTerms : null,
       alpha_lex: alphaLex,
+      p_decay_lambda: decayLambda,
       phrase_terms: phraseTerms.length ? phraseTerms : null,
     });
     if (error) {
@@ -670,6 +716,7 @@ Deno.serve(async (req) => {
           required_terms: noPhraseTerms.length ? noPhraseTerms : null,
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
+          p_decay_lambda: decayLambda,
           phrase_terms: phraseTerms.length ? phraseTerms : null,
         });
         if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
@@ -689,6 +736,7 @@ Deno.serve(async (req) => {
           required_terms: relaxedTerms,
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
+          p_decay_lambda: decayLambda,
           phrase_terms: phraseTerms.length ? phraseTerms : null,
         });
         if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
@@ -706,6 +754,7 @@ Deno.serve(async (req) => {
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
         alpha_lex: Math.min(alphaLex, 0.35),
+        p_decay_lambda: decayLambda,
         phrase_terms: phraseTerms.length ? phraseTerms : null,
       });
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
@@ -838,9 +887,38 @@ Deno.serve(async (req) => {
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
+    // v12: Cohere cross-encoder reranker. Runs BEFORE the LLM rerank — if it
+    // succeeds, we skip the Gemini rerank (cross-encoder is strictly better
+    // for relevance, ~150ms vs ~1500ms). Skipped on low confidence (no
+    // signal worth refining), <10 hits (not enough to reorder), and when the
+    // daily $2 budget is exhausted.
+    let cohereRerankUsed = false;
+    let cohereLatency = 0;
+    if (
+      ordered.length >= 10 &&
+      (confidenceBand === "high" || confidenceBand === "medium") &&
+      !sectorFallback
+    ) {
+      const candidates: CohereRerankInput[] = ordered.slice(0, 30).map((e: any) => ({
+        id: e.id,
+        text: `${e.podcasts?.title || ""} — ${e.title || ""}\n${(e.ai_summary || e.summary || e.description || "").slice(0, 500)}`,
+      }));
+      const co = await cohereRerank(supa, q, candidates, Math.min(30, candidates.length));
+      if (co && co.ids.length) {
+        cohereRerankUsed = true;
+        cohereLatency = co.latency_ms;
+        const rank = new Map(co.ids.map((id, i) => [id, i]));
+        const head = ordered
+          .filter((e: any) => rank.has(e.id))
+          .sort((a: any, b: any) => (rank.get(a.id)! - rank.get(b.id)!));
+        const tail = ordered.filter((e: any) => !rank.has(e.id));
+        ordered = [...head, ...tail];
+      }
+    }
+
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank) {
+    if (wantRerank && !cohereRerankUsed) {
       if (cachedRerank) {
         // Filter to ids actually present in this result-set (DB content may have shifted)
         const present = new Set(ordered.map((e: any) => e.id));
@@ -992,6 +1070,11 @@ Deno.serve(async (req) => {
         rare_tokens: rareTokens,
         spell_corrections: spellCorrections.length ? spellCorrections : null,
         alpha_lex: alphaLex,
+        decay_lambda: decayLambda,
+        hyde_used: hydeUsed,
+        hyde_cache_hit: hydeCacheHit,
+        cohere_rerank_used: cohereRerankUsed,
+        cohere_rerank_ms: cohereLatency || null,
         podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle, count: podcastPinIds.length } : null,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
