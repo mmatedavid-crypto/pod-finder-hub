@@ -68,6 +68,33 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
 
 const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
 
+// Stop-words excluded from rare-token MUST gate (common English + podcast filler).
+const RARE_GATE_STOPWORDS = new Set([
+  "the","and","for","with","that","this","from","what","when","where","how","why","who","which",
+  "are","was","were","has","have","had","but","not","you","your","our","their","they","them",
+  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","into","out",
+  "best","top","new","latest","good","great","like","just","only","one","two","three",
+  "all","any","some","more","most","very","much","even","than","then","also","only",
+]);
+
+// Tokenize raw query for IDF lookup. Skip ticker symbols (own gate), short tokens, stopwords.
+function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
+  if (isTickerQ) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/)) {
+    const t = raw.trim();
+    if (t.length < 4 || t.length > 30) continue;
+    if (RARE_GATE_STOPWORDS.has(t)) continue;
+    if (/^\d+$/.test(t)) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
 // Sector hints for ticker zero-hit fallback. When no episode mentions a
 // ticker / company, we re-embed using "{Company} {sector hint}" and run a
 // semantic-only search so users see topically related episodes (e.g. for
