@@ -99,11 +99,22 @@ export default function NeoSearchBar({
 
   // Focus reply textarea when AI is waiting for an answer
   useEffect(() => {
-    if (inAIMode && !thinking && !closing && lastTurn?.role === "assistant" &&
+    if (inAIMode && !thinking && !closing && !done && lastTurn?.role === "assistant" &&
         typedMap[lastIdx] === lastTurn.content) {
       replyInputRef.current?.focus({ preventScroll: true });
     }
-  }, [inAIMode, thinking, closing, lastIdx, lastTurn, typedMap]);
+  }, [inAIMode, thinking, closing, done, lastIdx, lastTurn, typedMap]);
+
+  // Auto-disconnect: when assistant signals done and the last line finished typing,
+  // Neo signs off and the chat collapses on its own.
+  useEffect(() => {
+    if (!inAIMode || !done || thinking || closing) return;
+    if (!lastTurn || lastTurn.role !== "assistant") return;
+    if (typedMap[lastIdx] !== lastTurn.content) return;
+    const t = window.setTimeout(() => handleExit(), 1400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inAIMode, done, thinking, closing, lastIdx, lastTurn?.content, typedMap]);
 
   const isTyping = !!lastTurn && lastTurn.role === "assistant" && typedMap[lastIdx] !== lastTurn.content;
   const canSendReply = !thinking && !isTyping && !closing && reply.trim().length > 0;
