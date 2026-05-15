@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const body = await req.json().catch(() => ({}));
-    const q = String(body.q || "").trim();
+    let q = String(body.q || "").trim();
     const limit = Math.min(80, Math.max(5, Number(body.limit) || 50));
     const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "en");
     const wantRerank = body.rerank !== false;
@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const t0 = Date.now();
-    const qNorm = normalizeQ(q);
+    let qNorm = normalizeQ(q);
 
     // v4/v9: Stopword + gibberish gate. Bail before AI/embedding for queries
     // that obviously can't have results ("the", "is", "of", "asdfghjkl", "qqqqqqq").
