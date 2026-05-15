@@ -266,6 +266,23 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     const qNorm = normalizeQ(q);
 
+    // v4: Stopword-only gate. If the entire query is stop-words / generic
+    // filler (e.g. "the", "best", "podcast", "best podcast"), return zero
+    // state instead of dragging in random vector neighbors.
+    {
+      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 2);
+      const meaningful = tokens.filter((t) => !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
+      if (tokens.length > 0 && meaningful.length === 0) {
+        return new Response(JSON.stringify({
+          episodes: [],
+          timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+          confidence_band: "low",
+          stopword_gate: true,
+          reason: "stopwords_only",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // 1) Cache lookup (understanding + embedding + rerank) — 7d understanding, 24h rerank
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
@@ -408,13 +425,16 @@ Deno.serve(async (req) => {
         if (idfErr) throw idfErr;
         idfRpcOk = true;
         const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
+        const UNKNOWN_THRESHOLD = 5; // v4: df < 5 treated as unknown (gibberish edge cases)
         const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
         rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
-        // Count tokens that the RPC EXPLICITLY returned as df=0. Tokens missing
-        // from the response (e.g. shorter than 3 chars) are NOT counted as
-        // unknown — only the ones we have proof for.
+        // v4: count both df=0 and df<5 as "effectively unknown" so the nonsense
+        // gate catches gibberish that happens to share a few stray tokens.
         const dfMap = new Map(rows.map((r) => [r.token, r.df]));
-        unknownTokenCount = rareGateTokens.filter((t) => dfMap.get(t) === 0).length;
+        unknownTokenCount = rareGateTokens.filter((t) => {
+          const df = dfMap.get(t);
+          return df === undefined ? false : df < UNKNOWN_THRESHOLD;
+        }).length;
       } catch (e) { console.warn("token_idf err", e); }
     }
 
@@ -684,6 +704,17 @@ Deno.serve(async (req) => {
       ...((understanding?.entities as string[]) || []),
     ], 6).map((s) => s.toLowerCase()).filter((s) => s.length >= 3);
     if (pinEntities.length) {
+      // v4: Strict brand match — entity present in the typed companies/tickers/people
+      // arrays (NOT just title text). These are the highest-confidence matches.
+      const strictBrandMatch = (e: any): boolean => {
+        const arrays: string[] = [
+          ...(Array.isArray(e.people) ? e.people : []),
+          ...(Array.isArray(e.companies) ? e.companies : []),
+          ...(Array.isArray(e.tickers) ? e.tickers : []),
+        ].map((s) => String(s || "").toLowerCase());
+        if (!arrays.length) return false;
+        return pinEntities.some((ent) => arrays.some((v) => v === ent || v.includes(ent)));
+      };
       const matchEntity = (e: any): boolean => {
         const hayParts = [
           e.title || "",
@@ -694,17 +725,25 @@ Deno.serve(async (req) => {
         ];
         const hay = hayParts.join(" ").toLowerCase();
         return pinEntities.some((ent) => {
-          // word-boundary match on the entity, allow multi-word phrases
           const re = new RegExp(`(?:^|[^a-z0-9])${ent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^a-z0-9])`);
           return re.test(hay);
         });
       };
-      const annotated = ordered.map((e: any, i: number) => ({ e, i, hit: matchEntity(e) }));
-      const hits = annotated.filter((x) => x.hit).map((x) => x.e);
-      const misses = annotated.filter((x) => !x.hit).map((x) => x.e);
-      // Only re-order when entity-pin actually changes the head of the list.
-      if (hits.length > 0 && hits.length < ordered.length) {
-        ordered = [...hits, ...misses];
+      const annotated = ordered.map((e: any) => ({
+        e,
+        strict: strictBrandMatch(e),
+        hit: matchEntity(e),
+      }));
+      const strictBrand = annotated.filter((x) => x.strict).map((x) => x.e);
+      const looseHits = annotated.filter((x) => !x.strict && x.hit).map((x) => x.e);
+      const misses = annotated.filter((x) => !x.strict && !x.hit).map((x) => x.e);
+      if (strictBrand.length > 0 || looseHits.length > 0) {
+        // v4: strict brand matches forced into the top of the list, then loose
+        // text matches, then everything else. Caps strict-brand promotion at 6
+        // so the top isn't monopolized when a single show has many matches.
+        const strictHead = strictBrand.slice(0, 6);
+        const strictTail = strictBrand.slice(6);
+        ordered = [...strictHead, ...looseHits, ...strictTail, ...misses];
       }
     }
 
