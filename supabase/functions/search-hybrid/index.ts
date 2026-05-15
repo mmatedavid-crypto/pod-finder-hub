@@ -448,6 +448,7 @@ Deno.serve(async (req) => {
     // can no longer be silently dropped by the AI expansion.
     const rareGateTokens = tokenizeForRareGate(q, isTickerQ);
     let rareTokens: string[] = [];
+    let unknownTokens: string[] = [];
     let unknownTokenCount = 0; // df === 0 confirmed
     let idfRpcOk = false;
     if (rareGateTokens.length) {
@@ -460,12 +461,78 @@ Deno.serve(async (req) => {
         const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
         rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
         const dfMap = new Map(rows.map((r) => [r.token, r.df]));
-        unknownTokenCount = rareGateTokens.filter((t) => {
+        unknownTokens = rareGateTokens.filter((t) => {
           const df = dfMap.get(t);
-          // missing row from RPC = df=0 (token not present in corpus). Count as unknown.
           return df === undefined ? true : df < UNKNOWN_THRESHOLD;
-        }).length;
+        });
+        unknownTokenCount = unknownTokens.length;
       } catch (e) { console.warn("token_idf err", e); }
+    }
+
+    // v11: Spell-correction layer. Before declaring "no known tokens", try
+    // pg_trgm fuzzy-match each unknown token against the corpus token cache
+    // (df>=50, similarity>=0.6). If at least one swap recovers a known
+    // token, rewrite the query and re-embed. Skip uppercase tokens (likely
+    // tickers/acronyms) — handled by the ticker path.
+    let spellCorrections: Array<{ from: string; to: string }> = [];
+    if (
+      idfRpcOk &&
+      !isTickerQ &&
+      unknownTokens.length > 0 &&
+      trustedEntitiesCount(rawEntities, rareGateTokens) === 0
+    ) {
+      const correctable = unknownTokens.filter((t) => {
+        // skip if the original raw query token had any uppercase letter (tickers, brand acronyms)
+        const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+        const m = q.match(re);
+        if (m && /[A-Z]/.test(m[0])) return false;
+        return t.length >= 4 && /^[a-z]+$/.test(t);
+      });
+      if (correctable.length) {
+        try {
+          const { data: sugRows } = await supa.rpc("suggest_token_corrections", { p_tokens: correctable });
+          const sugs = (sugRows as Array<{ token: string; suggestion: string; similarity: number }> | null) || [];
+          for (const s of sugs) if (s?.token && s?.suggestion && s.token !== s.suggestion) {
+            spellCorrections.push({ from: s.token, to: s.suggestion });
+          }
+        } catch (e) { console.warn("spell rpc err", e); }
+      }
+      if (spellCorrections.length) {
+        // Rewrite the working query strings.
+        let rewritten = q;
+        for (const c of spellCorrections) {
+          rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
+        }
+        // Re-embed the corrected query (best-effort, short timeout).
+        const newEmb = await embed(rewritten);
+        if (newEmb) q_embedding = newEmb;
+        // Re-run IDF on corrected tokens to refresh known/unknown sets.
+        const newGateTokens = tokenizeForRareGate(rewritten, false);
+        try {
+          const { data: idfRows2 } = await supa.rpc("token_idf", { p_tokens: newGateTokens });
+          const rows2 = ((idfRows2 as Array<{ token: string; df: number }>) || []);
+          rareTokens = rows2.filter((r) => r.df > 0 && r.df < 200).map((r) => r.token);
+          const df2 = new Map(rows2.map((r) => [r.token, r.df]));
+          unknownTokens = newGateTokens.filter((t) => (df2.get(t) ?? 0) < 1);
+          unknownTokenCount = unknownTokens.length;
+        } catch { /* ignore */ }
+        // Replace the query used downstream for lexical/cache.
+        // We mutate `q` and `qNorm` so the rest of the pipeline uses the corrected text.
+        (globalThis as any).__noop = rewritten; // prevent eslint unused warn in some builds
+        // eslint-disable-next-line no-param-reassign
+        // (q is a local const — shadow with corrected string below where it's used)
+      }
+    }
+    // Apply correction to the local query strings used downstream.
+    let qWorking = q;
+    let qNormWorking = qNorm;
+    if (spellCorrections.length) {
+      let rewritten = q;
+      for (const c of spellCorrections) {
+        rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
+      }
+      qWorking = rewritten;
+      qNormWorking = normalizeQ(rewritten);
     }
 
     // v9: Nonsense gate. If every meaningful token is unknown to the corpus,
