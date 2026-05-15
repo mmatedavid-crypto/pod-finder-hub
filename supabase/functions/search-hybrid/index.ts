@@ -918,7 +918,7 @@ Deno.serve(async (req) => {
 
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank) {
+    if (wantRerank && !cohereRerankUsed) {
       if (cachedRerank) {
         // Filter to ids actually present in this result-set (DB content may have shifted)
         const present = new Set(ordered.map((e: any) => e.id));
