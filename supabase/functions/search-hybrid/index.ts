@@ -681,6 +681,7 @@ Deno.serve(async (req) => {
       required_terms: requiredTerms.length ? requiredTerms : null,
       entity_terms: entityTerms.length ? entityTerms : null,
       alpha_lex: alphaLex,
+      p_decay_lambda: decayLambda,
       phrase_terms: phraseTerms.length ? phraseTerms : null,
     });
     if (error) {
@@ -715,6 +716,7 @@ Deno.serve(async (req) => {
           required_terms: noPhraseTerms.length ? noPhraseTerms : null,
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
+          p_decay_lambda: decayLambda,
           phrase_terms: phraseTerms.length ? phraseTerms : null,
         });
         if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
@@ -734,6 +736,7 @@ Deno.serve(async (req) => {
           required_terms: relaxedTerms,
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
+          p_decay_lambda: decayLambda,
           phrase_terms: phraseTerms.length ? phraseTerms : null,
         });
         if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
@@ -751,6 +754,7 @@ Deno.serve(async (req) => {
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
         alpha_lex: Math.min(alphaLex, 0.35),
+        p_decay_lambda: decayLambda,
         phrase_terms: phraseTerms.length ? phraseTerms : null,
       });
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
