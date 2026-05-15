@@ -12,7 +12,7 @@ interface Props {
   turns: NeoTurn[];
   /** True while the AI is "thinking" (search + chat call in flight). */
   thinking?: boolean;
-  /** Legacy flag from the assistant; Neo mode stays open until explicit close. */
+  /** When true and the last assistant message has finished typing, Neo auto-disconnects. */
   done?: boolean;
   onExitAI: () => void;
   placeholder?: string;
