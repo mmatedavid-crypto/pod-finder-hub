@@ -141,14 +141,23 @@ const TICKER_HELPER_WORDS = new Set([
   "price","quote","chart",
 ]);
 function compactMarketSymbol(q: string): string | null {
-  let t = q.trim().replace(/^\$/, "");
-  if (/^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t)) return t.toUpperCase();
-  // Try stripping helper words at either end.
+  // v7: Only treat as ticker if user signals ticker intent — either `$`-prefix
+  // or ALL-CAPS token. Bare title-case words like "Apple", "Tesla", "Meta"
+  // are brand queries, not ticker queries (vector + entity pinning handle them).
+  const trimmed = q.trim();
+  const hadDollar = trimmed.startsWith("$");
+  const t = trimmed.replace(/^\$/, "");
+  const isAllCaps = (s: string) => s === s.toUpperCase() && /[A-Z]/.test(s);
+  if (/^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t)) {
+    if (hadDollar || isAllCaps(t)) return t.toUpperCase();
+    return null;
+  }
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length >= 2 && parts.length <= 4) {
     const core = parts.filter((p) => !TICKER_HELPER_WORDS.has(p.toLowerCase()));
     if (core.length === 1 && /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(core[0])) {
-      return core[0].toUpperCase();
+      // Multi-word with helper words ("NBIS stock", "$TSLA") → ticker-ish intent
+      if (hadDollar || isAllCaps(core[0])) return core[0].toUpperCase();
     }
   }
   return null;
