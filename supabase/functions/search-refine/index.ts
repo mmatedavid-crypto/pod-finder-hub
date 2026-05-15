@@ -1,10 +1,13 @@
-// search-refine: decides whether the search bar should "wake up" and ask the
-// user a clarifying question (Matrix-style "Neo moment"). One short question only.
-// POST { q: string, topResults: [{title, podcast, summary}] }
-// -> { should_clarify: boolean, question: string, suggestions: string[] }
-// Cached in search_query_cache.refine (jsonb), keyed by q_norm.
+// search-refine: decides whether the search bar should "wake up" with chips
+// (Neo silent badge) or a closest-match panel for zero-hit queries.
+// Chips are aggregated from the REAL top-50 results so every chip click is
+// guaranteed to lead to actual matches — no dead ends.
+//
+// POST { q, topResults: ChipResult[], strictHitCount?: number, totalHits?: number, intent?: string }
+// -> { mode: "off"|"ambiguity"|"zero_hit", message: string, chips: Chip[] }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { aggregateChips, decideMode, type Chip, type ChipResult } from "../_shared/neo-chips.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,110 +19,51 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-const CACHE_TTL_MS = 7 * 24 * 3600 * 1000; // 7 days
+const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
+
+type Out = { mode: "off" | "ambiguity" | "zero_hit"; message: string; chips: Chip[] };
+const OFF: Out = { mode: "off", message: "", chips: [] };
 
 function normalizeQ(q: string): string {
   return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
-function shouldEvenAsk(q: string, results: Array<{ podcast?: string }>): boolean {
-  // Heuristic gate before paying for the LLM call:
-  // - Need at least 6 results to have ambiguity
-  // - Skip very long queries (user already specific)
-  if (results.length < 6) return false;
-  const wordCount = q.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount > 5) return false;
-  // Diversity check — at least 2 distinct podcasts in top 6
-  const distinctPodcasts = new Set(results.slice(0, 6).map((r) => (r.podcast || "").toLowerCase()).filter(Boolean));
-  if (distinctPodcasts.size < 2) return false;
-  return true;
-}
-
-type RefineResult = {
-  should_clarify: boolean;
-  question: string;
-  suggestions: string[];
-};
-
-const EMPTY_RESULT: RefineResult = { should_clarify: false, question: "", suggestions: [] };
-
-async function callRefineAI(q: string, results: Array<{ title: string; podcast: string; summary: string }>): Promise<RefineResult> {
-  if (!LOVABLE_API_KEY) return EMPTY_RESULT;
-  const compact = results.slice(0, 6).map((r, i) => ({
-    i: i + 1,
-    title: String(r.title || "").slice(0, 120),
-    podcast: String(r.podcast || "").slice(0, 60),
-    summary: String(r.summary || "").slice(0, 200),
-  }));
-
-  const sys = [
-    "You are a podcast SEARCH ASSISTANT (not a chatbot). Decide if ONE clarifying question is genuinely needed.",
-    "Set should_clarify=true ONLY when the top results visibly span 2+ DISTINCT real-world entities/meanings (e.g. animal vs car, band vs sport, film vs person) AND a one-line question would split them. Otherwise should_clarify=false.",
-    "Do NOT invent ambiguity. Do NOT ask preference questions like 'recent or classic?', 'deep dive?', 'which angle?'. Those are filler.",
-    "Style: terse 1990s terminal. No greetings, no fluff, no emojis. Max 80 chars. End with '?'.",
-    "If asking, suggestions MUST be the actual disambiguating options (max 3, each <=20 chars), not generic phrases.",
-  ].join(" ");
-
-  const user = `Query: "${q}"\n\nTop results:\n${compact.map((c) => `[${c.i}] "${c.title}" — ${c.podcast}\n  ${c.summary}`).join("\n")}\n\nDecide.`;
-
-  const tools = [{
-    type: "function",
-    function: {
-      name: "decide_clarification",
-      description: "Decide whether to ask the user a clarifying question.",
-      parameters: {
-        type: "object",
-        properties: {
-          should_clarify: { type: "boolean", description: "True only if the query is genuinely ambiguous between 2+ meanings." },
-          question: { type: "string", description: "The clarifying question, max 90 chars. Empty if should_clarify is false." },
-          suggestions: {
-            type: "array",
-            items: { type: "string" },
-            description: "2-3 short refinement strings the user could type as answer. Empty if should_clarify is false.",
-          },
-        },
-        required: ["should_clarify", "question", "suggestions"],
-        additionalProperties: false,
-      },
-    },
-  }];
-
+async function genMessage(
+  mode: "ambiguity" | "zero_hit",
+  q: string,
+  chips: Chip[],
+  topTitles: string[],
+): Promise<string> {
+  if (!LOVABLE_API_KEY) {
+    return mode === "zero_hit"
+      ? `no exact hit for "${q}". closest match below.`
+      : `"${q}" spans a few angles — pick one.`;
+  }
+  const sys = mode === "zero_hit"
+    ? "You are Neo in a green terminal. Zero exact hits for the query. State that succinctly and tease the closest topic. ONE sentence, lowercase, max 90 chars, no greetings, no emojis. End with '.'."
+    : "You are Neo in a green terminal. The query is ambiguous across multiple meanings. State the ambiguity in ONE clause referencing the chip choices. lowercase, max 80 chars, no greetings, no emojis, no questions. End with '.'.";
+  const userTurn = `query: "${q}"\nchips: ${chips.map((c) => c.label).join(", ") || "(none)"}\ntop titles: ${topTitles.slice(0, 3).join(" | ")}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 4000);
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-        tools,
-        tool_choice: { type: "function", function: { name: "decide_clarification" } },
-        temperature: 0.2,
+        messages: [{ role: "system", content: sys }, { role: "user", content: userTurn }],
+        temperature: 0.3,
       }),
     });
     clearTimeout(timer);
-    if (!resp.ok) {
-      console.warn("refine ai", resp.status);
-      return EMPTY_RESULT;
-    }
-    const data = await resp.json();
-    const call = data?.choices?.[0]?.message?.tool_calls?.[0];
-    if (!call?.function?.arguments) return EMPTY_RESULT;
-    let parsed: any;
-    try { parsed = JSON.parse(call.function.arguments); } catch { return EMPTY_RESULT; }
-    if (!parsed.should_clarify) return EMPTY_RESULT;
-    const question = String(parsed.question || "").trim().slice(0, 120);
-    if (!question) return EMPTY_RESULT;
-    const suggestions = Array.isArray(parsed.suggestions)
-      ? parsed.suggestions.map((s: unknown) => String(s || "").trim().slice(0, 30)).filter(Boolean).slice(0, 3)
-      : [];
-    return { should_clarify: true, question, suggestions };
-  } catch (e) {
+    if (!r.ok) return mode === "zero_hit" ? `no exact hit. closest match below.` : `"${q}" spans a few angles.`;
+    const j = await r.json();
+    const txt = String(j?.choices?.[0]?.message?.content || "").trim().replace(/^["']|["']$/g, "").slice(0, 120);
+    return txt || (mode === "zero_hit" ? `no exact hit. closest match below.` : `"${q}" spans a few angles.`);
+  } catch {
     clearTimeout(timer);
-    console.warn("refine err", e);
-    return EMPTY_RESULT;
+    return mode === "zero_hit" ? `no exact hit. closest match below.` : `"${q}" spans a few angles.`;
   }
 }
 
@@ -128,19 +72,21 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const q = String(body.q || "").trim();
-    const results = Array.isArray(body.topResults) ? body.topResults : [];
-    if (!q) {
-      return new Response(JSON.stringify(EMPTY_RESULT), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const topResults: ChipResult[] = Array.isArray(body.topResults) ? body.topResults.slice(0, 50) : [];
+    const totalHits = Number.isFinite(body.totalHits) ? Number(body.totalHits) : topResults.length;
+    const strictHitCount = Number.isFinite(body.strictHitCount) ? Number(body.strictHitCount) : topResults.length;
+    const intent = typeof body.intent === "string" ? body.intent : undefined;
 
-    if (!shouldEvenAsk(q, results)) {
-      return new Response(JSON.stringify(EMPTY_RESULT), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!q) return new Response(JSON.stringify(OFF), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    const qNorm = normalizeQ(q);
+    const mode = decideMode({ q, totalHits, strictHitCount, topResults, intent });
+    if (mode === "off") {
+      return new Response(JSON.stringify(OFF), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Cache lookup
+    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const qNorm = normalizeQ(q);
     try {
       const { data: cached } = await supa
         .from("search_query_cache")
@@ -148,22 +94,32 @@ Deno.serve(async (req) => {
         .eq("q_norm", qNorm)
         .maybeSingle();
       if (cached?.refine && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < CACHE_TTL_MS) {
-        return new Response(JSON.stringify(cached.refine), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const c = cached.refine as Out;
+        if (c?.mode && Array.isArray(c?.chips)) {
+          return new Response(JSON.stringify(c), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
       }
     } catch (e) { console.warn("cache read", e); }
 
-    const refined = await callRefineAI(q, results);
+    const chips = aggregateChips(topResults, q, { maxChips: 3, minCount: mode === "zero_hit" ? 2 : 3 });
+    if (chips.length === 0) {
+      // No verified disambiguation possible → don't surface Neo at all.
+      return new Response(JSON.stringify(OFF), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
-    // Persist (upsert; create row if missing, otherwise patch the refine column)
+    const topTitles: string[] = (Array.isArray(body.topTitles) ? body.topTitles : []).slice(0, 3);
+    const message = await genMessage(mode, q, chips, topTitles);
+    const out: Out = { mode, message, chips };
+
     supa.from("search_query_cache").upsert({
       q_norm: qNorm,
-      refine: refined,
+      refine: out,
       updated_at: new Date().toISOString(),
     }, { onConflict: "q_norm" }).then(() => {}, (e) => console.warn("cache write", e));
 
-    return new Response(JSON.stringify(refined), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("search-refine err", e);
-    return new Response(JSON.stringify(EMPTY_RESULT), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(OFF), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
