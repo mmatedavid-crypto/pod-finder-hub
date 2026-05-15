@@ -73,6 +73,7 @@ export default function SearchPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
+  const [sectorFallback, setSectorFallback] = useState<{ symbol: string; hint: string } | null>(null);
   const [suggestion, setSuggestion] = useState<string>("");
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
@@ -110,6 +111,7 @@ export default function SearchPage() {
   useEffect(() => {
     setBroadened(false);
     setSemanticUsed(false);
+    setSectorFallback(null);
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
@@ -139,7 +141,7 @@ export default function SearchPage() {
         }
         const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
-        return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked };
+        return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked, sectorFallback: !!data?.sector_fallback, sectorHint: data?.sector_hint || "", tickerSymbol: data?.ticker_symbol || "" };
       };
 
       // Search v2: hybrid lexical + semantic. Two-phase for fast first paint:
@@ -156,6 +158,7 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic);
+        if (r1.sectorFallback && r1.tickerSymbol) setSectorFallback({ symbol: r1.tickerSymbol, hint: r1.sectorHint });
         setLoading(false);
 
         // Phase 2: rerank (with cache). Fire-and-forget update.
@@ -168,6 +171,7 @@ export default function SearchPage() {
           reranked = r2.reranked;
           setEpisodes(mapped);
           setSemanticUsed(r2.semantic || r2.reranked);
+          if (r2.sectorFallback && r2.tickerSymbol) setSectorFallback({ symbol: r2.tickerSymbol, hint: r2.sectorHint });
         }, () => { /* ignore */ });
       } catch (err) {
         if (cancelled) return;
@@ -685,7 +689,12 @@ export default function SearchPage() {
                     Showing results for {suggestion}
                   </span>
                 )}
-                {semanticUsed && (
+                {sectorFallback && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
+                    No exact mentions of {sectorFallback.symbol} — showing related episodes about {sectorFallback.hint}
+                  </span>
+                )}
+                {semanticUsed && !sectorFallback && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                     including related ideas
                   </span>
