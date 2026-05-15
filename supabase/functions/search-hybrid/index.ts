@@ -437,8 +437,13 @@ Deno.serve(async (req) => {
     if (rerankResult && rerankResult.ids.length) {
       const idx = new Map(rerankResult.ids.map((id, i) => [id, i]));
       ordered = ordered
-        .map((e: any) => ({ e, r: idx.has(e.id) ? idx.get(e.id)! : 999 + (orderMap.get(e.id) ?? 0) }))
-        .sort((a, b) => a.r - b.r)
+        .map((e: any) => ({
+          e,
+          // Pin strict hits above non-strict regardless of rerank order.
+          pin: strictHitIds.has(e.id) ? 0 : 1,
+          r: idx.has(e.id) ? idx.get(e.id)! : 999 + (orderMap.get(e.id) ?? 0),
+        }))
+        .sort((a, b) => a.pin - b.pin || a.r - b.r)
         .map((x) => {
           const why = rerankResult!.why[x.e.id];
           return why ? { ...x.e, why_matched: why } : x.e;
