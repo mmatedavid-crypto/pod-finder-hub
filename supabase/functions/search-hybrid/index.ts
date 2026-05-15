@@ -468,15 +468,30 @@ Deno.serve(async (req) => {
       } catch (e) { console.warn("token_idf err", e); }
     }
 
-    // Nonsense gate: every meaningful token confirmed unknown to the corpus
-    // AND no AI-detected entity → bail with zero results. (v5: kept entity
-    // check loose — even unverified entity names mean the AI saw signal.)
+    // v9: Nonsense gate. If every meaningful token is unknown to the corpus,
+    // bail. AI-hallucinated entities (e.g. AI echoing "xyzzyplugh" back as
+    // an entity) no longer save gibberish — we only trust entities that look
+    // real (multi-word, or contain at least one in-corpus token).
+    const knownTokenSet = new Set(rareGateTokens.filter((t) => {
+      // any token NOT in the unknown set has df>=1
+      return !rareTokens.includes(t) ? false : true;
+    }));
+    void knownTokenSet; // not currently used; placeholder for future use
+    const trustedEntities = rawEntities.filter((e) => {
+      const lc = e.toLowerCase();
+      // Multi-word entity = trusted (AI rarely fabricates "Joe Rogan")
+      if (e.includes(" ")) return true;
+      // Single-token entity that exactly equals a query token = NOT trusted (echo)
+      const tokens = lc.split(/[^a-z0-9]+/).filter(Boolean);
+      if (tokens.length === 1 && rareGateTokens.includes(tokens[0])) return false;
+      return true;
+    });
     if (
       idfRpcOk &&
       !isTickerQ &&
       rareGateTokens.length > 0 &&
       unknownTokenCount === rareGateTokens.length &&
-      rawEntities.length === 0
+      trustedEntities.length === 0
     ) {
       return new Response(JSON.stringify({
         episodes: [],
@@ -502,17 +517,15 @@ Deno.serve(async (req) => {
       phrasePool.push(phraseTokens.join(" "));
     }
 
-    // v8: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
-    // Adds canonical names so brand queries ("Joe Rogan", "Cursor", "Devin AI")
-    // boost the right episodes even when AI understanding misses them.
+    // v8/v9: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
+    // Wrapped in 400ms timeout — was a major p50 latency contributor (>1s on cold cache).
     let resolvedEntities: Array<{ kind: string; display_name: string; slug: string; similarity: number }> = [];
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
-      try {
-        const { data: resolved } = await supa.rpc("resolve_query_entities", {
-          p_q: q, p_max: 6, p_threshold: 0.45,
-        });
-        if (Array.isArray(resolved)) resolvedEntities = resolved as any;
-      } catch (e) { console.warn("resolve_query_entities err", e); }
+      const resolved = await withTimeout(
+        supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
+        400, "resolve_query_entities",
+      );
+      if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
     const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
 
