@@ -161,7 +161,8 @@ const MARKET_SYMBOL_SECTORS: Record<string, string> = {
 const TICKER_HELPER_WORDS = new Set([
   "stock","stocks","share","shares","ticker","equity","equities",
   "részvény","reszveny","részvények","reszvenyek","papír","papir",
-  "price","quote","chart",
+  "price","quote","chart","earnings","revenue","sales","results","guidance","forecast",
+  "analysis","analyst","valuation","market","cap","financials","quarter","q1","q2","q3","q4",
 ]);
 function compactMarketSymbol(q: string): string | null {
   // v7: Only treat as ticker if user signals ticker intent — either `$`-prefix
@@ -439,7 +440,9 @@ Deno.serve(async (req) => {
             || resolvedMarketTerms[0],
         ].filter(Boolean) as string[]
       : rawEntities;
-    const requiredTermsBase = strictCandidateTerms
+    const intent = String(understanding?.intent || "").toLowerCase();
+    const highPrecisionIntent = isTickerQ || intent === "person" || intent === "company" || intent === "ticker" || intent === "episode";
+    const requiredTermsBase = (highPrecisionIntent ? strictCandidateTerms : [])
       .slice()
       .sort((a, b) => b.length - a.length)
       .slice(0, 4);
@@ -573,7 +576,7 @@ Deno.serve(async (req) => {
       (t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
     );
     const phrasePool: string[] = [];
-    if (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
+    if (highPrecisionIntent && !isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
       // Push individual tokens (AND), not the joined phrase (contiguous).
       for (const t of phraseTokens) phrasePool.push(t);
     }
@@ -590,7 +593,8 @@ Deno.serve(async (req) => {
     }
     const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
 
-    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens, ...phrasePool], 8);
+    const gatedRareTokens = highPrecisionIntent ? rareTokens : [];
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...gatedRareTokens, ...phrasePool], 8);
     const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
     // Contiguous-phrase boost survives as score nudge (+0.15) even though
     // the MUST gate uses individual tokens (AND).
@@ -604,7 +608,6 @@ Deno.serve(async (req) => {
     // into required_terms. This prevents the result list from drifting to
     // episodes that mention "Joe" or "Rogan" separately. Falls back via the
     // existing entity fallback pyramid if 0 hits.
-    const intent = String(understanding?.intent || "").toLowerCase();
     if (
       (intent === "person" || intent === "company") &&
       contiguousPhrase.length &&
