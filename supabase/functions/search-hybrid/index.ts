@@ -131,9 +131,27 @@ const MARKET_SYMBOL_SECTORS: Record<string, string> = {
   avax: "avalanche blockchain L1 DeFi",
 };
 
+// Detect a US-style ticker even when surrounded by helper words.
+// Accepts: "NBIS", "$NBIS", "NBIS stock", "stock NBIS", "NBIS shares",
+// "NBIS részvény", "NBIS ticker". Strips $ prefix and trailing/leading
+// helper words then re-checks the symbol pattern.
+const TICKER_HELPER_WORDS = new Set([
+  "stock","stocks","share","shares","ticker","equity","equities",
+  "részvény","reszveny","részvények","reszvenyek","papír","papir",
+  "price","quote","chart",
+]);
 function compactMarketSymbol(q: string): string | null {
-  const t = q.trim();
-  return /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t) ? t.toUpperCase() : null;
+  let t = q.trim().replace(/^\$/, "");
+  if (/^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(t)) return t.toUpperCase();
+  // Try stripping helper words at either end.
+  const parts = t.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2 && parts.length <= 4) {
+    const core = parts.filter((p) => !TICKER_HELPER_WORDS.has(p.toLowerCase()));
+    if (core.length === 1 && /^[A-Za-z]{2,5}(\.[A-Za-z])?$/.test(core[0])) {
+      return core[0].toUpperCase();
+    }
+  }
+  return null;
 }
 
 function uniqueClean(values: string[], max = 12): string[] {
@@ -382,14 +400,47 @@ Deno.serve(async (req) => {
     // can no longer be silently dropped by the AI expansion.
     const rareGateTokens = tokenizeForRareGate(q, isTickerQ);
     let rareTokens: string[] = [];
+    let unknownTokenCount = 0; // df === 0 confirmed
+    let idfRpcOk = false;
     if (rareGateTokens.length) {
       try {
-        const { data: idfRows } = await supa.rpc("token_idf", { p_tokens: rareGateTokens });
+        const { data: idfRows, error: idfErr } = await supa.rpc("token_idf", { p_tokens: rareGateTokens });
+        if (idfErr) throw idfErr;
+        idfRpcOk = true;
         const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
-        rareTokens = ((idfRows as Array<{ token: string; df: number }>) || [])
-          .filter((r) => r.df > 0 && r.df < RARE_THRESHOLD)
-          .map((r) => r.token);
+        const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
+        rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
+        // Count tokens that the RPC EXPLICITLY returned as df=0. Tokens missing
+        // from the response (e.g. shorter than 3 chars) are NOT counted as
+        // unknown — only the ones we have proof for.
+        const dfMap = new Map(rows.map((r) => [r.token, r.df]));
+        unknownTokenCount = rareGateTokens.filter((t) => dfMap.get(t) === 0).length;
       } catch (e) { console.warn("token_idf err", e); }
+    }
+
+    // Nonsense gate: if every meaningful token is *confirmed* unknown to the
+    // corpus AND the AI did not detect any entity → bail out with zero
+    // results instead of letting the vector pass return random neighbors of
+    // nonsense (e.g. "asdkfjhqwerty" → garbage). Requires the IDF RPC to have
+    // actually succeeded — never trigger on RPC failure.
+    if (
+      idfRpcOk &&
+      !isTickerQ &&
+      rareGateTokens.length > 0 &&
+      unknownTokenCount === rareGateTokens.length &&
+      rawEntities.length === 0
+    ) {
+      return new Response(JSON.stringify({
+        episodes: [],
+        understanding,
+        timing: { embed_ms: tEmb, rpc_ms: 0, total_ms: Date.now() - t0 },
+        semantic: !!q_embedding,
+        cache_hit: cacheHit,
+        confidence_band: "low",
+        rare_tokens: rareGateTokens,
+        nonsense_gate: true,
+        reason: "no_known_tokens",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens], 6);
     const entityTerms = rawEntities.slice(0, 8);
@@ -621,6 +672,40 @@ Deno.serve(async (req) => {
           const why = rerankResult!.why[x.e.id];
           return why ? { ...x.e, why_matched: why } : x.e;
         });
+    }
+
+    // Entity-pinning boost: episodes whose title or entity arrays contain at
+    // least one AI-detected entity name (case-insensitive, word-boundary)
+    // are pinned above episodes with zero entity matches. Strict-hit pin from
+    // the rerank pass is preserved by adding entity match as a SECONDARY pin.
+    // Fixes broad-name queries like "Cursor", "Stripe", "Perplexity" where
+    // vector neighbors otherwise outrank actual mentions.
+    const pinEntities = uniqueClean([
+      ...((understanding?.entities as string[]) || []),
+    ], 6).map((s) => s.toLowerCase()).filter((s) => s.length >= 3);
+    if (pinEntities.length) {
+      const matchEntity = (e: any): boolean => {
+        const hayParts = [
+          e.title || "",
+          (Array.isArray(e.people) ? e.people.join(" ") : ""),
+          (Array.isArray(e.companies) ? e.companies.join(" ") : ""),
+          (Array.isArray(e.tickers) ? e.tickers.join(" ") : ""),
+          (Array.isArray(e.topics) ? e.topics.join(" ") : ""),
+        ];
+        const hay = hayParts.join(" ").toLowerCase();
+        return pinEntities.some((ent) => {
+          // word-boundary match on the entity, allow multi-word phrases
+          const re = new RegExp(`(?:^|[^a-z0-9])${ent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^a-z0-9])`);
+          return re.test(hay);
+        });
+      };
+      const annotated = ordered.map((e: any, i: number) => ({ e, i, hit: matchEntity(e) }));
+      const hits = annotated.filter((x) => x.hit).map((x) => x.e);
+      const misses = annotated.filter((x) => !x.hit).map((x) => x.e);
+      // Only re-order when entity-pin actually changes the head of the list.
+      if (hits.length > 0 && hits.length < ordered.length) {
+        ordered = [...hits, ...misses];
+      }
     }
 
     // Podcast-level diversity (soft MMR): cap repeats per podcast in the ranked
