@@ -718,7 +718,8 @@ Deno.serve(async (req) => {
       );
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       // Only pin if similarity is strong (≥0.6) — weak matches would pollute results.
-      if (top && typeof top.sim === "number" && top.sim >= 0.6) {
+      const sim = top && (typeof top.similarity === "number" ? top.similarity : (typeof top.sim === "number" ? top.sim : 0));
+      if (top && sim >= 0.6) {
         podcastPinSlug = top.slug;
         podcastPinTitle = top.title;
         const { data: pinEps } = await supa
