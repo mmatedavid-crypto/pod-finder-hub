@@ -343,7 +343,8 @@ Deno.serve(async (req) => {
     // after the strict ones, so a query like "jaguar" still shows the
     // exact-match episodes first, then semantic neighbors below.
     const strictRows = rows || [];
-    const strictIds = new Set(strictRows.map((r: any) => r.episode_id));
+    const strictHitIds = new Set(strictRows.map((r: any) => r.episode_id));
+    const strictIds = new Set(strictHitIds);
     const appendNew = (extra: any[] | null | undefined) => {
       if (!extra) return;
       for (const r of extra) {
