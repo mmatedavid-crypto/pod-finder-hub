@@ -47,6 +47,8 @@ export default function AdminSearchInsightsPage() {
           .order("created_at", { ascending: false })
           .limit(5000);
         setRows((r as Row[]) || []);
+        const { data: nd } = await (supabase as any).rpc("search_ndcg_weekly", { p_min_impressions: 5 });
+        setNdcg(((nd as NdcgRow[]) || []).slice(0, 30));
       }
       setReady(true);
     })();
