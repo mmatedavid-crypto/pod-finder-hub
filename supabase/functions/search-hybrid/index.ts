@@ -104,7 +104,8 @@ function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
   const seen = new Set<string>();
   for (const raw of q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/)) {
     const t = raw.trim();
-    if (t.length < 4 || t.length > 30) continue;
+    // v9: lowered to 3 chars so short gibberish ("xyz123") still gates.
+    if (t.length < 3 || t.length > 30) continue;
     if (RARE_GATE_STOPWORDS.has(t)) continue;
     if (/^\d+$/.test(t)) continue;
     if (seen.has(t)) continue;
