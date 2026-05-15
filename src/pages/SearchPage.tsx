@@ -113,6 +113,7 @@ export default function SearchPage() {
     setBroadened(false);
     setSemanticUsed(false);
     setSectorFallback(null);
+    setConfidenceBand("high");
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
