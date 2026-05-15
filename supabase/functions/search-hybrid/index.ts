@@ -41,6 +41,29 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
   link: ["Chainlink"],
   dot: ["Polkadot"],
   matic: ["Polygon"],
+  // US equities — recent/obscure tickers small AI models often miss.
+  nbis: ["Nebius", "Nebius Group"],
+  asts: ["AST SpaceMobile"],
+  smci: ["Super Micro Computer", "Supermicro"],
+  pltr: ["Palantir"],
+  rddt: ["Reddit"],
+  arm: ["Arm Holdings"],
+  coin: ["Coinbase"],
+  hood: ["Robinhood"],
+  rivn: ["Rivian"],
+  lcid: ["Lucid Motors"],
+  mstr: ["MicroStrategy"],
+  nvda: ["Nvidia"],
+  tsla: ["Tesla"],
+  amd: ["AMD", "Advanced Micro Devices"],
+  meta: ["Meta", "Facebook"],
+  goog: ["Google", "Alphabet"],
+  googl: ["Google", "Alphabet"],
+  msft: ["Microsoft"],
+  aapl: ["Apple"],
+  amzn: ["Amazon"],
+  nflx: ["Netflix"],
+  tsm: ["TSMC", "Taiwan Semiconductor"],
 };
 
 const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
@@ -373,7 +396,10 @@ Deno.serve(async (req) => {
       }
     }
     // Pass 3 — drop gate entirely, semantic-tilted, append below strict.
-    if (strictRows.length < 5 && mustGateApplied && q_embedding) {
+    // Skip drop-gate fallback for ticker queries — semantic neighbors of a
+    // bare symbol (e.g. "NBIS" → "Nobel"-cluster) are misleading. Better to
+    // return zero results so the PI fallback / empty-state UI kicks in.
+    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
