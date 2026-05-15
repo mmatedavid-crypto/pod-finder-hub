@@ -147,7 +147,7 @@ export function EpisodeCard({
               href={e.audio_url}
               target="_blank"
               rel="noreferrer"
-              onClick={() => logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "audio" })}
+              onClick={() => logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "audio", searchQuery, searchRank })}
               className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
             >
               <ExternalLink className="h-3 w-3" /> Listen
@@ -167,14 +167,14 @@ export function EpisodeCard({
 }
 
 export function EpisodeList({
-  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false,
-}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean }) {
+  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false, searchQuery,
+}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; searchQuery?: string }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
   const desktop = (
     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:shadow-elevated overflow-hidden -mx-4 sm:mx-0`}>
-      {items.map((e) => (
+      {items.map((e, idx) => (
         <li key={e.id} className="transition-colors">
-          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+          <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
         </li>
       ))}
     </ul>
