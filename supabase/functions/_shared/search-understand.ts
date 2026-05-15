@@ -80,7 +80,10 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
       }),
     });
     clearTimeout(t);
-    if (!r.ok) return EMPTY;
+    if (!r.ok) {
+      if (r.status >= 500 || r.status === 429) cbRecordFail();
+      return EMPTY;
+    }
     const j = await r.json();
     const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return EMPTY;
@@ -94,6 +97,7 @@ export async function understandQuery(q: string, timeoutMs = 1500): Promise<Unde
     };
   } catch (e) {
     clearTimeout(t);
+    cbRecordFail();
     console.warn("understand err", e);
     return EMPTY;
   }
