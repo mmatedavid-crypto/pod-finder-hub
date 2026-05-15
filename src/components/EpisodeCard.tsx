@@ -71,7 +71,11 @@ export function EpisodeCard({
         </div>
       </Link>
       <div className="min-w-0 flex-1">
-        <Link to={`/podcast/${p.slug}/${e.slug}`} className="font-semibold leading-snug line-clamp-2 group-hover:underline tracking-tight">
+        <Link
+          to={`/podcast/${p.slug}/${e.slug}`}
+          onClick={() => searchQuery && logEpisodeEvent({ episodeId: e.id, podcastId: (p as any).id ?? null, eventType: "listen_click", platform: "original", searchQuery, searchRank })}
+          className="font-semibold leading-snug line-clamp-2 group-hover:underline tracking-tight"
+        >
           <HL text={epTitle} terms={terms} />
         </Link>
         <div className="text-xs text-muted-foreground mt-1.5 flex flex-wrap gap-x-2 gap-y-1 items-center">
