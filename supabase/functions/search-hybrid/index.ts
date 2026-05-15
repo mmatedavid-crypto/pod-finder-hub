@@ -4,6 +4,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { understandQuery, buildExpandedQuery, type Understanding } from "../_shared/search-understand.ts";
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
+import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
+import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
