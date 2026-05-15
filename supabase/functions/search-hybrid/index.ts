@@ -300,8 +300,8 @@ Deno.serve(async (req) => {
     //   v10 = + IDF rare-token MUST gate + entity-fallback pyramid + confidence
     //   v11 = + spell correction
     //   v12 = + freshness decay + bigram MUST + HyDE + Cohere rerank
-    const engineRaw = String(body.engine || "v12").toLowerCase();
-    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 12; })();
+    const engineRaw = String(body.engine || "v13").toLowerCase();
+    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
     const FF = {
       threePassMust: engN >= 9,
       mmrDiversity: engN >= 9,
@@ -312,6 +312,7 @@ Deno.serve(async (req) => {
       bigramMust: engN >= 12,
       hyde: engN >= 12,
       cohere: engN >= 12,
+      chunkAugment: engN >= 13, // v13: passage-level chunk vector recall
     };
 
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -887,6 +888,39 @@ Deno.serve(async (req) => {
     else if (strictCount >= 3) confidenceBand = "medium";
     else confidenceBand = "low";
 
+    // v13: Chunk augmentation. Pull passage-level vector matches from
+    // episode_chunks (description + transcript chunks) and append episodes
+    // not already in strictRows. Boosts recall for long-form podcasts where
+    // the matching content lives mid-episode (transcript) or beyond the
+    // first 1600 chars of the description.
+    let chunkAugmented = 0;
+    if (FF.chunkAugment && q_embedding && strictRows.length < 30) {
+      try {
+        const { data: chunkRows } = await supa.rpc("search_episode_chunks", {
+          query_embedding: `[${q_embedding.join(",")}]`,
+          match_count: 30,
+          candidate_pool: 400,
+        });
+        const cr = (chunkRows as any[]) || [];
+        for (const c of cr) {
+          if (strictIds.has(c.episode_id)) continue;
+          // Discount chunk-only hits slightly so they sort below true strict hits.
+          strictRows.push({
+            episode_id: c.episode_id,
+            lex_score: 0,
+            sem_score: c.similarity || 0,
+            hybrid_score: (c.similarity || 0) * 0.92,
+            chunk_source: c.best_source,
+          } as any);
+          strictIds.add(c.episode_id);
+          chunkAugmented++;
+          if (chunkAugmented >= 20) break;
+        }
+      } catch (err) {
+        console.warn("chunk_augment_failed", err);
+      }
+    }
+
     rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
 
@@ -1103,6 +1137,7 @@ Deno.serve(async (req) => {
         podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle, count: podcastPinIds.length } : null,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
         engine: engineRaw,
+        chunks_augmented: chunkAugmented,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
