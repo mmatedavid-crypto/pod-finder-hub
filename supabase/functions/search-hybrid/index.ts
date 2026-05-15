@@ -371,10 +371,27 @@ Deno.serve(async (req) => {
             || resolvedMarketTerms[0],
         ].filter(Boolean) as string[]
       : rawEntities;
-    const requiredTerms = strictCandidateTerms
+    const requiredTermsBase = strictCandidateTerms
       .slice()
       .sort((a, b) => b.length - a.length)
       .slice(0, 4);
+
+    // Rare-token MUST gate (universal): any token in the raw query that is rare
+    // in the corpus (low document frequency) becomes mandatory. This kills the
+    // "Nbis → Nobel cluster" failure mode globally — uncommon names/terms
+    // can no longer be silently dropped by the AI expansion.
+    const rareGateTokens = tokenizeForRareGate(q, isTickerQ);
+    let rareTokens: string[] = [];
+    if (rareGateTokens.length) {
+      try {
+        const { data: idfRows } = await supa.rpc("token_idf", { p_tokens: rareGateTokens });
+        const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
+        rareTokens = ((idfRows as Array<{ token: string; df: number }>) || [])
+          .filter((r) => r.df > 0 && r.df < RARE_THRESHOLD)
+          .map((r) => r.token);
+      } catch (e) { console.warn("token_idf err", e); }
+    }
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens], 6);
     const entityTerms = rawEntities.slice(0, 8);
     const alphaLex = isTickerQ ? 0.8 : rawEntities.length > 0 ? 0.65 : 0.45;
 
