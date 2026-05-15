@@ -9,7 +9,14 @@ import { Seo } from "@/components/Seo";
 import { searchEpisodes, parseQuery, normalizeQuery, MATCH_LABEL } from "@/lib/search";
 import { episodeScore } from "@/lib/episodeRank";
 import NeoSearchBar, { NeoTurn } from "@/components/NeoSearchBar";
+import NeoChips, { type NeoChip, isNeoMuted, isRefined, markRefined } from "@/components/NeoChips";
 import MatrixRain from "@/components/MatrixRain";
+
+type NeoRefine = { mode: "off" | "ambiguity" | "zero_hit"; message: string; chips: NeoChip[] };
+
+function qHash(q: string): string {
+  return q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
 
 const MATRIX_RE = /^\s*(the\s+)?matrix\s*$/i;
 
@@ -73,6 +80,7 @@ export default function SearchPage() {
   const [neoTurns, setNeoTurns] = useState<NeoTurn[]>([]);
   const [neoThinking, setNeoThinking] = useState(false);
   const [neoDone, setNeoDone] = useState(false);
+  const [neoRefine, setNeoRefine] = useState<NeoRefine | null>(null);
   const neoTurnsRef = useRef<NeoTurn[]>([]);
   const expectChatRef = useRef(false);
   const lastLoggedRef = useRef<string>("");
@@ -105,6 +113,7 @@ export default function SearchPage() {
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
+    setNeoRefine(null);
     // Neo turns are NOT cleared here — the search effect re-runs on every refined query
     // and we want the chat history to persist. Clear only on a brand-new ?q (handled in onSubmit).
     answerAbortRef.current?.abort();
@@ -242,8 +251,8 @@ export default function SearchPage() {
       // Conversational AI:
       // - If this search was triggered by a user reply (expectChatRef), call search-chat
       //   to produce a contextual reaction + maybe a follow-up.
-      // - Otherwise, on the very first search with enough ambiguity, call search-refine
-      //   for the initial "Neo moment" question.
+      // - Otherwise, on the first search ask search-refine for verified disambiguation chips
+      //   (silent badge mode), unless the user already refined this query or muted Neo.
       const topResults = mapped.slice(0, 6).map((e: any) => ({
         title: e.display_title || e.title,
         podcast: e.podcasts?.title || "",
@@ -274,16 +283,35 @@ export default function SearchPage() {
           setNeoTurns((t) => [...t, { role: "assistant", content: "locked in." }]);
           setNeoDone(true);
         });
-      } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
+      } else if (
+        neoTurnsRef.current.length === 0 &&
+        !isNeoMuted() &&
+        !isRefined(qHash(initial))
+      ) {
+        // Build the rich payload for chip aggregation from the actual top-50 results.
+        const richTop = mapped.slice(0, 50).map((e: any) => ({
+          podcastTitle: e.podcasts?.title || "",
+          podcastSlug: e.podcasts?.slug || "",
+          categoryPrimary: e.podcasts?.category || "",
+          people: Array.isArray(e.people) ? e.people : [],
+          companies: Array.isArray(e.companies) ? e.companies : [],
+          topics: Array.isArray(e.topics) ? e.topics : [],
+          publishedAt: e.published_at || null,
+        }));
         const rctrl = new AbortController();
         refineAbortRef.current = rctrl;
         supabase.functions.invoke("search-refine", {
-          body: { q: q0, topResults },
+          body: {
+            q: q0,
+            topResults: richTop,
+            topTitles: mapped.slice(0, 3).map((e: any) => e.display_title || e.title),
+            totalHits: mapped.length,
+            strictHitCount: mapped.length, // approximation; semantic-only counts as zero-strict via empty mapped
+          },
         }).then(({ data, error }) => {
-          if (cancelled || rctrl.signal.aborted || error) return;
-          if (data?.should_clarify && data?.question) {
-            setNeoTurns([{ role: "assistant", content: String(data.question) }]);
-            setNeoDone(false);
+          if (cancelled || rctrl.signal.aborted || error || !data) return;
+          if (data.mode && data.mode !== "off" && Array.isArray(data.chips) && data.chips.length > 0) {
+            setNeoRefine(data as NeoRefine);
           }
         }, () => { /* ignore */ });
       }
@@ -434,6 +462,25 @@ export default function SearchPage() {
             }}
             placeholder="e.g. Nvidia data centers"
           />
+          {neoRefine && neoTurns.length === 0 && (
+            <NeoChips
+              mode={neoRefine.mode === "off" ? "ambiguity" : neoRefine.mode}
+              message={neoRefine.message}
+              chips={neoRefine.chips}
+              defaultExpanded={neoRefine.mode === "zero_hit"}
+              onPick={(chip) => {
+                markRefined(qHash(initial));
+                setNeoRefine(null);
+                const next = `${refineExtra} ${chip.query}`.trim();
+                setRefineExtra(next);
+                window.scrollTo({ top: 0, behavior: "auto" });
+              }}
+              onDismiss={() => {
+                markRefined(qHash(initial));
+                setNeoRefine(null);
+              }}
+            />
+          )}
           <details className="mt-2 text-xs text-muted-foreground max-w-2xl">
             <summary className="cursor-pointer hover:text-foreground">Advanced search tips</summary>
             <p className="mt-2">
