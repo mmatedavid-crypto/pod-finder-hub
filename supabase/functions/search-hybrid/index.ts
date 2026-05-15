@@ -535,7 +535,11 @@ Deno.serve(async (req) => {
 
     const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens, ...phrasePool], 8);
     const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
-    const phraseTerms = uniqueClean([...phrasePool, ...resolvedNames], 6);
+    // Contiguous-phrase boost survives as score nudge (+0.15) even though
+    // the MUST gate uses individual tokens (AND).
+    const contiguousPhrase = (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4)
+      ? [phraseTokens.join(" ")] : [];
+    const phraseTerms = uniqueClean([...contiguousPhrase, ...resolvedNames], 6);
     const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
