@@ -898,6 +898,16 @@ Deno.serve(async (req) => {
     };
     ordered = diversify(ordered);
 
+    // v10: Final podcast-name pin — episodes from the matched podcast bubble to top.
+    if (podcastPinIds.length) {
+      const pinSet = new Set(podcastPinIds);
+      const pinned = ordered.filter((e: any) => pinSet.has(e.id));
+      const rest = ordered.filter((e: any) => !pinSet.has(e.id));
+      // Order pinned by published_at desc (we already requested in that order).
+      pinned.sort((a: any, b: any) => podcastPinIds.indexOf(a.id) - podcastPinIds.indexOf(b.id));
+      ordered = [...pinned, ...rest];
+    }
+
     return new Response(
       JSON.stringify({
         episodes: ordered.slice(0, limit),
