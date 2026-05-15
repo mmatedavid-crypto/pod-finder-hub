@@ -408,13 +408,16 @@ Deno.serve(async (req) => {
         if (idfErr) throw idfErr;
         idfRpcOk = true;
         const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
+        const UNKNOWN_THRESHOLD = 5; // v4: df < 5 treated as unknown (gibberish edge cases)
         const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
         rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
-        // Count tokens that the RPC EXPLICITLY returned as df=0. Tokens missing
-        // from the response (e.g. shorter than 3 chars) are NOT counted as
-        // unknown — only the ones we have proof for.
+        // v4: count both df=0 and df<5 as "effectively unknown" so the nonsense
+        // gate catches gibberish that happens to share a few stray tokens.
         const dfMap = new Map(rows.map((r) => [r.token, r.df]));
-        unknownTokenCount = rareGateTokens.filter((t) => dfMap.get(t) === 0).length;
+        unknownTokenCount = rareGateTokens.filter((t) => {
+          const df = dfMap.get(t);
+          return df === undefined ? false : df < UNKNOWN_THRESHOLD;
+        }).length;
       } catch (e) { console.warn("token_idf err", e); }
     }
 
