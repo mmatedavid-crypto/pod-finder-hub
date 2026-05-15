@@ -293,6 +293,27 @@ Deno.serve(async (req) => {
     const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "en");
     const wantRerank = body.rerank !== false;
 
+    // Engine version flags (A/B testing). Default = v12 (current production).
+    // Each older version peels back the layers that shipped at that milestone:
+    //   v8  = pre-quality-upgrade baseline (just lex+sem hybrid + entity pin)
+    //   v9  = + 3-pass MUST relax + MMR diversity
+    //   v10 = + IDF rare-token MUST gate + entity-fallback pyramid + confidence
+    //   v11 = + spell correction
+    //   v12 = + freshness decay + bigram MUST + HyDE + Cohere rerank
+    const engineRaw = String(body.engine || "v12").toLowerCase();
+    const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 12; })();
+    const FF = {
+      threePassMust: engN >= 9,
+      mmrDiversity: engN >= 9,
+      hallucinationGuard: engN >= 10, // IDF rare-token MUST gate + nonsense gate
+      entityPyramid: engN >= 10,
+      spell: engN >= 11,
+      decay: engN >= 12,
+      bigramMust: engN >= 12,
+      hyde: engN >= 12,
+      cohere: engN >= 12,
+    };
+
     if (!q) return new Response(JSON.stringify({ episodes: [], reason: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
@@ -488,7 +509,7 @@ Deno.serve(async (req) => {
       const tk = e.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
       return !(tk.length === 1 && rareGateTokens.includes(tk[0]));
     });
-    if (idfRpcOk && !isTickerQ && unknownTokens.length > 0 && trustedEntitiesPre.length === 0) {
+    if (FF.spell && idfRpcOk && !isTickerQ && unknownTokens.length > 0 && trustedEntitiesPre.length === 0) {
       const correctable = unknownTokens.filter((t) => {
         const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
         const m = q.match(re);
@@ -509,13 +530,10 @@ Deno.serve(async (req) => {
         for (const c of spellCorrections) {
           rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
         }
-        // Mutate q + qNorm so the rest of the pipeline uses the corrected text.
         q = rewritten;
         qNorm = normalizeQ(rewritten);
-        // Re-embed (best effort); fall back to original embedding on failure.
         const newEmb = await embed(rewritten);
         if (newEmb) q_embedding = newEmb;
-        // Re-run IDF on corrected tokens.
         const newGateTokens = tokenizeForRareGate(rewritten, false);
         try {
           const { data: idfRows2 } = await supa.rpc("token_idf", { p_tokens: newGateTokens });
@@ -547,6 +565,7 @@ Deno.serve(async (req) => {
       return true;
     });
     if (
+      FF.hallucinationGuard &&
       idfRpcOk &&
       !isTickerQ &&
       rareGateTokens.length > 0 &&
@@ -593,7 +612,7 @@ Deno.serve(async (req) => {
     }
     const resolvedNames = uniqueClean(resolvedEntities.map((r) => r.display_name), 4);
 
-    const gatedRareTokens = highPrecisionIntent ? rareTokens : [];
+    const gatedRareTokens = (FF.hallucinationGuard && highPrecisionIntent) ? rareTokens : [];
     const requiredTerms = uniqueClean([...requiredTermsBase, ...gatedRareTokens, ...phrasePool], 8);
     const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
     // Contiguous-phrase boost survives as score nudge (+0.15) even though
@@ -609,6 +628,7 @@ Deno.serve(async (req) => {
     // episodes that mention "Joe" or "Rogan" separately. Falls back via the
     // existing entity fallback pyramid if 0 hits.
     if (
+      FF.bigramMust &&
       (intent === "person" || intent === "company") &&
       contiguousPhrase.length &&
       rawEntities.some((e) => e.toLowerCase() === contiguousPhrase[0].toLowerCase())
@@ -621,7 +641,7 @@ Deno.serve(async (req) => {
     // v12: Intent-driven freshness decay. News/ticker/company queries get a
     // small recency boost; topic/person/evergreen stay neutral. The RPC adds
     // p_decay_lambda * exp(-0.02 * days_old) to each row's score.
-    const decayLambda = (intent === "news" || intent === "ticker" || intent === "company") ? 0.15 : 0;
+    const decayLambda = (FF.decay && (intent === "news" || intent === "ticker" || intent === "company")) ? 0.15 : 0;
 
     // v12: HyDE expansion. For broad topical/question queries, generate a
     // hypothetical episode description via LLM, embed it, and blend with the
@@ -630,6 +650,7 @@ Deno.serve(async (req) => {
     let hydeUsed = false;
     let hydeCacheHit: boolean | null = null;
     if (
+      FF.hyde &&
       q_embedding &&
       (intent === "topic" || intent === "question" || intent === "") &&
       !isTickerQ &&
@@ -708,7 +729,7 @@ Deno.serve(async (req) => {
     };
 
     // Pass 2 — drop phrase requirement, keep entity / rare-token gate.
-    if (strictRows.length < 5 && mustGateApplied && phrasePool.length) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && phrasePool.length) {
       const noPhraseTerms = requiredTerms.filter((t) => !phrasePool.includes(t));
       if (noPhraseTerms.length !== requiredTerms.length) {
         const retry = await supa.rpc("search_episodes_hybrid", {
@@ -727,7 +748,7 @@ Deno.serve(async (req) => {
     }
 
     // Pass 3 — relaxed gate (multi-word entities only).
-    if (strictRows.length < 5 && mustGateApplied) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied) {
       const strictTerms = requiredTerms.filter((t) => t.includes(" ") && !phrasePool.includes(t));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
       if ((relaxedTerms?.join("|") || "") !== requiredTerms.join("|")) {
@@ -748,7 +769,7 @@ Deno.serve(async (req) => {
     // Pass 4 — drop gate entirely, semantic-tilted.
     // Skip when a phrase MUST is present: bare semantic neighbors of "Cursor IDE"
     // (sermons / Chicago Bears) are exactly the hallucination class we're killing.
-    if (strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0) {
+    if (FF.threePassMust && strictRows.length < 5 && mustGateApplied && q_embedding && !isTickerQ && phrasePool.length === 0) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
@@ -771,7 +792,7 @@ Deno.serve(async (req) => {
     let sectorFallback = false;
     let sectorHint: string | null = null;
     let fallbackKind: "ticker" | "person" | "company" | null = null;
-    if (strictRows.length === 0) {
+    if (FF.entityPyramid && strictRows.length === 0) {
       let entityName: string | null = null;
       let contextTerms: string | null = null;
 
@@ -898,6 +919,7 @@ Deno.serve(async (req) => {
     let cohereRerankUsed = false;
     let cohereLatency = 0;
     if (
+      FF.cohere &&
       ordered.length >= 10 &&
       (confidenceBand === "high" || confidenceBand === "medium") &&
       !sectorFallback
@@ -1041,7 +1063,7 @@ Deno.serve(async (req) => {
       }
       return [...kept, ...overflow];
     };
-    ordered = diversify(ordered);
+    if (FF.mmrDiversity) ordered = diversify(ordered);
 
     // v10: Final podcast-name pin — episodes from the matched podcast bubble to top.
     if (podcastPinIds.length) {
@@ -1080,6 +1102,7 @@ Deno.serve(async (req) => {
         cohere_rerank_ms: cohereLatency || null,
         podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle, count: podcastPinIds.length } : null,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
+        engine: engineRaw,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
