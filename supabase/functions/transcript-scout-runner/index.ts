@@ -101,7 +101,8 @@ async function findRssTranscript(podcastRssUrl: string, episodeGuid: string | nu
     headers: { "User-Agent": "PodiverzumScout/1.0 (+https://podiverzum.com)" },
   });
   if (!res.ok) return null;
-  const xml = await res.text();
+  const xml = await readCapped(res, MAX_RSS_BYTES);
+  if (!xml) return null;
   // Quick rejection: skip feeds with no transcript tag at all
   if (!/podcast:transcript/i.test(xml)) return null;
 
