@@ -703,6 +703,42 @@ Deno.serve(async (req) => {
       }
     }
 
+    // v10: Known-item / navigational query — pin episodes from a podcast whose
+    // title fuzzy-matches the query (e.g. "All-In", "Acquired", "BG2", "Founders
+    // podcast"). Industry-standard query-classification step (Spotify/Apple).
+    let podcastPinSlug: string | null = null;
+    let podcastPinTitle: string | null = null;
+    let podcastPinIds: string[] = [];
+    if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
+      // Strip podcast filler before matching ("acquired podcast" → "acquired").
+      const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
+      const pmRes = await withTimeout(
+        supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
+        300, "match_podcast_by_name",
+      );
+      const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
+      // Only pin if similarity is strong (≥0.6) — weak matches would pollute results.
+      if (top && typeof top.sim === "number" && top.sim >= 0.6) {
+        podcastPinSlug = top.slug;
+        podcastPinTitle = top.title;
+        const { data: pinEps } = await supa
+          .from("episodes")
+          .select("id")
+          .eq("podcast_id", top.podcast_id)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .limit(8);
+        if (pinEps?.length) podcastPinIds = pinEps.map((e: any) => e.id);
+        // Inject into strictRows so they survive the rest of the pipeline.
+        for (const id of podcastPinIds) {
+          if (!strictIds.has(id)) {
+            strictRows.unshift({ episode_id: id, lex_score: 1, sem_score: 1, hybrid_score: 1 } as any);
+            strictIds.add(id);
+            strictHitIds.add(id);
+          }
+        }
+      }
+    }
+
     // Confidence band: how much should we trust these results?
     // - high: solid strict hits, no fallback needed
     // - medium: relaxed gate or partial strict hits
