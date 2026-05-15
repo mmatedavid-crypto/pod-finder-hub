@@ -492,39 +492,71 @@ Deno.serve(async (req) => {
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
     }
 
-    // Pass 4 — TICKER SECTOR FALLBACK. If a ticker query has no strict hits,
-    // re-embed using "{Company} {sector hint}" and run a semantic-only RPC.
-    // This avoids the "NBIS → Nobel cluster" failure mode by anchoring the
-    // vector search to the ticker's actual industry instead of the symbol.
+    // Pass 4 — ENTITY FALLBACK PYRAMID. Generalized from the ticker sector
+    // fallback. If a ticker/person/company query has no strict hits, re-embed
+    // using "{Entity} {context terms}" and run a semantic-only RPC. Anchors
+    // the vector search to the entity's actual industry/topics instead of
+    // bare-symbol vector neighbors (e.g. "NBIS" → "Nobel cluster").
     let sectorFallback = false;
     let sectorHint: string | null = null;
-    if (isTickerQ && marketSymbol && strictRows.length === 0) {
-      const sectorTerms = MARKET_SYMBOL_SECTORS[marketSymbol.toLowerCase()] || "";
-      const companyName = symbolAliases[0]
-        || rawEntities.find((t) => t.toUpperCase() !== marketSymbol)
-        || (curated.expansions || [])[0]
-        || marketSymbol;
-      const sectorQText = `${companyName} ${sectorTerms}`.trim();
-      if (sectorQText && sectorTerms) {
+    let fallbackKind: "ticker" | "person" | "company" | null = null;
+    if (strictRows.length === 0) {
+      let entityName: string | null = null;
+      let contextTerms: string | null = null;
+
+      if (isTickerQ && marketSymbol) {
+        fallbackKind = "ticker";
+        entityName = symbolAliases[0]
+          || rawEntities.find((t) => t.toUpperCase() !== marketSymbol)
+          || (curated.expansions || [])[0]
+          || marketSymbol;
+        contextTerms = MARKET_SYMBOL_SECTORS[marketSymbol.toLowerCase()] || null;
+      } else if (understanding?.intent === "person" || understanding?.intent === "company") {
+        const primaryEntity = rawEntities.find((t) => t.includes(" ")) || rawEntities[0];
+        if (primaryEntity) {
+          fallbackKind = understanding.intent as "person" | "company";
+          entityName = primaryEntity;
+          // Use AI-expanded terms (topics/industry) as the semantic anchor.
+          const ctx = uniqueClean([
+            ...((understanding.expanded_terms as string[]) || []),
+            ...((understanding.synonyms as string[]) || []),
+          ], 6).filter((t) => t.toLowerCase() !== primaryEntity.toLowerCase());
+          if (ctx.length) contextTerms = ctx.join(" ");
+        }
+      }
+
+      if (entityName && contextTerms) {
+        const sectorQText = `${entityName} ${contextTerms}`.trim();
         const sectorEmb = await embed(sectorQText);
         if (sectorEmb) {
           const retry3 = await supa.rpc("search_episodes_hybrid", {
-            q: companyName,
+            q: entityName,
             q_embedding: `[${sectorEmb.join(",")}]`,
             limit_n: Math.max(limit, 30),
             lang,
             required_terms: null,
             entity_terms: null,
-            alpha_lex: 0.15, // semantic-heavy
+            alpha_lex: 0.15,
           });
           if (!retry3.error && retry3.data?.length) {
             appendNew(retry3.data);
             sectorFallback = true;
-            sectorHint = sectorTerms.split(" ").slice(0, 5).join(" ");
+            sectorHint = contextTerms.split(/\s+/).slice(0, 6).join(" ");
           }
         }
       }
     }
+
+    // Confidence band: how much should we trust these results?
+    // - high: solid strict hits, no fallback needed
+    // - medium: relaxed gate or partial strict hits
+    // - low: fallback kicked in / dropped gate / very few hits
+    const strictCount = strictHitIds.size;
+    let confidenceBand: "high" | "medium" | "low";
+    if (sectorFallback || mustGateDropped) confidenceBand = "low";
+    else if (mustGateApplied && strictCount >= 5 && !mustGateRelaxed) confidenceBand = "high";
+    else if (strictCount >= 3) confidenceBand = "medium";
+    else confidenceBand = "low";
 
     rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
