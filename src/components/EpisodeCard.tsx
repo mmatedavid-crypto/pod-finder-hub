@@ -48,8 +48,8 @@ function HL({ text, terms }: { text: string; terms?: string[] }) {
 }
 
 export function EpisodeCard({
-  e, showTopics = false, terms, showEntities = false,
-}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean }) {
+  e, showTopics = false, terms, showEntities = false, searchQuery, searchRank,
+}: { e: EpisodeLite; showTopics?: boolean; terms?: string[]; showEntities?: boolean; searchQuery?: string; searchRank?: number }) {
   const p = e.podcasts;
   const epTitle = e.display_title || e.title;
   const podTitle = p.display_title || p.title;
