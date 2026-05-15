@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const body = await req.json().catch(() => ({}));
-    const q = String(body.q || "").trim();
+    let q = String(body.q || "").trim();
     const limit = Math.min(80, Math.max(5, Number(body.limit) || 50));
     const lang = body.lang === null ? null : (typeof body.lang === "string" ? body.lang : "en");
     const wantRerank = body.rerank !== false;
@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
 
     const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const t0 = Date.now();
-    const qNorm = normalizeQ(q);
+    let qNorm = normalizeQ(q);
 
     // v4/v9: Stopword + gibberish gate. Bail before AI/embedding for queries
     // that obviously can't have results ("the", "is", "of", "asdfghjkl", "qqqqqqq").
@@ -448,6 +448,7 @@ Deno.serve(async (req) => {
     // can no longer be silently dropped by the AI expansion.
     const rareGateTokens = tokenizeForRareGate(q, isTickerQ);
     let rareTokens: string[] = [];
+    let unknownTokens: string[] = [];
     let unknownTokenCount = 0; // df === 0 confirmed
     let idfRpcOk = false;
     if (rareGateTokens.length) {
@@ -460,12 +461,66 @@ Deno.serve(async (req) => {
         const rows = ((idfRows as Array<{ token: string; df: number }>) || []);
         rareTokens = rows.filter((r) => r.df > 0 && r.df < RARE_THRESHOLD).map((r) => r.token);
         const dfMap = new Map(rows.map((r) => [r.token, r.df]));
-        unknownTokenCount = rareGateTokens.filter((t) => {
+        unknownTokens = rareGateTokens.filter((t) => {
           const df = dfMap.get(t);
-          // missing row from RPC = df=0 (token not present in corpus). Count as unknown.
           return df === undefined ? true : df < UNKNOWN_THRESHOLD;
-        }).length;
+        });
+        unknownTokenCount = unknownTokens.length;
       } catch (e) { console.warn("token_idf err", e); }
+    }
+
+    // v11: Spell-correction layer. Before declaring "no known tokens", try
+    // pg_trgm fuzzy-match each unknown token against the corpus token cache
+    // (df>=50, similarity>=0.6). If at least one swap recovers a known
+    // token, rewrite q + qNorm and re-embed so the rest of the pipeline
+    // uses the corrected query. Skip uppercase tokens (likely tickers/acronyms).
+    const spellCorrections: Array<{ from: string; to: string }> = [];
+    const rawEntitiesPre = (understanding?.entities || [])
+      .map((s) => String(s || "").trim())
+      .filter((s) => s.length >= 3 && s.length <= 60);
+    const trustedEntitiesPre = rawEntitiesPre.filter((e) => {
+      if (e.includes(" ")) return true;
+      const tk = e.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      return !(tk.length === 1 && rareGateTokens.includes(tk[0]));
+    });
+    if (idfRpcOk && !isTickerQ && unknownTokens.length > 0 && trustedEntitiesPre.length === 0) {
+      const correctable = unknownTokens.filter((t) => {
+        const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+        const m = q.match(re);
+        if (m && /[A-Z]/.test(m[0])) return false;
+        return t.length >= 4 && /^[a-z]+$/.test(t);
+      });
+      if (correctable.length) {
+        try {
+          const { data: sugRows } = await supa.rpc("suggest_token_corrections", { p_tokens: correctable });
+          const sugs = (sugRows as Array<{ token: string; suggestion: string; similarity: number }> | null) || [];
+          for (const s of sugs) if (s?.token && s?.suggestion && s.token !== s.suggestion) {
+            spellCorrections.push({ from: s.token, to: s.suggestion });
+          }
+        } catch (e) { console.warn("spell rpc err", e); }
+      }
+      if (spellCorrections.length) {
+        let rewritten = q;
+        for (const c of spellCorrections) {
+          rewritten = rewritten.replace(new RegExp(`\\b${c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), c.to);
+        }
+        // Mutate q + qNorm so the rest of the pipeline uses the corrected text.
+        q = rewritten;
+        qNorm = normalizeQ(rewritten);
+        // Re-embed (best effort); fall back to original embedding on failure.
+        const newEmb = await embed(rewritten);
+        if (newEmb) q_embedding = newEmb;
+        // Re-run IDF on corrected tokens.
+        const newGateTokens = tokenizeForRareGate(rewritten, false);
+        try {
+          const { data: idfRows2 } = await supa.rpc("token_idf", { p_tokens: newGateTokens });
+          const rows2 = ((idfRows2 as Array<{ token: string; df: number }>) || []);
+          rareTokens = rows2.filter((r) => r.df > 0 && r.df < 200).map((r) => r.token);
+          const df2 = new Map(rows2.map((r) => [r.token, r.df]));
+          unknownTokens = newGateTokens.filter((t) => (df2.get(t) ?? 0) < 1);
+          unknownTokenCount = unknownTokens.length;
+        } catch { /* ignore */ }
+      }
     }
 
     // v9: Nonsense gate. If every meaningful token is unknown to the corpus,
@@ -505,16 +560,20 @@ Deno.serve(async (req) => {
         reason: "no_known_tokens",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    // v8: Phrase MUST gate. For 2-4 token non-ticker queries, treat the
-    // whole phrase as a required substring. Kills compositional-rarity
-    // hallucinations ("Cursor IDE" → sermons, "react hooks" → Chicago Bears)
-    // since neither token alone is rare but the bigram has near-zero df.
+    // v11: Phrase MUST gate → token-AND. Previously we required the full phrase
+    // as a contiguous substring ("react hooks" word-boundary), which killed
+    // recall on conceptual queries (e.g. an episode about useEffect that
+    // never literally writes "react hooks"). Now each phrase token is
+    // individually required (AND semantics) — both "react" AND "hooks" must
+    // appear somewhere in the episode. The contiguous phrase still gets a
+    // separate +0.15 boost via phrase_terms (handled by the RPC).
     const phraseTokens = qNorm.split(/[^a-z0-9]+/).filter(
-      (t) => t.length >= 2 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
+      (t) => t.length >= 3 && !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t)
     );
     const phrasePool: string[] = [];
     if (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4) {
-      phrasePool.push(phraseTokens.join(" "));
+      // Push individual tokens (AND), not the joined phrase (contiguous).
+      for (const t of phraseTokens) phrasePool.push(t);
     }
 
     // v8/v9: Entity resolution against entity_profiles + topic_hubs (trgm fuzzy).
@@ -531,7 +590,11 @@ Deno.serve(async (req) => {
 
     const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens, ...phrasePool], 8);
     const entityTerms = uniqueClean([...rawEntities, ...resolvedNames], 10);
-    const phraseTerms = uniqueClean([...phrasePool, ...resolvedNames], 6);
+    // Contiguous-phrase boost survives as score nudge (+0.15) even though
+    // the MUST gate uses individual tokens (AND).
+    const contiguousPhrase = (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4)
+      ? [phraseTokens.join(" ")] : [];
+    const phraseTerms = uniqueClean([...contiguousPhrase, ...resolvedNames], 6);
     const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
@@ -927,6 +990,7 @@ Deno.serve(async (req) => {
         ticker_symbol: isTickerQ ? marketSymbol : null,
         confidence_band: confidenceBand,
         rare_tokens: rareTokens,
+        spell_corrections: spellCorrections.length ? spellCorrections : null,
         alpha_lex: alphaLex,
         podcast_pin: podcastPinSlug ? { slug: podcastPinSlug, title: podcastPinTitle, count: podcastPinIds.length } : null,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
