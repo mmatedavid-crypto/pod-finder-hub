@@ -359,7 +359,7 @@ Deno.serve(async (req) => {
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 1000),
+      understanding ? Promise.resolve(understanding) : understandQuery(q, 700),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
