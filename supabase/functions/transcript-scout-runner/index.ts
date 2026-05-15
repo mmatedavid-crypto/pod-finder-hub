@@ -15,7 +15,28 @@ const json = (b: any, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 const MAX_TRANSCRIPT_BYTES = 250_000; // 250 KB cap per transcript
+const MAX_RSS_BYTES = 2_000_000;       // 2 MB cap per RSS feed
 const FETCH_TIMEOUT_MS = 8_000;
+
+// Streaming reader with hard byte cap. Avoids OOM on large RSS / transcripts.
+async function readCapped(res: Response, cap: number): Promise<string | null> {
+  const reader = res.body?.getReader();
+  if (!reader) return null;
+  let total = 0;
+  const parts: Uint8Array[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.length;
+    if (total > cap) { try { reader.cancel(); } catch {} return null; }
+    parts.push(value);
+  }
+  const merged = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { merged.set(p, off); off += p.length; }
+  return new TextDecoder().decode(merged);
+}
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeout = FETCH_TIMEOUT_MS) {
   const ctrl = new AbortController();
