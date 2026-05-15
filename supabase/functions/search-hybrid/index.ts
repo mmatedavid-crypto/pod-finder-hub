@@ -888,6 +888,39 @@ Deno.serve(async (req) => {
     else if (strictCount >= 3) confidenceBand = "medium";
     else confidenceBand = "low";
 
+    // v13: Chunk augmentation. Pull passage-level vector matches from
+    // episode_chunks (description + transcript chunks) and append episodes
+    // not already in strictRows. Boosts recall for long-form podcasts where
+    // the matching content lives mid-episode (transcript) or beyond the
+    // first 1600 chars of the description.
+    let chunkAugmented = 0;
+    if (FF.chunkAugment && q_embedding && strictRows.length < 30) {
+      try {
+        const { data: chunkRows } = await supa.rpc("search_episode_chunks", {
+          query_embedding: `[${q_embedding.join(",")}]`,
+          match_count: 30,
+          candidate_pool: 400,
+        });
+        const cr = (chunkRows as any[]) || [];
+        for (const c of cr) {
+          if (strictIds.has(c.episode_id)) continue;
+          // Discount chunk-only hits slightly so they sort below true strict hits.
+          strictRows.push({
+            episode_id: c.episode_id,
+            lex_score: 0,
+            sem_score: c.similarity || 0,
+            hybrid_score: (c.similarity || 0) * 0.92,
+            chunk_source: c.best_source,
+          } as any);
+          strictIds.add(c.episode_id);
+          chunkAugmented++;
+          if (chunkAugmented >= 20) break;
+        }
+      } catch (err) {
+        console.warn("chunk_augment_failed", err);
+      }
+    }
+
     rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
 
