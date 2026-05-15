@@ -261,15 +261,18 @@ export default function SearchPage() {
           if (cancelled || cctrl.signal.aborted) return;
           setNeoThinking(false);
           if (error) {
-            setNeoTurns((t) => [...t, { role: "assistant", content: "ráálltam erre. mondd még pontosabban: melyik oldalát keresed?" }]);
+            setNeoTurns((t) => [...t, { role: "assistant", content: "locked in." }]);
+            setNeoDone(true);
             return;
           }
           const reply = String(data?.reply || "").trim();
-          setNeoTurns((t) => [...t, { role: "assistant", content: reply || "oké, erre szűkítettem. jó irány, vagy menjünk mélyebbre?" }]);
-          setNeoDone(false);
+          const isDone = data?.done !== false; // default true
+          setNeoTurns((t) => [...t, { role: "assistant", content: reply || (isDone ? "locked in." : "which angle?") }]);
+          setNeoDone(isDone);
         }, () => {
           setNeoThinking(false);
-          setNeoTurns((t) => [...t, { role: "assistant", content: "megvan az irány. mondd még, mire fókuszáljak?" }]);
+          setNeoTurns((t) => [...t, { role: "assistant", content: "locked in." }]);
+          setNeoDone(true);
         });
       } else if (neoTurnsRef.current.length === 0 && mapped.length >= 6) {
         const rctrl = new AbortController();
