@@ -266,6 +266,23 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     const qNorm = normalizeQ(q);
 
+    // v4: Stopword-only gate. If the entire query is stop-words / generic
+    // filler (e.g. "the", "best", "podcast", "best podcast"), return zero
+    // state instead of dragging in random vector neighbors.
+    {
+      const tokens = qNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 2);
+      const meaningful = tokens.filter((t) => !RARE_GATE_STOPWORDS.has(t) && !/^\d+$/.test(t));
+      if (tokens.length > 0 && meaningful.length === 0) {
+        return new Response(JSON.stringify({
+          episodes: [],
+          timing: { embed_ms: 0, rpc_ms: 0, total_ms: Date.now() - t0 },
+          confidence_band: "low",
+          stopword_gate: true,
+          reason: "stopwords_only",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // 1) Cache lookup (understanding + embedding + rerank) — 7d understanding, 24h rerank
     let understanding: Understanding | null = null;
     let q_embedding: number[] | null = null;
