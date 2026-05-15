@@ -161,7 +161,8 @@ const MARKET_SYMBOL_SECTORS: Record<string, string> = {
 const TICKER_HELPER_WORDS = new Set([
   "stock","stocks","share","shares","ticker","equity","equities",
   "részvény","reszveny","részvények","reszvenyek","papír","papir",
-  "price","quote","chart",
+  "price","quote","chart","earnings","revenue","sales","results","guidance","forecast",
+  "analysis","analyst","valuation","market","cap","financials","quarter","q1","q2","q3","q4",
 ]);
 function compactMarketSymbol(q: string): string | null {
   // v7: Only treat as ticker if user signals ticker intent — either `$`-prefix
