@@ -73,7 +73,8 @@ export default function SearchPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
-  const [sectorFallback, setSectorFallback] = useState<{ symbol: string; hint: string } | null>(null);
+  const [sectorFallback, setSectorFallback] = useState<{ symbol: string; hint: string; kind: "ticker" | "person" | "company" } | null>(null);
+  const [confidenceBand, setConfidenceBand] = useState<"high" | "medium" | "low">("high");
   const [suggestion, setSuggestion] = useState<string>("");
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
