@@ -704,6 +704,17 @@ Deno.serve(async (req) => {
       ...((understanding?.entities as string[]) || []),
     ], 6).map((s) => s.toLowerCase()).filter((s) => s.length >= 3);
     if (pinEntities.length) {
+      // v4: Strict brand match — entity present in the typed companies/tickers/people
+      // arrays (NOT just title text). These are the highest-confidence matches.
+      const strictBrandMatch = (e: any): boolean => {
+        const arrays: string[] = [
+          ...(Array.isArray(e.people) ? e.people : []),
+          ...(Array.isArray(e.companies) ? e.companies : []),
+          ...(Array.isArray(e.tickers) ? e.tickers : []),
+        ].map((s) => String(s || "").toLowerCase());
+        if (!arrays.length) return false;
+        return pinEntities.some((ent) => arrays.some((v) => v === ent || v.includes(ent)));
+      };
       const matchEntity = (e: any): boolean => {
         const hayParts = [
           e.title || "",
@@ -714,17 +725,25 @@ Deno.serve(async (req) => {
         ];
         const hay = hayParts.join(" ").toLowerCase();
         return pinEntities.some((ent) => {
-          // word-boundary match on the entity, allow multi-word phrases
           const re = new RegExp(`(?:^|[^a-z0-9])${ent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^a-z0-9])`);
           return re.test(hay);
         });
       };
-      const annotated = ordered.map((e: any, i: number) => ({ e, i, hit: matchEntity(e) }));
-      const hits = annotated.filter((x) => x.hit).map((x) => x.e);
-      const misses = annotated.filter((x) => !x.hit).map((x) => x.e);
-      // Only re-order when entity-pin actually changes the head of the list.
-      if (hits.length > 0 && hits.length < ordered.length) {
-        ordered = [...hits, ...misses];
+      const annotated = ordered.map((e: any) => ({
+        e,
+        strict: strictBrandMatch(e),
+        hit: matchEntity(e),
+      }));
+      const strictBrand = annotated.filter((x) => x.strict).map((x) => x.e);
+      const looseHits = annotated.filter((x) => !x.strict && x.hit).map((x) => x.e);
+      const misses = annotated.filter((x) => !x.strict && !x.hit).map((x) => x.e);
+      if (strictBrand.length > 0 || looseHits.length > 0) {
+        // v4: strict brand matches forced into the top of the list, then loose
+        // text matches, then everything else. Caps strict-brand promotion at 6
+        // so the top isn't monopolized when a single show has many matches.
+        const strictHead = strictBrand.slice(0, 6);
+        const strictTail = strictBrand.slice(6);
+        ordered = [...strictHead, ...looseHits, ...strictTail, ...misses];
       }
     }
 
