@@ -184,9 +184,9 @@ export function EpisodeList({
     <>
       <div className="sm:hidden -mx-4">
         <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-12 pb-2 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {items.map((e) => (
+          {items.map((e, idx) => (
             <div key={e.id} className="snap-start shrink-0 w-[78vw] max-w-[340px] rounded-xl border border-border/70 bg-card/60 surface overflow-hidden">
-              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} />
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
             </div>
           ))}
         </div>
