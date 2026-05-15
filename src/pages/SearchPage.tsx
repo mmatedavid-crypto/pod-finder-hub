@@ -689,7 +689,12 @@ export default function SearchPage() {
                     Showing results for {suggestion}
                   </span>
                 )}
-                {semanticUsed && (
+                {sectorFallback && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
+                    No exact mentions of {sectorFallback.symbol} — showing related episodes about {sectorFallback.hint}
+                  </span>
+                )}
+                {semanticUsed && !sectorFallback && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                     including related ideas
                   </span>
