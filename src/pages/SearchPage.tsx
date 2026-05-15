@@ -73,7 +73,8 @@ export default function SearchPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [broadened, setBroadened] = useState(false);
   const [semanticUsed, setSemanticUsed] = useState(false);
-  const [sectorFallback, setSectorFallback] = useState<{ symbol: string; hint: string } | null>(null);
+  const [sectorFallback, setSectorFallback] = useState<{ symbol: string; hint: string; kind: "ticker" | "person" | "company" } | null>(null);
+  const [confidenceBand, setConfidenceBand] = useState<"high" | "medium" | "low">("high");
   const [suggestion, setSuggestion] = useState<string>("");
   const [aiAnswer, setAiAnswer] = useState<string>("");
   const [aiAnswerLoading, setAiAnswerLoading] = useState(false);
@@ -112,6 +113,7 @@ export default function SearchPage() {
     setBroadened(false);
     setSemanticUsed(false);
     setSectorFallback(null);
+    setConfidenceBand("high");
     setSuggestion("");
     setAiAnswer("");
     setPiFallback(null);
@@ -141,7 +143,16 @@ export default function SearchPage() {
         }
         const next = eps.slice(0, 80).map((e) => ({ ...e, matchBadge: e.why_matched ? null : "matched result", why_matched: e.why_matched || null }));
         setCategories(Array.from(new Set(eps.map((e) => e.podcasts?.category).filter(Boolean) as string[])));
-        return { mapped: next, semantic: !!data?.semantic, reranked: !!data?.reranked, sectorFallback: !!data?.sector_fallback, sectorHint: data?.sector_hint || "", tickerSymbol: data?.ticker_symbol || "" };
+        return {
+          mapped: next,
+          semantic: !!data?.semantic,
+          reranked: !!data?.reranked,
+          sectorFallback: !!data?.sector_fallback,
+          sectorHint: data?.sector_hint || "",
+          tickerSymbol: data?.ticker_symbol || "",
+          fallbackKind: (data?.fallback_kind as "ticker" | "person" | "company" | null) || null,
+          confidenceBand: (data?.confidence_band as "high" | "medium" | "low") || "high",
+        };
       };
 
       // Search v2: hybrid lexical + semantic. Two-phase for fast first paint:
@@ -158,7 +169,10 @@ export default function SearchPage() {
         semantic = r1.semantic;
         setEpisodes(mapped);
         setSemanticUsed(semantic);
-        if (r1.sectorFallback && r1.tickerSymbol) setSectorFallback({ symbol: r1.tickerSymbol, hint: r1.sectorHint });
+        setConfidenceBand(r1.confidenceBand);
+        if (r1.sectorFallback && r1.fallbackKind) {
+          setSectorFallback({ symbol: r1.tickerSymbol || initial, hint: r1.sectorHint, kind: r1.fallbackKind });
+        }
         setLoading(false);
 
         // Phase 2: rerank (with cache). Fire-and-forget update.
@@ -171,7 +185,10 @@ export default function SearchPage() {
           reranked = r2.reranked;
           setEpisodes(mapped);
           setSemanticUsed(r2.semantic || r2.reranked);
-          if (r2.sectorFallback && r2.tickerSymbol) setSectorFallback({ symbol: r2.tickerSymbol, hint: r2.sectorHint });
+          setConfidenceBand(r2.confidenceBand);
+          if (r2.sectorFallback && r2.fallbackKind) {
+            setSectorFallback({ symbol: r2.tickerSymbol || initial, hint: r2.sectorHint, kind: r2.fallbackKind });
+          }
         }, () => { /* ignore */ });
       } catch (err) {
         if (cancelled) return;
@@ -691,10 +708,22 @@ export default function SearchPage() {
                 )}
                 {sectorFallback && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
-                    No exact mentions of {sectorFallback.symbol} — showing related episodes about {sectorFallback.hint}
+                    {sectorFallback.kind === "ticker"
+                      ? `No exact mentions of ${sectorFallback.symbol} — showing related episodes about ${sectorFallback.hint}`
+                      : `No exact mentions of "${sectorFallback.symbol}" — showing related episodes about ${sectorFallback.hint}`}
                   </span>
                 )}
-                {semanticUsed && !sectorFallback && (
+                {!sectorFallback && confidenceBand === "low" && episodes.length > 0 && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
+                    Loose matches — try a more specific query
+                  </span>
+                )}
+                {!sectorFallback && confidenceBand === "medium" && (
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                    Some loose matches included
+                  </span>
+                )}
+                {semanticUsed && !sectorFallback && confidenceBand === "high" && (
                   <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-foreground/70">
                     including related ideas
                   </span>

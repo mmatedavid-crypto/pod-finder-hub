@@ -68,6 +68,33 @@ const MARKET_SYMBOL_ALIASES: Record<string, string[]> = {
 
 const COMMON_NON_TICKER_ACRONYMS = new Set(["AI", "AR", "EU", "IT", "ML", "UK", "US", "UX", "VR"]);
 
+// Stop-words excluded from rare-token MUST gate (common English + podcast filler).
+const RARE_GATE_STOPWORDS = new Set([
+  "the","and","for","with","that","this","from","what","when","where","how","why","who","which",
+  "are","was","were","has","have","had","but","not","you","your","our","their","they","them",
+  "podcast","podcasts","episode","episodes","show","shows","talk","talks","about","into","out",
+  "best","top","new","latest","good","great","like","just","only","one","two","three",
+  "all","any","some","more","most","very","much","even","than","then","also","only",
+]);
+
+// Tokenize raw query for IDF lookup. Skip ticker symbols (own gate), short tokens, stopwords.
+function tokenizeForRareGate(q: string, isTickerQ: boolean): string[] {
+  if (isTickerQ) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of q.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/)) {
+    const t = raw.trim();
+    if (t.length < 4 || t.length > 30) continue;
+    if (RARE_GATE_STOPWORDS.has(t)) continue;
+    if (/^\d+$/.test(t)) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
 // Sector hints for ticker zero-hit fallback. When no episode mentions a
 // ticker / company, we re-embed using "{Company} {sector hint}" and run a
 // semantic-only search so users see topically related episodes (e.g. for
@@ -344,10 +371,27 @@ Deno.serve(async (req) => {
             || resolvedMarketTerms[0],
         ].filter(Boolean) as string[]
       : rawEntities;
-    const requiredTerms = strictCandidateTerms
+    const requiredTermsBase = strictCandidateTerms
       .slice()
       .sort((a, b) => b.length - a.length)
       .slice(0, 4);
+
+    // Rare-token MUST gate (universal): any token in the raw query that is rare
+    // in the corpus (low document frequency) becomes mandatory. This kills the
+    // "Nbis → Nobel cluster" failure mode globally — uncommon names/terms
+    // can no longer be silently dropped by the AI expansion.
+    const rareGateTokens = tokenizeForRareGate(q, isTickerQ);
+    let rareTokens: string[] = [];
+    if (rareGateTokens.length) {
+      try {
+        const { data: idfRows } = await supa.rpc("token_idf", { p_tokens: rareGateTokens });
+        const RARE_THRESHOLD = 200; // ~0.03% of 700k corpus
+        rareTokens = ((idfRows as Array<{ token: string; df: number }>) || [])
+          .filter((r) => r.df > 0 && r.df < RARE_THRESHOLD)
+          .map((r) => r.token);
+      } catch (e) { console.warn("token_idf err", e); }
+    }
+    const requiredTerms = uniqueClean([...requiredTermsBase, ...rareTokens], 6);
     const entityTerms = rawEntities.slice(0, 8);
     const alphaLex = isTickerQ ? 0.8 : rawEntities.length > 0 ? 0.65 : 0.45;
 
@@ -448,46 +492,78 @@ Deno.serve(async (req) => {
       if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
     }
 
-    // Pass 4 — TICKER SECTOR FALLBACK. If a ticker query has no strict hits,
-    // re-embed using "{Company} {sector hint}" and run a semantic-only RPC.
-    // This avoids the "NBIS → Nobel cluster" failure mode by anchoring the
-    // vector search to the ticker's actual industry instead of the symbol.
+    // Pass 4 — ENTITY FALLBACK PYRAMID. Generalized from the ticker sector
+    // fallback. If a ticker/person/company query has no strict hits, re-embed
+    // using "{Entity} {context terms}" and run a semantic-only RPC. Anchors
+    // the vector search to the entity's actual industry/topics instead of
+    // bare-symbol vector neighbors (e.g. "NBIS" → "Nobel cluster").
     let sectorFallback = false;
     let sectorHint: string | null = null;
-    if (isTickerQ && marketSymbol && strictRows.length === 0) {
-      const sectorTerms = MARKET_SYMBOL_SECTORS[marketSymbol.toLowerCase()] || "";
-      const companyName = symbolAliases[0]
-        || rawEntities.find((t) => t.toUpperCase() !== marketSymbol)
-        || (curated.expansions || [])[0]
-        || marketSymbol;
-      const sectorQText = `${companyName} ${sectorTerms}`.trim();
-      if (sectorQText && sectorTerms) {
+    let fallbackKind: "ticker" | "person" | "company" | null = null;
+    if (strictRows.length === 0) {
+      let entityName: string | null = null;
+      let contextTerms: string | null = null;
+
+      if (isTickerQ && marketSymbol) {
+        fallbackKind = "ticker";
+        entityName = symbolAliases[0]
+          || rawEntities.find((t) => t.toUpperCase() !== marketSymbol)
+          || (curated.expansions || [])[0]
+          || marketSymbol;
+        contextTerms = MARKET_SYMBOL_SECTORS[marketSymbol.toLowerCase()] || null;
+      } else if (understanding?.intent === "person" || understanding?.intent === "company") {
+        const primaryEntity = rawEntities.find((t) => t.includes(" ")) || rawEntities[0];
+        if (primaryEntity) {
+          fallbackKind = understanding.intent as "person" | "company";
+          entityName = primaryEntity;
+          // Use AI-expanded terms (topics/industry) as the semantic anchor.
+          const ctx = uniqueClean([
+            ...((understanding.expanded_terms as string[]) || []),
+            ...((understanding.synonyms as string[]) || []),
+          ], 6).filter((t) => t.toLowerCase() !== primaryEntity.toLowerCase());
+          if (ctx.length) contextTerms = ctx.join(" ");
+        }
+      }
+
+      if (entityName && contextTerms) {
+        const sectorQText = `${entityName} ${contextTerms}`.trim();
         const sectorEmb = await embed(sectorQText);
         if (sectorEmb) {
           const retry3 = await supa.rpc("search_episodes_hybrid", {
-            q: companyName,
+            q: entityName,
             q_embedding: `[${sectorEmb.join(",")}]`,
             limit_n: Math.max(limit, 30),
             lang,
             required_terms: null,
             entity_terms: null,
-            alpha_lex: 0.15, // semantic-heavy
+            alpha_lex: 0.15,
           });
           if (!retry3.error && retry3.data?.length) {
             appendNew(retry3.data);
             sectorFallback = true;
-            sectorHint = sectorTerms.split(" ").slice(0, 5).join(" ");
+            sectorHint = contextTerms.split(/\s+/).slice(0, 6).join(" ");
           }
         }
       }
     }
+
+    // Confidence band: how much should we trust these results?
+    // - high: solid strict hits, no fallback needed
+    // - medium: relaxed gate or partial strict hits
+    // - low: fallback kicked in / dropped gate / very few hits
+    const strictCount = strictHitIds.size;
+    let confidenceBand: "high" | "medium" | "low";
+    if (sectorFallback || mustGateDropped) confidenceBand = "low";
+    else if (mustGateApplied && strictCount >= 5 && !mustGateRelaxed) confidenceBand = "high";
+    else if (strictCount >= 3) confidenceBand = "medium";
+    else confidenceBand = "low";
 
     rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped, confidence_band: "low", rare_tokens: rareTokens }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -591,7 +667,10 @@ Deno.serve(async (req) => {
         must_gate_dropped: mustGateDropped,
         sector_fallback: sectorFallback,
         sector_hint: sectorHint,
+        fallback_kind: fallbackKind,
         ticker_symbol: isTickerQ ? marketSymbol : null,
+        confidence_band: confidenceBand,
+        rare_tokens: rareTokens,
         alpha_lex: alphaLex,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
