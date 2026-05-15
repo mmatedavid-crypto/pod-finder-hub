@@ -438,37 +438,15 @@ Deno.serve(async (req) => {
       } catch (e) { console.warn("token_idf err", e); }
     }
 
-    // v5: Entity-validation gate. AI sometimes hallucinates entities from
-    // gibberish ("asdkfjhqwerty" → fake "company"). Validate each detected
-    // entity against the corpus IDF: if NONE of its tokens appear with df>=5,
-    // we treat the entity as unverified for the nonsense-gate decision.
-    let entitiesCorpusVerified = rawEntities.length > 0;
-    if (idfRpcOk && rawEntities.length > 0) {
-      const entTokens = Array.from(new Set(
-        rawEntities.flatMap((e) => e.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3))
-      )).slice(0, 12);
-      if (entTokens.length) {
-        try {
-          const { data: entIdf } = await supa.rpc("token_idf", { p_tokens: entTokens });
-          const rows = ((entIdf as Array<{ token: string; df: number }>) || []);
-          const verifiedTokens = new Set(rows.filter((r) => r.df >= 5).map((r) => r.token));
-          entitiesCorpusVerified = rawEntities.some((e) =>
-            e.toLowerCase().split(/[^a-z0-9]+/).some((t) => verifiedTokens.has(t))
-          );
-        } catch (e) { console.warn("entity_idf err", e); }
-      } else {
-        entitiesCorpusVerified = false;
-      }
-    }
-
-    // Nonsense gate: if every meaningful token is *confirmed* unknown to the
-    // corpus AND the AI did not detect any corpus-verified entity → bail out.
+    // Nonsense gate: every meaningful token confirmed unknown to the corpus
+    // AND no AI-detected entity → bail with zero results. (v5: kept entity
+    // check loose — even unverified entity names mean the AI saw signal.)
     if (
       idfRpcOk &&
       !isTickerQ &&
       rareGateTokens.length > 0 &&
       unknownTokenCount === rareGateTokens.length &&
-      !entitiesCorpusVerified
+      rawEntities.length === 0
     ) {
       return new Response(JSON.stringify({
         episodes: [],
