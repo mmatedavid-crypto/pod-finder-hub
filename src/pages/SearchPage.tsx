@@ -405,15 +405,18 @@ export default function SearchPage() {
                 }).then(({ data, error }) => {
                   setNeoThinking(false);
                   if (error) {
-                    setNeoTurns((t) => [...t, { role: "assistant", content: "vettem. írd meg, mire szűkítsem tovább?" }]);
+                    setNeoTurns((t) => [...t, { role: "assistant", content: "locked in." }]);
+                    setNeoDone(true);
                     return;
                   }
                   const r = String(data?.reply || "").trim();
-                  setNeoTurns((t) => [...t, { role: "assistant", content: r || "oké. ez már közelebb van, folytassuk?" }]);
-                  setNeoDone(false);
+                  const isDone = data?.done !== false;
+                  setNeoTurns((t) => [...t, { role: "assistant", content: r || (isDone ? "locked in." : "which angle?") }]);
+                  setNeoDone(isDone);
                 }, () => {
                   setNeoThinking(false);
-                  setNeoTurns((t) => [...t, { role: "assistant", content: "vettem. mit pontosítsak rajta?" }]);
+                  setNeoTurns((t) => [...t, { role: "assistant", content: "locked in." }]);
+                  setNeoDone(true);
                 });
                 expectChatRef.current = false;
               }
