@@ -13,7 +13,16 @@ export function logEpisodeEvent(opts: {
 }) {
   // fire-and-forget, never block UI
   try {
-    const payload: Record<string, unknown> = {
+    const payload: {
+      episode_id: string | null;
+      podcast_id: string | null;
+      event_type: string;
+      platform: string;
+      referrer: string | null;
+      viewport_width: number | null;
+      search_query?: string;
+      search_rank?: number;
+    } = {
       episode_id: opts.episodeId ?? null,
       podcast_id: opts.podcastId ?? null,
       event_type: opts.eventType,
