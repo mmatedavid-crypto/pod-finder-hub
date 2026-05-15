@@ -185,7 +185,10 @@ export default function SearchPage() {
           reranked = r2.reranked;
           setEpisodes(mapped);
           setSemanticUsed(r2.semantic || r2.reranked);
-          if (r2.sectorFallback && r2.tickerSymbol) setSectorFallback({ symbol: r2.tickerSymbol, hint: r2.sectorHint });
+          setConfidenceBand(r2.confidenceBand);
+          if (r2.sectorFallback && r2.fallbackKind) {
+            setSectorFallback({ symbol: r2.tickerSymbol || initial, hint: r2.sectorHint, kind: r2.fallbackKind });
+          }
         }, () => { /* ignore */ });
       } catch (err) {
         if (cancelled) return;
