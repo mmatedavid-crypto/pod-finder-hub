@@ -338,18 +338,26 @@ Deno.serve(async (req) => {
     }
     let mustGateApplied = requiredTerms.length > 0;
     let mustGateRelaxed = false;
-    // Graceful fallback: if MUST gate zeroed out results, keep only multi-word
-    // entities (e.g. "Warren Buffett") and drop single-word required terms.
-    // Single-word entities like "Apple" are too ambiguous and pull in noise
-    // ("Apple Valley", "apple pie podcast") when used as a hard MUST gate.
-    // Multi-word entities are specific enough to keep locked.
-    if ((rows?.length || 0) < 5 && mustGateApplied) {
-      // For ticker intent: drop the bare symbol, keep multi-word company names
-      //   (e.g. "ASTS" → fall back to "AST SpaceMobile").
-      // For other intents: drop single-word ambiguous entities, keep multi-word.
+    let mustGateDropped = false;
+    // Preserve strict hits at the top — fallback passes only APPEND new ids
+    // after the strict ones, so a query like "jaguar" still shows the
+    // exact-match episodes first, then semantic neighbors below.
+    const strictRows = rows || [];
+    const strictIds = new Set(strictRows.map((r: any) => r.episode_id));
+    const appendNew = (extra: any[] | null | undefined) => {
+      if (!extra) return;
+      for (const r of extra) {
+        if (!strictIds.has(r.episode_id)) {
+          strictRows.push(r);
+          strictIds.add(r.episode_id);
+        }
+      }
+    };
+
+    // Pass 2 — relaxed gate (multi-word entities only).
+    if (strictRows.length < 5 && mustGateApplied) {
       const strictTerms = requiredTerms.filter((t) => t.includes(" "));
       const relaxedTerms = strictTerms.length ? strictTerms : null;
-      // Skip retry if relaxation wouldn't change anything.
       if (relaxedTerms?.join("|") !== requiredTerms.join("|")) {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
@@ -360,15 +368,11 @@ Deno.serve(async (req) => {
           entity_terms: entityTerms.length ? entityTerms : null,
           alpha_lex: alphaLex,
         });
-        if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
+        if (!retry.error) { appendNew(retry.data); mustGateRelaxed = true; }
       }
     }
-    // Final fallback: if even relaxed gate yields <5 results AND we have an
-    // embedding, drop the MUST gate entirely so pure semantic neighbors can
-    // surface (e.g. "jaguar animal" → safari/wildlife episodes that never
-    // mention "jaguar"). Lex side still scores via lexQ (raw + synonyms).
-    let mustGateDropped = false;
-    if ((rows?.length || 0) < 5 && mustGateApplied && q_embedding) {
+    // Pass 3 — drop gate entirely, semantic-tilted, append below strict.
+    if (strictRows.length < 5 && mustGateApplied && q_embedding) {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
@@ -376,13 +380,11 @@ Deno.serve(async (req) => {
         lang,
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
-        alpha_lex: Math.min(alphaLex, 0.35), // tilt toward semantic
+        alpha_lex: Math.min(alphaLex, 0.35),
       });
-      if (!retry2.error && (retry2.data?.length || 0) > (rows?.length || 0)) {
-        rows = retry2.data;
-        mustGateDropped = true;
-      }
+      if (!retry2.error) { appendNew(retry2.data); mustGateDropped = true; }
     }
+    rows = strictRows;
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
