@@ -597,7 +597,50 @@ Deno.serve(async (req) => {
     const contiguousPhrase = (!isTickerQ && phraseTokens.length >= 2 && phraseTokens.length <= 4)
       ? [phraseTokens.join(" ")] : [];
     const phraseTerms = uniqueClean([...contiguousPhrase, ...resolvedNames], 6);
+
+    // v12: Bigram entity MUST gate. For person/company intent queries, if the
+    // user typed a multi-word entity that EXACTLY matches an AI-detected entity
+    // (e.g. "Joe Rogan" → entities=["Joe Rogan"]), push the contiguous bigram
+    // into required_terms. This prevents the result list from drifting to
+    // episodes that mention "Joe" or "Rogan" separately. Falls back via the
+    // existing entity fallback pyramid if 0 hits.
+    const intent = String(understanding?.intent || "").toLowerCase();
+    if (
+      (intent === "person" || intent === "company") &&
+      contiguousPhrase.length &&
+      rawEntities.some((e) => e.toLowerCase() === contiguousPhrase[0].toLowerCase())
+    ) {
+      if (!requiredTerms.includes(contiguousPhrase[0])) requiredTerms.push(contiguousPhrase[0]);
+    }
+
     const alphaLex = isTickerQ ? 0.8 : (rawEntities.length > 0 || resolvedNames.length > 0) ? 0.65 : 0.45;
+
+    // v12: Intent-driven freshness decay. News/ticker/company queries get a
+    // small recency boost; topic/person/evergreen stay neutral. The RPC adds
+    // p_decay_lambda * exp(-0.02 * days_old) to each row's score.
+    const decayLambda = (intent === "news" || intent === "ticker" || intent === "company") ? 0.15 : 0;
+
+    // v12: HyDE expansion. For broad topical/question queries, generate a
+    // hypothetical episode description via LLM, embed it, and blend with the
+    // original embedding (60/40). Cached 7d. Skip ticker/person/company —
+    // entity pinning is stronger there.
+    let hydeUsed = false;
+    let hydeCacheHit: boolean | null = null;
+    if (
+      q_embedding &&
+      (intent === "topic" || intent === "question" || intent === "") &&
+      !isTickerQ &&
+      qNorm.split(/\s+/).filter(Boolean).length >= 3
+    ) {
+      try {
+        const hyde = await getHydeExpansion(supa, qNorm, q);
+        if (hyde && hyde.embedding.length === 768) {
+          q_embedding = blendEmbeddings(q_embedding, hyde.embedding, 0.6);
+          hydeUsed = true;
+          hydeCacheHit = hyde.cache_hit;
+        }
+      } catch (e) { console.warn("hyde err", e); }
+    }
 
     // For ticker queries, the bare symbol (e.g. "ASTS") rarely appears in
     // episode tsv. Rewrite the lexical q to use the resolved company name(s)
