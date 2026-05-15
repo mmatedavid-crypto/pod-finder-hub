@@ -308,6 +308,19 @@ Deno.serve(async (req) => {
         // websearch_to_tsquery OR-s quoted phrases when wrapped in OR keyword.
         lexQ = companies.map(quoteWebSearchTerm).join(" OR ");
       }
+    } else {
+      // Non-ticker: OR the raw query with curated + AI synonyms so a lexical
+      // hit on a synonym (e.g. "panthera onca" for "jaguar animal") still
+      // counts. Falls back to original q if no synonyms exist.
+      const synExpansions = uniqueClean([
+        ...(curated.expansions || []),
+        ...((understanding?.synonyms as string[]) || []),
+        ...((understanding?.expanded_terms as string[]) || []),
+      ], 6).filter((t) => t.toLowerCase() !== q.toLowerCase());
+      if (synExpansions.length) {
+        const parts = [quoteWebSearchTerm(q), ...synExpansions.map(quoteWebSearchTerm)];
+        lexQ = parts.join(" OR ");
+      }
     }
 
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
@@ -350,11 +363,31 @@ Deno.serve(async (req) => {
         if (!retry.error) { rows = retry.data; mustGateRelaxed = true; }
       }
     }
+    // Final fallback: if even relaxed gate yields <5 results AND we have an
+    // embedding, drop the MUST gate entirely so pure semantic neighbors can
+    // surface (e.g. "jaguar animal" → safari/wildlife episodes that never
+    // mention "jaguar"). Lex side still scores via lexQ (raw + synonyms).
+    let mustGateDropped = false;
+    if ((rows?.length || 0) < 5 && mustGateApplied && q_embedding) {
+      const retry2 = await supa.rpc("search_episodes_hybrid", {
+        q: lexQ,
+        q_embedding: `[${q_embedding.join(",")}]`,
+        limit_n: Math.max(limit, 50),
+        lang,
+        required_terms: null,
+        entity_terms: entityTerms.length ? entityTerms : null,
+        alpha_lex: Math.min(alphaLex, 0.35), // tilt toward semantic
+      });
+      if (!retry2.error && (retry2.data?.length || 0) > (rows?.length || 0)) {
+        rows = retry2.data;
+        mustGateDropped = true;
+      }
+    }
     const tRpc = Date.now() - t0 - tEmb;
 
     const ids = (rows || []).map((r: any) => r.episode_id);
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ episodes: [], understanding, timing: { embed_ms: tEmb, rpc_ms: tRpc }, semantic: !!q_embedding, cache_hit: cacheHit, must_gate: mustGateApplied, must_gate_relaxed: mustGateRelaxed, must_gate_dropped: mustGateDropped }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: eps, error: eErr } = await supa.from("episodes").select(EPISODE_SELECT).in("id", ids);
@@ -420,6 +453,7 @@ Deno.serve(async (req) => {
         cache_hit: cacheHit,
         must_gate: mustGateApplied,
         must_gate_relaxed: mustGateRelaxed,
+        must_gate_dropped: mustGateDropped,
         alpha_lex: alphaLex,
         timing: { embed_ms: tEmb, rpc_ms: tRpc, rerank_ms: tRerank, total_ms: Date.now() - t0 },
       }),
