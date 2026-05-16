@@ -2105,6 +2105,45 @@ export type Database = {
         }
         Relationships: []
       }
+      yt_url_backfill_attempts: {
+        Row: {
+          attempts: number
+          created_at: string
+          episode_id: string
+          last_attempt_at: string | null
+          match_score: number | null
+          matched_video_id: string | null
+          next_attempt_at: string | null
+          podcast_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          episode_id: string
+          last_attempt_at?: string | null
+          match_score?: number | null
+          matched_video_id?: string | null
+          next_attempt_at?: string | null
+          podcast_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          episode_id?: string
+          last_attempt_at?: string | null
+          match_score?: number | null
+          matched_video_id?: string | null
+          next_attempt_at?: string | null
+          podcast_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_homepage_evergreen: {
@@ -2566,6 +2605,16 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      select_yt_backfill_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          episode_title: string
+          id: string
+          podcast_id: string
+          podcast_title: string
+          published_at: string
+        }[]
+      }
       set_categorize_runner_schedule: {
         Args: { _schedule: string }
         Returns: string
@@ -2620,6 +2669,10 @@ export type Database = {
         Returns: undefined
       }
       set_transcript_scout_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_yt_backfill_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
@@ -2697,6 +2750,16 @@ export type Database = {
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
+      yt_backfill_stats: {
+        Args: never
+        Returns: {
+          failed: number
+          found: number
+          not_available: number
+          pending: number
+          total_eligible: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"
