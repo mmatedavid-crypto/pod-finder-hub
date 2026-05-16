@@ -23,6 +23,8 @@ export function SiteHeader() {
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/topics" className={linkCls}>Topics</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
+          <NavLink to="/people" className={linkCls}>People</NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
         </nav>
         {isHome && (
