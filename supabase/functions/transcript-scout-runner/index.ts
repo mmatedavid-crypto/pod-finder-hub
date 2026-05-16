@@ -368,6 +368,14 @@ Deno.serve(async (req) => {
               foundYt++;
             }
           }
+          // Fallback 2: publisher website (episode page scrape)
+          if (!result && e.episode_url) {
+            const web = await findWebsiteTranscript(e.episode_url);
+            if (web) {
+              result = { source: "website", url: web.url, format: web.format, text: web.text };
+              foundWeb++;
+            }
+          }
 
           if (result) {
             await admin.from("episode_transcripts").upsert({
