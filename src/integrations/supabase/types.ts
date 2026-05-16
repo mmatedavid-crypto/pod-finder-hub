@@ -642,6 +642,7 @@ export type Database = {
           ingredients: string[] | null
           next_transcript_check_at: string | null
           people: string[] | null
+          people_roles: Json
           podcast_id: string
           published_at: string | null
           search_text: string | null
@@ -682,6 +683,7 @@ export type Database = {
           ingredients?: string[] | null
           next_transcript_check_at?: string | null
           people?: string[] | null
+          people_roles?: Json
           podcast_id: string
           published_at?: string | null
           search_text?: string | null
@@ -722,6 +724,7 @@ export type Database = {
           ingredients?: string[] | null
           next_transcript_check_at?: string | null
           people?: string[] | null
+          people_roles?: Json
           podcast_id?: string
           published_at?: string | null
           search_text?: string | null
@@ -2345,6 +2348,7 @@ export type Database = {
           ingredients: string[] | null
           next_transcript_check_at: string | null
           people: string[] | null
+          people_roles: Json
           podcast_id: string
           published_at: string | null
           search_text: string | null
