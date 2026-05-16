@@ -95,41 +95,48 @@ function detectFormat(contentType: string | null, body: string, url: string): st
 }
 
 // --- RSS scout: parse podcast feed, find <podcast:transcript url="..." type="..."/> on matching item.
-async function findRssTranscript(podcastRssUrl: string, episodeGuid: string | null, episodeUrl: string | null, audioUrl: string | null) {
+// Cached per-invocation: one HTTP fetch per feed even when 50 episodes of the same podcast queue up.
+type FeedItems = Array<{ guid?: string; link?: string; enclosure?: string; transcriptUrl?: string; transcriptType?: string }>;
+const _feedCache = new Map<string, FeedItems | null>();
+
+async function getFeedItems(podcastRssUrl: string): Promise<FeedItems | null> {
   if (!podcastRssUrl) return null;
-  const res = await fetchWithTimeout(podcastRssUrl, {
-    headers: { "User-Agent": "PodiverzumScout/1.0 (+https://podiverzum.com)" },
-  });
-  if (!res.ok) return null;
-  const xml = await readCapped(res, MAX_RSS_BYTES);
-  if (!xml) return null;
-  // Quick rejection: skip feeds with no transcript tag at all
-  if (!/podcast:transcript/i.test(xml)) return null;
+  if (_feedCache.has(podcastRssUrl)) return _feedCache.get(podcastRssUrl) ?? null;
+  try {
+    const res = await fetchWithTimeout(podcastRssUrl, {
+      headers: { "User-Agent": "PodiverzumScout/1.0 (+https://podiverzum.com)" },
+    });
+    if (!res.ok) { _feedCache.set(podcastRssUrl, null); return null; }
+    const xml = await readCapped(res, MAX_RSS_BYTES);
+    if (!xml || !/podcast:transcript/i.test(xml)) { _feedCache.set(podcastRssUrl, null); return null; }
+    const items: FeedItems = (xml.match(/<item\b[\s\S]*?<\/item>/gi) || []).map((item) => {
+      const g = item.match(/<guid[^>]*>([^<]+)<\/guid>/i)?.[1]?.trim();
+      const l = item.match(/<link[^>]*>([^<]+)<\/link>/i)?.[1]?.trim();
+      const enc = item.match(/<enclosure[^>]*url\s*=\s*"([^"]+)"/i)?.[1]?.trim();
+      const tr = item.match(/<podcast:transcript\s+([^>]+)\/?>/i)?.[1];
+      const trUrl = tr?.match(/url\s*=\s*"([^"]+)"/i)?.[1];
+      const trType = tr?.match(/type\s*=\s*"([^"]+)"/i)?.[1];
+      return { guid: g, link: l, enclosure: enc, transcriptUrl: trUrl, transcriptType: trType };
+    });
+    _feedCache.set(podcastRssUrl, items);
+    return items;
+  } catch {
+    _feedCache.set(podcastRssUrl, null);
+    return null;
+  }
+}
 
-  // Split items
-  const itemRegex = /<item\b[\s\S]*?<\/item>/gi;
-  const items = xml.match(itemRegex) || [];
-  for (const item of items) {
-    const matches = (() => {
-      const m: { guid?: string; link?: string; enclosure?: string } = {};
-      const g = item.match(/<guid[^>]*>([^<]+)<\/guid>/i); if (g) m.guid = g[1].trim();
-      const l = item.match(/<link[^>]*>([^<]+)<\/link>/i); if (l) m.link = l[1].trim();
-      const e = item.match(/<enclosure[^>]*url\s*=\s*"([^"]+)"/i); if (e) m.enclosure = e[1].trim();
-      return m;
-    })();
+async function findRssTranscript(podcastRssUrl: string, episodeGuid: string | null, episodeUrl: string | null, audioUrl: string | null) {
+  const items = await getFeedItems(podcastRssUrl);
+  if (!items) return null;
+  for (const it of items) {
     const matchesEpisode =
-      (episodeGuid && matches.guid === episodeGuid) ||
-      (episodeUrl && matches.link === episodeUrl) ||
-      (audioUrl && matches.enclosure === audioUrl);
+      (episodeGuid && it.guid === episodeGuid) ||
+      (episodeUrl && it.link === episodeUrl) ||
+      (audioUrl && it.enclosure === audioUrl);
     if (!matchesEpisode) continue;
-
-    const trMatch = item.match(/<podcast:transcript\s+([^>]+)\/?>/i);
-    if (!trMatch) return null;
-    const attrs = trMatch[1];
-    const urlAttr = attrs.match(/url\s*=\s*"([^"]+)"/i)?.[1];
-    const typeAttr = attrs.match(/type\s*=\s*"([^"]+)"/i)?.[1];
-    if (!urlAttr) return null;
-    return { url: urlAttr, type: typeAttr || "" };
+    if (!it.transcriptUrl) return null;
+    return { url: it.transcriptUrl, type: it.transcriptType || "" };
   }
   return null;
 }
