@@ -313,26 +313,75 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {strongEps.length > 0 && (
+        {/* PERSON: role-aware sections (v2). Falls back to positional buckets for entities not yet re-extracted. */}
+        {kind === "person" && hostEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Hosted by {displayName}</h2>
+              <p className="text-xs text-muted-foreground mt-1">Episodes where {displayName} is the host of the show.</p>
+            </div>
+            <EpisodeList items={hostEps} showEntities />
+          </section>
+        )}
+
+        {kind === "person" && guestEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Appears as guest</h2>
+              <p className="text-xs text-muted-foreground mt-1">Interviews and conversations where {displayName} speaks.</p>
+            </div>
+            <EpisodeList items={guestEps} showEntities />
+          </section>
+        )}
+
+        {kind === "person" && subjectEps.length > 0 && (
+          <section>
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Episodes about {displayName}</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {displayName} is the main subject — deep dives, news, or analyses.
+              </p>
+            </div>
+            <EpisodeList items={subjectEps} showEntities />
+          </section>
+        )}
+
+        {kind === "person" && mentionedEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+                <div>
+                  <h2 className="text-xl font-semibold">Also mentioned in</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {mentionedEps.length} more episode{mentionedEps.length === 1 ? "" : "s"} that bring up {displayName} in passing.
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <EpisodeList items={mentionedEps} showEntities />
+              </CollapsibleContent>
+            </Collapsible>
+          </section>
+        )}
+
+        {/* NON-PERSON: original positional buckets (topic/company/ticker). */}
+        {kind !== "person" && strongEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">
                 Featuring {displayName}
-                <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">
-                  {kind === "person" ? "as guest or main subject" : "as primary subject"}
-                </span>
+                <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">as primary subject</span>
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {speakerCount > 0
-                  ? `${speakerCount} episode${speakerCount === 1 ? "" : "s"} where ${displayName} actually speaks.`
-                  : `Episodes where ${displayName} appears in the title — interviews, deep dives, or main subjects.`}
+                Episodes where {displayName} appears in the title — deep dives or main subjects.
               </p>
             </div>
             <EpisodeList items={strongEps} showEntities />
           </section>
         )}
 
-        {mediumEps.length > 0 && (
+        {kind !== "person" && mediumEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-3">
               <div>
@@ -348,7 +397,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           </section>
         )}
 
-        {weakEps.length > 0 && (
+        {kind !== "person" && weakEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
             <Collapsible>
               <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
