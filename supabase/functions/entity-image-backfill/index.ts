@@ -48,10 +48,7 @@ Deno.serve(async (req) => {
     for (const row of (rows || []) as any[]) {
       stats.processed++;
       try {
-        let src = row.image_url as string;
-        // Rewrite Wikimedia originals → 512px thumb to avoid 5-25MB downloads
-        const wm = src.match(/^(https:\/\/upload\.wikimedia\.org\/wikipedia\/[^/]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+\.(?:jpg|jpeg|png|gif|webp))(\?.*)?$/i);
-        if (wm) src = `${wm[1]}/thumb/${wm[2]}/${wm[3]}/${wm[4]}/512px-${wm[4]}`;
+        const src = row.image_url as string;
         const r = await fetch(src, {
           headers: { "User-Agent": "PodiverzumBot/1.0 (https://podiverzum.com)" },
           redirect: "follow",
