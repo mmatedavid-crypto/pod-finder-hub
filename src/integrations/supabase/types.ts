@@ -2219,6 +2219,10 @@ export type Database = {
         Args: { p_slugs: string[]; p_urls: string[] }
         Returns: number
       }
+      admin_update_entity_images_by_kind: {
+        Args: { p_kind: string; p_slugs: string[]; p_urls: string[] }
+        Returns: number
+      }
       chunk_candidate_stats: {
         Args: never
         Returns: {
@@ -2570,6 +2574,24 @@ export type Database = {
           shadow_rank_tier: string
           transcript_source: string
           transcript_text: string
+        }[]
+      }
+      select_company_candidates: {
+        Args: { _limit?: number; _min_count?: number; _min_pods?: number }
+        Returns: {
+          cnt: number
+          display_name: string
+          pods: number
+          slug: string
+        }[]
+      }
+      select_company_refresh_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          display_name: string
+          generated_at: string
+          new_eps: number
+          slug: string
         }[]
       }
       select_embed_candidates: {
