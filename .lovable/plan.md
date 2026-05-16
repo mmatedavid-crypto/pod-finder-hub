@@ -1,113 +1,50 @@
-# Chunking + Transcript Scout
+## Cél
 
-Két párhuzamos pipeline. A chunking azonnal javít minden epizódon; a scout S/A tieren hozza a "valódi tartalmat" ahol publisher/YT már megcsinálta nekünk.
+A `podiverzum.com/*` routon futó `podiverzum-bot-prerender` Worker régi kódot szolgál ki — a `/sitemap.xml` még a régi `yoxewklaybougzpmzvkg` projektre mutat, ezért a GSC 0 URL-t indexel a 3355-ből.
 
----
+A repóban már megvan a friss kód (`infra/cloudflare-worker/worker.js`), csak fel kell tölteni. A secretekben van `CLOUDFLARE_API_TOKEN`, így a CF REST API-val edge function-ből deployolható, `wrangler` nélkül.
 
-## Part A — Chunking pipeline (minden tier)
+## Lépések
 
-### 1. Új tábla: `episode_chunks`
-```
-id uuid pk
-episode_id uuid
-chunk_idx smallint              -- 0,1,2…
-source text                     -- 'description' | 'transcript_rss' | 'transcript_youtube'
-text text                       -- 800 char chunk
-embedding vector(768)
-content_hash text               -- text sha → idempotens upsert
-model text
-updated_at timestamptz
-UNIQUE(episode_id, source, chunk_idx)
-```
-HNSW cosine index az `embedding`-en. Public read RLS, admin write.
+**1. Egyszer használatos edge function: `cf-worker-deploy`**
+   - Input: nincs (vagy egy opcionális `dry_run` flag).
+   - Olvas: `infra/cloudflare-worker/worker.js` tartalma — mivel ez nem futtatási env asset, a worker.js tartalmát base64-ben **beágyazom** a function source-ba egy `WORKER_SRC` konstansként build-time. (Edge function nem fér hozzá repo fájlokhoz futáskor.)
+   - Hívja a CF API-t:
+     - `GET /accounts` → account_id
+     - `GET /zones?name=podiverzum.com` → zone_id
+     - `PUT /accounts/{aid}/workers/scripts/podiverzum-bot-prerender` `multipart/form-data` body-val: `metadata` JSON + `worker.js` modul.
+     - `GET /zones/{zid}/workers/routes` — ellenőrzés hogy `podiverzum.com/*` és `www.podiverzum.com/*` route-ok rá vannak-e kötve a scriptre; ha nem, `POST` route-ok.
+   - Visszaad: deploy státusz, etag, route lista.
 
-### 2. Új edge function: `embed-chunks-runner`
-- Forrás priority: ha van transcript → azt chunkolja, különben `episodes.description`
-- Splitter: 800 char window, 200 overlap, mondat-határnál tör (ahol lehet)
-- Skip ha: total_text < 1000 char (ott már a sima embedding elég)
-- Batch 50 episode/hívás, concurrency 4, Gemini `embedding-001` 768d (mint episode-embed)
-- Idempotens: content_hash diff → re-embed; egyébként skip
-- Budget: $1/day (chunk volume nagy, de 1× backfill)
-- Adaptive cron RPC `set_embed_chunks_schedule` (1m/5m/15m allowlist)
+**2. Hívás**
+   - `supabase.functions.invoke('cf-worker-deploy')` — admin oldalon egy gomb, vagy egyszer `curl`-lel a chatből.
 
-### 3. Cron jobid 40
-Init `*/5`, adaptív, async invoke.
+**3. Verifikáció**
+   - `curl -I https://podiverzum.com/sitemap.xml` → `X-Worker: podiverzum-bot-prerender`, `X-Sitemap-Source: edge-fn` header jelenik meg.
+   - `curl https://podiverzum.com/sitemap.xml | head` → `podiverzum.com` URL-ek `iqzkayoqqagowvxeaphe`-ből, nem `yoxewklaybougzpmzvkg`-ből.
+   - GSC-ben resubmit `https://podiverzum.com/sitemap.xml` → pár óra múlva "Discovered" URL count > 0.
 
-### 4. Search integration (search-hybrid)
-- Új RPC `search_episode_chunks(query_embedding, limit)` → top-N chunk → group by episode_id, take MAX(similarity)
-- Merge chunk-score-t az existing semantic score-ba: `episode_score = max(episode_emb_sim, chunk_max_sim)`
-- Feature flag `chunks_enabled` (default true v13-tól), backwards-compatible
+**4. Tisztítás**
+   - A function bent marad (újrahasználható későbbi update-ekhez — ha a `worker.js` megint változik, csak újra deployolom magát a functiont és újrahívom).
+   - Opcionálisan admin UI gomb az `AdminHubPage`-en: "Redeploy CF Worker".
 
----
+## Technikai részletek
 
-## Part B — Transcript Scout (S/A tier only)
+- **Auth scope**: a `CLOUDFLARE_API_TOKEN` szükséges permission-jei: `Account › Workers Scripts:Edit`, `Zone › Workers Routes:Edit`, `Zone:Read`, `Account:Read`. Ha valamelyik hiányzik, a függvény tisztán jelzi (HTTP státusz + CF error).
+- **Worker upload formátum** (modules syntax, ES module):
+  ```
+  PUT /accounts/{aid}/workers/scripts/podiverzum-bot-prerender
+  Content-Type: multipart/form-data
+  ─ metadata: {"main_module":"worker.js","compatibility_date":"2025-01-01"}
+  ─ worker.js: <file, Content-Type: application/javascript+module>
+  ```
+- **Route binding**: a `wrangler.toml`-ban szereplő `podiverzum.com/*` és `www.podiverzum.com/*` route-okat a CF dashboardon már valószínűleg be vannak kötve (mert a régi worker fut) — ezeket nem kell újra létrehozni, csak validálni.
+- **Nem kockázatos**: ha a deploy hibázik, a régi worker tovább fut. Ha sikerül de a worker hibás, a `fetch(request)` passthrough fallback miatt a site nem esik el — csak a bot prerender / sitemap proxy nem működik.
 
-### 1. Új tábla: `episode_transcripts`
-```
-episode_id uuid pk
-source text                     -- 'rss' | 'youtube'
-transcript_url text
-format text                     -- 'srt' | 'vtt' | 'json' | 'txt'
-text text                       -- plain text (timecodes stripped)
-word_count integer
-language text
-fetched_at timestamptz
-last_attempt_at timestamptz
-attempts integer default 0
-status text                     -- 'found' | 'not_available' | 'failed'
-error text
-```
-Public read, admin write.
+## Mit NEM csinálok
 
-### 2. Episodes tábla bővítés
-```
-ALTER TABLE episodes ADD COLUMN transcript_status text DEFAULT 'unchecked';
--- 'unchecked' | 'found' | 'not_available'
-ADD COLUMN next_transcript_check_at timestamptz;
-```
+- Nem nyúlok a `public/sitemap.xml` static fájlhoz — a Worker proxy úgyis lefedi, és a static fájl már most is helyes.
+- Nem módosítom a `worker.js` logikáját, csak ami már a repóban van, azt deployolom.
+- Nem érintem a `.lovable/cloudflare-worker.js` változatot (az nincs élesben).
 
-### 3. Új edge function: `transcript-scout-runner`
-Két forrás, sorrendben próbálva:
-
-**(a) RSS `<podcast:transcript>` tag**
-- Letölti a podcast RSS-t (cache: 1 letöltés / podcast / run, parse N item)
-- `<podcast:transcript url="…" type="application/srt"/>` szerű tagek keresése
-- Letölt → SRT/VTT/JSON parse → plain text
-- Limit: 200 KB / transcript
-
-**(b) YouTube auto-captions**
-- Csak ha `episodes.youtube_url IS NOT NULL`
-- npm `youtube-transcript` package-szel (Deno-compatible) vagy direkt `https://www.youtube.com/api/timedtext?lang=en&v=…`
-- VTT/JSON parse → plain text
-- Skip ha nincs caption track
-
-**Logika**
-- Csak S/A tier podcastok episode-jaira (`podcasts.shadow_rank_tier IN ('S','A')`)
-- Backoff: 1 sikertelen → 7 nap, 2 → 30 nap, 3 → never (status='not_available')
-- Batch 50/run, concurrency 4
-- Idempotens: `episode_transcripts.episode_id` PK
-- **Költség: $0** (csak HTTP fetch)
-
-### 4. Cron jobid 41 — `transcript-scout-runner`
-Init `*/10`, adaptív (`set_transcript_scout_schedule`).
-
-### 5. Hook → chunking pipeline
-Új transcript landol → `embed-chunks-runner` látja (content_hash diff) → automatikusan újrachunkol az új text alapján → meglévő `description`-chunkokat törli azon episode-ra, transcript-chunkokat ír.
-
----
-
-## Sorrend (egy session)
-1. Migration: `episode_chunks` + `episode_transcripts` táblák, RLS, indexek, RPC-k, episodes oszlopok, cron jobok 40/41
-2. `embed-chunks-runner` edge function + adaptive RPC
-3. `transcript-scout-runner` edge function + adaptive RPC
-4. `search-hybrid` integration (chunk score merge, feature flag)
-5. Memory frissítés
-6. Backfill kick-off (manual invoke 1×)
-
-## Mit NEM csinálunk most
-- ❌ ASR / Whisper (nincs pénz, dokumentált)
-- ❌ B/C tier scout (csak S/A — később bővíthető)
-- ❌ Apple/Spotify (nincs publikus API)
-- ❌ Transcript chunking nélkül semantic search-be tolás (a chunking az egyetlen interface)
-
-Akkor most beleugrok a migrációba. Mehet?
+## Mehet?
