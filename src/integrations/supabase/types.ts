@@ -2215,6 +2215,10 @@ export type Database = {
         Args: { p_dow: number; p_hour: number }
         Returns: string[]
       }
+      admin_update_entity_images: {
+        Args: { p_slugs: string[]; p_urls: string[] }
+        Returns: number
+      }
       chunk_candidate_stats: {
         Args: never
         Returns: {
