@@ -458,7 +458,7 @@ Deno.serve(async (req) => {
     const progress = {
       last_run_at: new Date().toISOString(),
       duration_ms: Date.now() - startedAt,
-      processed, found_rss: foundRss, found_youtube: foundYt,
+      processed, found_rss: foundRss, found_youtube: foundYt, found_website: foundWeb,
       not_available: notAvailable, failed, errors, error_samples: errorSamples,
       drain_passes: drainPasses,
       stats: s,
@@ -468,7 +468,7 @@ Deno.serve(async (req) => {
       key: "transcript_scout_progress", value: progress as any, updated_at: new Date().toISOString(),
     }, { onConflict: "key" });
 
-    return json({ ok: true, processed, found_rss: foundRss, found_youtube: foundYt, not_available: notAvailable, failed, errors, schedule: recommended });
+    return json({ ok: true, processed, found_rss: foundRss, found_youtube: foundYt, found_website: foundWeb, not_available: notAvailable, failed, errors, schedule: recommended });
   } catch (e: any) {
     return json({ error: e?.message || "error" }, 500);
   }
