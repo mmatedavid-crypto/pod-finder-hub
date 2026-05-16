@@ -56,6 +56,7 @@ const App = () => (
 
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topics" element={<TopicsIndexPage />} />
+          <Route path="/people" element={<PeopleIndexPage />} />
           <Route path="/topic/:slug" element={<TopicHubPage />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
           <Route path="/company/:slug" element={<EntityPage kind="company" />} />
