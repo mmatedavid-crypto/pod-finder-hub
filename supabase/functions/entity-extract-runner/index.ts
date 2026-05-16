@@ -193,11 +193,12 @@ Deno.serve(async (req) => {
       processed++;
       try {
         const { data: e } = await admin.from("episodes")
-          .select("id,title,display_title,description,summary,ai_summary,podcasts!inner(title,display_title)")
+          .select("id,title,display_title,description,summary,ai_summary,podcasts!inner(title,display_title,known_hosts)")
           .eq("id", job.target_id).maybeSingle();
         if (!e) throw new Error("target_missing");
         const podName = ((e as any).podcasts?.display_title) || ((e as any).podcasts?.title) || "";
-        const prompt = entityUserPrompt(e as any, podName);
+        const knownHosts: string[] = Array.isArray((e as any).podcasts?.known_hosts) ? (e as any).podcasts.known_hosts : [];
+        const prompt = entityUserPrompt(e as any, podName, knownHosts);
 
         const ai = await callAI(model, ENTITY_SYSTEM_PROMPT, prompt, ENTITY_TOOL, "extract_entities", maxRps);
         const usage = ai.usage || {};
@@ -209,9 +210,9 @@ Deno.serve(async (req) => {
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
-        // v2: structured role-aware people with title-pattern + confidence post-check.
+        // v3: structured role-aware people with known-host override + title-pattern + confidence post-check.
         const title = (e as any).display_title || (e as any).title || "";
-        const { people_roles, people } = postProcessPeople(parsed.people, { title, podcast_title: podName });
+        const { people_roles, people } = postProcessPeople(parsed.people, { title, podcast_title: podName, hosts: knownHosts });
         const companies = normArr(parsed.companies, 8);
         const tickers = normArr(parsed.tickers, 6, { upper: true });
         const topics = normArr(parsed.topics, 7, { lower: true });
@@ -219,7 +220,7 @@ Deno.serve(async (req) => {
         await admin.from("episodes").update({
           people, companies, tickers, topics,
           people_roles,
-          ai_entities_version: 2,
+          ai_entities_version: knownHosts.length > 0 ? 3 : 2,
         }).eq("id", job.target_id);
 
         await admin.from("ai_enrichment_jobs").update({
