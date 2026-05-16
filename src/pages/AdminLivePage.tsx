@@ -11,10 +11,20 @@ type Row = {
   user_id: string | null;
   referrer: string | null;
   created_at: string;
+  user_agent: string | null;
 };
 
 const ACTIVE_WINDOW_MIN = 5;
 const REFRESH_MS = 20_000;
+
+// Bot UA fragments — case-insensitive match. Covers Googlebot, GoogleOther,
+// Applebot, Bingbot, AI crawlers (GPTBot, Claude, Perplexity), social previews, etc.
+const BOT_UA_RE = /bot|crawler|spider|googleother|applebot|chatgpt-user|claude-|perplexity|bytespider|facebookexternalhit|whatsapp|embedly|slurp|duckduck|yandex|baidu|ccbot|cohere-ai|diffbot|amazonbot/i;
+
+function isBotUA(ua: string | null | undefined): boolean {
+  if (!ua) return true; // empty UA = treat as bot/scraper
+  return BOT_UA_RE.test(ua);
+}
 
 function classifyRoute(path: string): string {
   if (path === "/") return "/";
