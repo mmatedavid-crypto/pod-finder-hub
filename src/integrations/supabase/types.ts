@@ -2219,6 +2219,10 @@ export type Database = {
         Args: { p_slugs: string[]; p_urls: string[] }
         Returns: number
       }
+      admin_update_entity_images_by_kind: {
+        Args: { p_kind: string; p_slugs: string[]; p_urls: string[] }
+        Returns: number
+      }
       chunk_candidate_stats: {
         Args: never
         Returns: {
