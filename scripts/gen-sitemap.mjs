@@ -19,10 +19,31 @@ const pages = [
   tag(`${SITE}/about`, now, 'monthly', '0.4'),
   tag(`${SITE}/methodology`, now, 'monthly', '0.4'),
   tag(`${SITE}/new-podcasts`, now, 'daily', '0.6'),
+  tag(`${SITE}/people`, now, 'daily', '0.8'),
   ...cats.map(c => tag(`${SITE}/category/${esc(c.slug)}`, c.created_at, 'daily', '0.8')),
 ];
 fs.writeFileSync('public/sitemaps/pages.xml', wrap(pages));
 console.log('pages.xml:', pages.length, 'urls');
+
+// ---- people.xml (entity_profiles where kind='person') ----
+{
+  let pf = 0, peopleUrls = [];
+  while (true) {
+    const { data, error } = await sb.from('entity_profiles')
+      .select('slug,updated_at')
+      .eq('kind', 'person')
+      .order('slug').range(pf, pf + 999);
+    if (error) throw error;
+    if (!data?.length) break;
+    for (const p of data) {
+      peopleUrls.push(tag(`${SITE}/person/${esc(p.slug)}`, p.updated_at, 'weekly', '0.7'));
+    }
+    if (data.length < 1000) break;
+    pf += 1000;
+  }
+  fs.writeFileSync('public/sitemaps/people.xml', wrap(peopleUrls));
+  console.log('people.xml:', peopleUrls.length, 'urls');
+}
 
 // ---- podcasts-1.xml ----
 const BAD = new Set(['needs_manual_rss_review','quarantined_spam','confirmed_dead']);
@@ -61,6 +82,7 @@ for (let i = 0; i < all.length; i += CHUNK) {
 const lastmod = new Date().toISOString();
 const entries = [
   `<sitemap><loc>${SITE}/sitemaps/pages.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
+  `<sitemap><loc>${SITE}/sitemaps/people.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
   ...podFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
 ];
 const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</sitemapindex>\n`;
