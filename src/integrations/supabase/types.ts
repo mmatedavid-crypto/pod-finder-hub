@@ -1203,6 +1203,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_sample: boolean
+          known_hosts: string[]
           language: string | null
           last_deep_hydrated_at: string | null
           last_etag: string | null
@@ -1275,6 +1276,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_sample?: boolean
+          known_hosts?: string[]
           language?: string | null
           last_deep_hydrated_at?: string | null
           last_etag?: string | null
@@ -1347,6 +1349,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_sample?: boolean
+          known_hosts?: string[]
           language?: string | null
           last_deep_hydrated_at?: string | null
           last_etag?: string | null
