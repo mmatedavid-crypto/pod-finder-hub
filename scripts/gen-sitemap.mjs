@@ -82,6 +82,7 @@ for (let i = 0; i < all.length; i += CHUNK) {
 const lastmod = new Date().toISOString();
 const entries = [
   `<sitemap><loc>${SITE}/sitemaps/pages.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
+  `<sitemap><loc>${SITE}/sitemaps/people.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
   ...podFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
 ];
 const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</sitemapindex>\n`;
