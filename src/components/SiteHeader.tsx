@@ -31,12 +31,12 @@ export function SiteHeader() {
         {isHome && (
           <div className="ml-auto sm:hidden flex items-center gap-2.5 text-sm font-medium">
             <NavLink
-              to="/daily"
+              to="/companies"
               className={({ isActive }) =>
                 `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
               }
             >
-              Daily
+              Companies
             </NavLink>
             <span aria-hidden className="h-3 w-px bg-border" />
             <NavLink
