@@ -153,42 +153,39 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     () => new Set(profile?.featured_episode_ids || []),
     [profile?.featured_episode_ids]
   );
-  // Heuristic: if the entity name appears in the episode title, treat as "featured"
-  // even if the AI curation hasn't picked it yet. Avoids putting obvious direct
-  // episodes into the "Also mentioning" bucket.
-  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const nameTokens = useMemo(() => {
-    const parts = norm(displayName).split(/\s+/).filter((t) => t.length >= 3);
-    return parts;
-  }, [displayName]);
-  const titleHitsEntity = (e: EpisodeLite) => {
-    const title = norm((e as any).title || "");
-    if (!title || nameTokens.length === 0) return false;
-    // For multi-word names (e.g., "Gabor Maté"), require ALL tokens present.
-    // For single-token names, the lone token must appear.
-    return nameTokens.every((t) => title.includes(t));
-  };
-  const effectiveFeaturedIds = useMemo(() => {
-    const set = new Set(featuredIdSet);
-    eps.forEach((e) => { if (titleHitsEntity(e)) set.add((e as any).id); });
-    return set;
-  }, [eps, featuredIdSet, nameTokens]);
-  const featuredEps = useMemo(() => (
-    effectiveFeaturedIds.size
-      ? eps.filter((e) => effectiveFeaturedIds.has((e as any).id))
-          .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-          .slice(0, 12)
-      : []
-  ), [eps, effectiveFeaturedIds]);
-  const mentionedEps = useMemo(() => (
-    effectiveFeaturedIds.size ? eps.filter((e) => !effectiveFeaturedIds.has((e as any).id)) : eps
-  ), [eps, effectiveFeaturedIds]);
-  const newest = useMemo(() => (
-    mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12)
-  ), [mentionedEps]);
-  const best = useMemo(() => (
-    mentionedEps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12)
-  ), [mentionedEps]);
+
+  // Position-based classification: Strong (title) / Medium (summary or top-of-array) / Weak.
+  // Any AI-curated "featured" episode is promoted to Strong regardless of position.
+  const strengthById = useMemo(() => {
+    const map = new Map<string, 1 | 2 | 3>();
+    eps.forEach((e) => {
+      const s = classifyEntityMatch(e as any, kind, displayName);
+      map.set((e as any).id, featuredIdSet.has((e as any).id) ? 3 : s);
+    });
+    return map;
+  }, [eps, kind, displayName, featuredIdSet]);
+
+  const strongEps = useMemo(
+    () => eps
+      .filter((e) => strengthById.get((e as any).id) === 3)
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 18),
+    [eps, strengthById],
+  );
+  const mediumEps = useMemo(
+    () => eps
+      .filter((e) => strengthById.get((e as any).id) === 2)
+      .sort(compareByScore)
+      .slice(0, 18),
+    [eps, strengthById],
+  );
+  const weakEps = useMemo(
+    () => eps
+      .filter((e) => strengthById.get((e as any).id) === 1)
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 24),
+    [eps, strengthById],
+  );
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
