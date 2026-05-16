@@ -13,6 +13,27 @@ type Company = {
   appearance_stats: { total?: number } | null;
 };
 
+// Map of known public companies → stock ticker. Private companies are omitted.
+const TICKER_BY_SLUG: Record<string, string> = {
+  apple: "AAPL",
+  meta: "META",
+  facebook: "META",
+  google: "GOOGL",
+  youtube: "GOOGL",
+  tesla: "TSLA",
+  microsoft: "MSFT",
+  amazon: "AMZN",
+  nvidia: "NVDA",
+  netflix: "NFLX",
+  disney: "DIS",
+  palantir: "PLTR",
+  "berkshire-hathaway": "BRK.B",
+  intel: "INTC",
+  paramount: "PARA",
+  "spirit-airlines": "SAVE",
+  bbc: "",
+};
+
 export default function CompaniesIndexPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
