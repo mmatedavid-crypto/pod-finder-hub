@@ -12,6 +12,9 @@ type Row = {
   referrer: string | null;
   created_at: string;
   user_agent: string | null;
+  visitor_id: string | null;
+  session_id: string | null;
+  country: string | null;
 };
 
 const ACTIVE_WINDOW_MIN = 5;
@@ -40,7 +43,14 @@ function classifyRoute(path: string): string {
 }
 
 function visitorKey(r: Row): string {
-  return r.user_id || r.full_url || r.path;
+  // Prefer durable identifiers. Older rows without visitor_id fall back to URL/path.
+  return r.visitor_id || r.user_id || r.full_url || r.path;
+}
+
+function flagEmoji(cc: string | null | undefined): string {
+  if (!cc || cc.length !== 2) return "";
+  const A = 0x1f1e6;
+  return String.fromCodePoint(A + (cc.charCodeAt(0) - 65), A + (cc.charCodeAt(1) - 65));
 }
 
 export default function AdminLivePage() {
@@ -49,6 +59,7 @@ export default function AdminLivePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [recent, setRecent] = useState<Row[]>([]);
   const [todayCount, setTodayCount] = useState(0);
+  const [uniqueToday, setUniqueToday] = useState(0);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [tick, setTick] = useState(0);
@@ -80,24 +91,26 @@ export default function AdminLivePage() {
         const [{ data: r }, { data: todayRows }] = await Promise.all([
           supabase
             .from("page_events")
-            .select("id,path,full_url,user_id,referrer,created_at,user_agent")
+            .select("id,path,full_url,user_id,referrer,created_at,user_agent,visitor_id,session_id,country")
             .gte("created_at", sinceActive)
             .order("created_at", { ascending: false })
             .limit(1000),
           supabase
             .from("page_events")
-            .select("id,user_agent")
+            .select("id,user_agent,visitor_id")
             .gte("created_at", startOfDay.toISOString())
             .limit(50000),
         ]);
 
         if (cancelled) return;
         const humanRecent = ((r as Row[]) || []).filter((row) => !isBotUA(row.user_agent));
-        const humanToday = ((todayRows as { user_agent: string | null }[]) || []).filter(
+        const humanToday = ((todayRows as { user_agent: string | null; visitor_id: string | null }[]) || []).filter(
           (row) => !isBotUA(row.user_agent),
-        ).length;
+        );
+        const uniqueVisitorsToday = new Set(humanToday.map((r) => r.visitor_id).filter(Boolean)).size;
         setRecent(humanRecent);
-        setTodayCount(humanToday);
+        setTodayCount(humanToday.length);
+        setUniqueToday(uniqueVisitorsToday);
         setLastRefreshed(new Date());
       } finally {
         if (!cancelled) setLoading(false);
