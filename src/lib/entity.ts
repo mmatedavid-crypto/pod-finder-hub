@@ -98,3 +98,28 @@ export function classifyEntityMatch(
   return 1;
 }
 
+// ----------------------------------------------------------------------------
+// v2: role-aware person classification (uses episodes.people_roles JSONB)
+// ----------------------------------------------------------------------------
+
+export type PersonRole = "host" | "guest" | "subject" | "mentioned";
+
+type PersonRoleEntry = {
+  name: string;
+  role: PersonRole;
+  present_in_episode?: boolean;
+  is_deceased_or_historical?: boolean;
+  confidence?: number;
+};
+
+export function getPersonRole(
+  episode: { people_roles?: unknown; people?: string[] | null } & Record<string, any>,
+  canonicalValue: string,
+): PersonRole | null {
+  const roles = Array.isArray(episode.people_roles) ? (episode.people_roles as PersonRoleEntry[]) : [];
+  const hit = roles.find((r) => r && typeof r.name === "string" && matchesEntitySlug("person", r.name, canonicalValue));
+  if (hit && hit.role) return hit.role;
+  // Fallback: not yet re-extracted under v2 — return null so caller can fall back to positional classifier.
+  return null;
+}
+
