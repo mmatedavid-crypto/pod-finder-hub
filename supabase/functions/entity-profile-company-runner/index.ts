@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     }
 
     if (newSlugs.length) {
-      const { error: imgErr } = await sb.rpc("admin_update_entity_images", { p_slugs: newSlugs, p_urls: newUrls });
+      const { error: imgErr } = await sb.rpc("admin_update_entity_images_by_kind", { p_kind: "company", p_slugs: newSlugs, p_urls: newUrls });
       if (imgErr) console.error("images", imgErr);
     }
 
