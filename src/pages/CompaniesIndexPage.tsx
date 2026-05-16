@@ -10,49 +10,8 @@ import { Search } from "lucide-react";
 type Company = {
   slug: string;
   display_name: string;
-  bio: string | null;
-  image_url: string | null;
   appearance_stats: { total?: number } | null;
 };
-
-function initials(name: string) {
-  return name
-    .replace(/[^A-Za-z0-9 ]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("") || "?";
-}
-function bgFor(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return `hsl(${h % 360} 30% 88%)`;
-}
-
-function Logo({ company }: { company: Company }) {
-  const [broken, setBroken] = useState(false);
-  const show = company.image_url && !broken;
-  return (
-    <div
-      className="aspect-square w-full overflow-hidden rounded-2xl border border-border bg-muted flex items-center justify-center"
-      style={!show ? { background: bgFor(company.display_name) } : undefined}
-    >
-      {show ? (
-        <img
-          src={company.image_url!}
-          alt={company.display_name}
-          loading="lazy"
-          decoding="async"
-          onError={() => setBroken(true)}
-          className="w-full h-full object-contain p-3"
-        />
-      ) : (
-        <div className="font-semibold text-foreground/70 text-lg">{initials(company.display_name)}</div>
-      )}
-    </div>
-  );
-}
 
 export default function CompaniesIndexPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -64,7 +23,7 @@ export default function CompaniesIndexPage() {
     (async () => {
       const { data } = await supabase
         .from("entity_profiles")
-        .select("slug,display_name,bio,image_url,appearance_stats")
+        .select("slug,display_name,appearance_stats")
         .eq("kind", "company")
         .order("display_name");
       setCompanies((data || []) as Company[]);
@@ -148,24 +107,21 @@ export default function CompaniesIndexPage() {
         ) : filtered.length === 0 ? (
           <div className="text-muted-foreground">No matches.</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {filtered.map((c) => {
               const eps = c.appearance_stats?.total ?? 0;
               return (
                 <Link
                   key={c.slug}
                   to={`/company/${c.slug}`}
-                  className="group flex flex-col items-center text-center"
+                  className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/40 hover:bg-accent/30 transition-colors"
                 >
-                  <div className="w-full transition-transform group-hover:scale-[1.03]">
-                    <Logo company={c} />
-                  </div>
-                  <div className="mt-2.5 text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                  <div className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2">
                     {c.display_name}
                   </div>
                   {eps > 0 && (
-                    <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
-                      {eps.toLocaleString()} ep{eps === 1 ? "" : "s"}
+                    <div className="text-[11px] text-muted-foreground tabular-nums shrink-0">
+                      {eps.toLocaleString()}
                     </div>
                   )}
                 </Link>
