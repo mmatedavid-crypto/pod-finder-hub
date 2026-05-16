@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.admin_update_entity_images(text[], text[]) TO anon, authenticated;

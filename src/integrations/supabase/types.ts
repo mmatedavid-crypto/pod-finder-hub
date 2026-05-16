@@ -408,6 +408,9 @@ export type Database = {
           episodes_summary: string | null
           featured_episode_ids: string[]
           generated_at: string
+          image_checked_at: string | null
+          image_source: string | null
+          image_url: string | null
           kind: string
           model: string | null
           slug: string
@@ -422,6 +425,9 @@ export type Database = {
           episodes_summary?: string | null
           featured_episode_ids?: string[]
           generated_at?: string
+          image_checked_at?: string | null
+          image_source?: string | null
+          image_url?: string | null
           kind: string
           model?: string | null
           slug: string
@@ -436,6 +442,9 @@ export type Database = {
           episodes_summary?: string | null
           featured_episode_ids?: string[]
           generated_at?: string
+          image_checked_at?: string | null
+          image_source?: string | null
+          image_url?: string | null
           kind?: string
           model?: string | null
           slug?: string
@@ -2205,6 +2214,10 @@ export type Database = {
       _mood_time_tags: {
         Args: { p_dow: number; p_hour: number }
         Returns: string[]
+      }
+      admin_update_entity_images: {
+        Args: { p_slugs: string[]; p_urls: string[] }
+        Returns: number
       }
       chunk_candidate_stats: {
         Args: never

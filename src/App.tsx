@@ -15,6 +15,7 @@ import GrowthStatusPage from "./pages/GrowthStatusPage.tsx";
 import EntityPage from "./pages/EntityPage.tsx";
 import TopicHubPage from "./pages/TopicHubPage.tsx";
 import TopicsIndexPage from "./pages/TopicsIndexPage.tsx";
+import PeopleIndexPage from "./pages/PeopleIndexPage.tsx";
 
 import PageViewTracker from "./components/PageViewTracker.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
@@ -55,6 +56,7 @@ const App = () => (
 
           <Route path="/growth-status" element={<GrowthStatusPage />} />
           <Route path="/topics" element={<TopicsIndexPage />} />
+          <Route path="/people" element={<PeopleIndexPage />} />
           <Route path="/topic/:slug" element={<TopicHubPage />} />
           <Route path="/person/:slug" element={<EntityPage kind="person" />} />
           <Route path="/company/:slug" element={<EntityPage kind="company" />} />
