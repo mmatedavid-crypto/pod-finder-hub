@@ -2572,6 +2572,24 @@ export type Database = {
           transcript_text: string
         }[]
       }
+      select_company_candidates: {
+        Args: { _limit?: number; _min_count?: number; _min_pods?: number }
+        Returns: {
+          cnt: number
+          display_name: string
+          pods: number
+          slug: string
+        }[]
+      }
+      select_company_refresh_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          display_name: string
+          generated_at: string
+          new_eps: number
+          slug: string
+        }[]
+      }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {
