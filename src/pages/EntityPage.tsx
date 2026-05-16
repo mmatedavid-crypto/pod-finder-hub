@@ -156,6 +156,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   // Position-based classification: Strong (title) / Medium (summary or top-of-array) / Weak.
   // Any AI-curated "featured" episode is promoted to Strong regardless of position.
+  // For person pages we *also* compute a role from people_roles (v2 extraction).
   const strengthById = useMemo(() => {
     const map = new Map<string, 1 | 2 | 3>();
     eps.forEach((e) => {
@@ -165,26 +166,79 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     return map;
   }, [eps, kind, displayName, featuredIdSet]);
 
+  // Person-only: role from people_roles JSONB (v2). Falls back to position-based bucketing.
+  const roleById = useMemo(() => {
+    const map = new Map<string, PersonRole | null>();
+    if (kind !== "person") return map;
+    eps.forEach((e) => {
+      map.set((e as any).id, getPersonRole(e as any, displayName));
+    });
+    return map;
+  }, [eps, kind, displayName]);
+
+  // Person role-aware buckets. Episodes without v2 data fall back to positional strength.
+  const subjectEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => {
+        const r = roleById.get((e as any).id);
+        if (r === "subject") return true;
+        // v1 fallback: if no role, use positional Strong as subject-equivalent
+        if (r == null) return strengthById.get((e as any).id) === 3;
+        return false;
+      })
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 24),
+    [kind, eps, roleById, strengthById],
+  );
+  const guestEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => roleById.get((e as any).id) === "guest")
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 18),
+    [kind, eps, roleById],
+  );
+  const hostEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => roleById.get((e as any).id) === "host")
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 18),
+    [kind, eps, roleById],
+  );
+  const mentionedEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => {
+        const r = roleById.get((e as any).id);
+        if (r === "mentioned") return true;
+        // v1 fallback for mentions: positional Weak/Medium when no v2 data
+        if (r == null) return strengthById.get((e as any).id) !== 3;
+        return false;
+      })
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 24),
+    [kind, eps, roleById, strengthById],
+  );
+
+  // Non-person buckets keep the existing positional buckets.
   const strongEps = useMemo(
-    () => eps
+    () => kind === "person" ? [] : eps
       .filter((e) => strengthById.get((e as any).id) === 3)
       .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
       .slice(0, 18),
-    [eps, strengthById],
+    [kind, eps, strengthById],
   );
   const mediumEps = useMemo(
-    () => eps
+    () => kind === "person" ? [] : eps
       .filter((e) => strengthById.get((e as any).id) === 2)
       .sort(compareByScore)
       .slice(0, 18),
-    [eps, strengthById],
+    [kind, eps, strengthById],
   );
   const weakEps = useMemo(
-    () => eps
+    () => kind === "person" ? [] : eps
       .filter((e) => strengthById.get((e as any).id) === 1)
       .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
       .slice(0, 24),
-    [eps, strengthById],
+    [kind, eps, strengthById],
   );
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
