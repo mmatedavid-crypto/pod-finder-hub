@@ -7,7 +7,9 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { Seo } from "@/components/Seo";
 import { siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug, classifyEntityMatch } from "@/lib/entity";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
 
 const NOINDEX_BELOW = 5;
@@ -151,42 +153,39 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     () => new Set(profile?.featured_episode_ids || []),
     [profile?.featured_episode_ids]
   );
-  // Heuristic: if the entity name appears in the episode title, treat as "featured"
-  // even if the AI curation hasn't picked it yet. Avoids putting obvious direct
-  // episodes into the "Also mentioning" bucket.
-  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const nameTokens = useMemo(() => {
-    const parts = norm(displayName).split(/\s+/).filter((t) => t.length >= 3);
-    return parts;
-  }, [displayName]);
-  const titleHitsEntity = (e: EpisodeLite) => {
-    const title = norm((e as any).title || "");
-    if (!title || nameTokens.length === 0) return false;
-    // For multi-word names (e.g., "Gabor Maté"), require ALL tokens present.
-    // For single-token names, the lone token must appear.
-    return nameTokens.every((t) => title.includes(t));
-  };
-  const effectiveFeaturedIds = useMemo(() => {
-    const set = new Set(featuredIdSet);
-    eps.forEach((e) => { if (titleHitsEntity(e)) set.add((e as any).id); });
-    return set;
-  }, [eps, featuredIdSet, nameTokens]);
-  const featuredEps = useMemo(() => (
-    effectiveFeaturedIds.size
-      ? eps.filter((e) => effectiveFeaturedIds.has((e as any).id))
-          .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-          .slice(0, 12)
-      : []
-  ), [eps, effectiveFeaturedIds]);
-  const mentionedEps = useMemo(() => (
-    effectiveFeaturedIds.size ? eps.filter((e) => !effectiveFeaturedIds.has((e as any).id)) : eps
-  ), [eps, effectiveFeaturedIds]);
-  const newest = useMemo(() => (
-    mentionedEps.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12)
-  ), [mentionedEps]);
-  const best = useMemo(() => (
-    mentionedEps.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12)
-  ), [mentionedEps]);
+
+  // Position-based classification: Strong (title) / Medium (summary or top-of-array) / Weak.
+  // Any AI-curated "featured" episode is promoted to Strong regardless of position.
+  const strengthById = useMemo(() => {
+    const map = new Map<string, 1 | 2 | 3>();
+    eps.forEach((e) => {
+      const s = classifyEntityMatch(e as any, kind, displayName);
+      map.set((e as any).id, featuredIdSet.has((e as any).id) ? 3 : s);
+    });
+    return map;
+  }, [eps, kind, displayName, featuredIdSet]);
+
+  const strongEps = useMemo(
+    () => eps
+      .filter((e) => strengthById.get((e as any).id) === 3)
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 18),
+    [eps, strengthById],
+  );
+  const mediumEps = useMemo(
+    () => eps
+      .filter((e) => strengthById.get((e as any).id) === 2)
+      .sort(compareByScore)
+      .slice(0, 18),
+    [eps, strengthById],
+  );
+  const weakEps = useMemo(
+    () => eps
+      .filter((e) => strengthById.get((e as any).id) === 1)
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 24),
+    [eps, strengthById],
+  );
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
@@ -260,7 +259,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {featuredEps.length > 0 && (
+        {strongEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">
@@ -272,34 +271,45 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
               <p className="text-xs text-muted-foreground mt-1">
                 {speakerCount > 0
                   ? `${speakerCount} episode${speakerCount === 1 ? "" : "s"} where ${displayName} actually speaks.`
-                  : `Episodes built around ${displayName}.`}
+                  : `Episodes where ${displayName} appears in the title — interviews, deep dives, or main subjects.`}
               </p>
             </div>
-            <EpisodeList items={featuredEps} showEntities />
+            <EpisodeList items={strongEps} showEntities />
           </section>
         )}
 
-        <section>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <h2 className="text-xl font-semibold">
-                {featuredEps.length > 0 ? `Also mentioning ${displayName}` : "Latest episodes"}
-              </h2>
-              {featuredEps.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">Episodes that discuss {displayName} but where they don't appear directly.</p>
-              )}
+        {mediumEps.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {strongEps.length > 0 ? `Also discussing ${displayName}` : `Discussing ${displayName}`}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {displayName} is a meaningful topic of these episodes, though not the headline subject.
+                </p>
+              </div>
             </div>
-          </div>
-          <EpisodeList items={newest} showEntities />
-        </section>
+            <EpisodeList items={mediumEps} showEntities />
+          </section>
+        )}
 
-        {rich && (
-          <section className="sm:rounded-2xl sm:border sm:border-border/70 sm:bg-card/40 sm:p-6">
-            <div className="mb-3">
-              <h2 className="text-xl font-semibold">Episodes worth hearing</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strong matches across the index.</p>
-            </div>
-            <EpisodeList items={best} showEntities />
+        {weakEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+                <div>
+                  <h2 className="text-xl font-semibold">Briefly mentioned</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {weakEps.length} more episode{weakEps.length === 1 ? "" : "s"} that tag {displayName} but don't focus on them.
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <EpisodeList items={weakEps} showEntities />
+              </CollapsibleContent>
+            </Collapsible>
           </section>
         )}
 

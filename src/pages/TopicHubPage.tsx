@@ -7,7 +7,10 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { Seo } from "@/components/Seo";
 import { siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
-import { compareByScore, episodeScore } from "@/lib/episodeRank";
+import { compareByScore } from "@/lib/episodeRank";
+import { classifyEntityMatch } from "@/lib/entity";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import EntityPage from "./EntityPage";
 
 type TopicHub = {
@@ -126,15 +129,26 @@ export default function TopicHubPage() {
     );
   }
 
+  // Position-based strength: Strong (title) / Medium (summary or top-of-array) / Weak.
+  // AI-curated featured_episode_ids are promoted to Strong.
   const featuredIdSet = new Set(hub.featured_episode_ids || []);
-  const featuredEps = featuredIdSet.size
-    ? eps.filter((e) => featuredIdSet.has((e as any).id))
-        .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-        .slice(0, 12)
-    : eps.slice(0, 12);
-  const remainder = featuredIdSet.size ? eps.filter((e) => !featuredIdSet.has((e as any).id)) : eps.slice(12);
-  const newest = remainder.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = remainder.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
+  const strengthById = new Map<string, 1 | 2 | 3>();
+  eps.forEach((e) => {
+    const s = classifyEntityMatch(e as any, "topic", hub.title, hub.aliases);
+    strengthById.set((e as any).id, featuredIdSet.has((e as any).id) ? 3 : s);
+  });
+  const strongEps = eps
+    .filter((e) => strengthById.get((e as any).id) === 3)
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .slice(0, 18);
+  const mediumEps = eps
+    .filter((e) => strengthById.get((e as any).id) === 2)
+    .sort(compareByScore)
+    .slice(0, 18);
+  const weakEps = eps
+    .filter((e) => strengthById.get((e as any).id) === 1)
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .slice(0, 24);
   const last30 = eps.filter((e) => e.published_at && Date.now() - new Date(e.published_at).getTime() < 30 * 86400_000).length;
   const pageUrl = `${siteOrigin()}/topic/${hub.slug}`;
   const accent = hub.accent_hsl ? { background: `hsl(${hub.accent_hsl} / 0.12)` } : undefined;
@@ -187,32 +201,45 @@ export default function TopicHubPage() {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {featuredEps.length > 0 && (
+
+
+        {strongEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">Featured on {hub.title}</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strongest episodes by quality and freshness.</p>
+              <p className="text-xs text-muted-foreground mt-1">Episodes built around {hub.title} — the headline subject.</p>
             </div>
-            <EpisodeList items={featuredEps} showEntities />
+            <EpisodeList items={strongEps} showEntities />
           </section>
         )}
 
-        {newest.length > 0 && (
+        {mediumEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-3">
-              <h2 className="text-xl font-semibold">Latest</h2>
+              <h2 className="text-xl font-semibold">
+                {strongEps.length > 0 ? `Also discussing ${hub.title}` : `Discussing ${hub.title}`}
+              </h2>
             </div>
-            <EpisodeList items={newest} showEntities />
+            <EpisodeList items={mediumEps} showEntities />
           </section>
         )}
 
-        {best.length > 0 && (
-          <section className="sm:rounded-2xl sm:border sm:border-border/70 sm:bg-card/40 sm:p-6">
-            <div className="mb-3">
-              <h2 className="text-xl font-semibold">Worth hearing</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strong matches across the index.</p>
-            </div>
-            <EpisodeList items={best} showEntities />
+        {weakEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+                <div>
+                  <h2 className="text-xl font-semibold">Briefly mentioned</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {weakEps.length} more episode{weakEps.length === 1 ? "" : "s"} that tag {hub.title} but don't focus on it.
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <EpisodeList items={weakEps} showEntities />
+              </CollapsibleContent>
+            </Collapsible>
           </section>
         )}
 
