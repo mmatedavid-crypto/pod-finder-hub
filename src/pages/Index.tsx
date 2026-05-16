@@ -392,21 +392,6 @@ const Index = () => {
           });
         })()}
 
-        <div className="flex justify-center flex-wrap gap-2">
-          <Link
-            to="/categories"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-border bg-card/60 text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-          >
-            Browse all categories <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-          <Link
-            to="/people"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-border bg-card/60 text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-          >
-            Browse people <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-
         {evergreenEps.length > 0 && (
           <section className="md:rounded-2xl md:border md:border-border/70 md:bg-card/40 md:p-6">
             <div className="flex items-end justify-between mb-4">
