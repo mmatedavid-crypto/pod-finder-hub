@@ -102,6 +102,8 @@ async function buildCore(supabase: ReturnType<typeof createClient>) {
     urlTag(`${SITE}/`, null, "daily", "1.0"),
     urlTag(`${SITE}/categories`, null, "daily", "0.7"),
     urlTag(`${SITE}/topics`, null, "daily", "0.8"),
+    urlTag(`${SITE}/people`, null, "daily", "0.8"),
+    urlTag(`${SITE}/companies`, null, "daily", "0.8"),
     urlTag(`${SITE}/about`, null, "monthly", "0.4"),
     urlTag(`${SITE}/methodology`, null, "monthly", "0.4"),
     urlTag(`${SITE}/new-podcasts`, null, "daily", "0.6"),
