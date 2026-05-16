@@ -32,13 +32,13 @@ type SlotKind = "flagship" | "topic" | "discovery";
 type Slot = { time: string; kind: SlotKind; linkPlacement: "main" | "reply" };
 
 const WEEKDAY_SLOTS: Slot[] = [
-  { time: "13:30", kind: "flagship",  linkPlacement: "main"  },
-  { time: "17:30", kind: "topic",     linkPlacement: "reply" },
-  { time: "21:30", kind: "discovery", linkPlacement: "reply" },
+  { time: "13:30", kind: "flagship",  linkPlacement: "main" },
+  { time: "17:30", kind: "topic",     linkPlacement: "main" },
+  { time: "21:30", kind: "discovery", linkPlacement: "main" },
 ];
 const WEEKEND_SLOTS: Slot[] = [
-  { time: "16:00", kind: "flagship",  linkPlacement: "main"  },
-  { time: "20:00", kind: "discovery", linkPlacement: "reply" },
+  { time: "16:00", kind: "flagship",  linkPlacement: "main" },
+  { time: "20:00", kind: "discovery", linkPlacement: "main" },
 ];
 
 // Tolerance window (minutes) — cron runs every 30m, allow ±10m drift.
