@@ -107,7 +107,18 @@ export default function CompaniesIndexPage() {
               className="pl-9"
             />
           </div>
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex items-center gap-1 text-xs flex-wrap">
+            <button
+              onClick={() => setTickerOnly((v) => !v)}
+              className={`px-2.5 py-1 rounded-md transition-colors mr-2 ${
+                tickerOnly
+                  ? "bg-primary/10 text-foreground border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground border border-border"
+              }`}
+              title="Show only publicly traded companies"
+            >
+              $ Tickers only
+            </button>
             <button
               onClick={() => setSort("popular")}
               className={`px-2.5 py-1 rounded-md transition-colors ${
@@ -139,14 +150,22 @@ export default function CompaniesIndexPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {filtered.map((c) => {
               const eps = c.appearance_stats?.total ?? 0;
+              const ticker = TICKER_BY_SLUG[c.slug];
               return (
                 <Link
                   key={c.slug}
                   to={`/company/${c.slug}`}
                   className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/40 hover:bg-accent/30 transition-colors"
                 >
-                  <div className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                    {c.display_name}
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                      {c.display_name}
+                    </div>
+                    {ticker && (
+                      <div className="mt-0.5 text-[10px] font-mono uppercase tracking-wider text-primary/80">
+                        ${ticker}
+                      </div>
+                    )}
                   </div>
                   {eps > 0 && (
                     <div className="text-[11px] text-muted-foreground tabular-nums shrink-0">
