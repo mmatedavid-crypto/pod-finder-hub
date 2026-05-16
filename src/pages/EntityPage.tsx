@@ -7,7 +7,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { Seo } from "@/components/Seo";
 import { siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug, classifyEntityMatch } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug, classifyEntityMatch, getPersonRole, PersonRole } from "@/lib/entity";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
