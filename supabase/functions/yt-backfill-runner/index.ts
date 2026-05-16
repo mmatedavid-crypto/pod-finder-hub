@@ -35,7 +35,8 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / (a.size + b.size - inter);
 }
 
-type YTSearchResult = { videoId: string; title: string; channelTitle: string };
+type YTSearchResult = { videoId: string; title: string; channelTitle: string; channelId: string };
+const CHANNEL_PROMOTE_THRESHOLD = 0.7; // only promote channel URL to podcast if match is high-confidence
 
 async function ytSearch(apiKey: string, query: string): Promise<{ items: YTSearchResult[]; quotaExhausted?: boolean; error?: string }> {
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
