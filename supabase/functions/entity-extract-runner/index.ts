@@ -4,7 +4,7 @@
 // daily $ budget, claim-by-kind, adaptive cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
-import { ENTITY_SYSTEM_PROMPT, ENTITY_TOOL, entityUserPrompt } from "../_shared/entity-prompt.ts";
+import { ENTITY_SYSTEM_PROMPT, ENTITY_TOOL, entityUserPrompt, postProcessPeople } from "../_shared/entity-prompt.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
