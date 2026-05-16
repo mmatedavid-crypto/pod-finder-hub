@@ -7,7 +7,7 @@ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { Seo } from "@/components/Seo";
 import { siteOrigin } from "@/lib/seo-helpers";
 import NotFoundState from "@/components/NotFoundState";
-import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug, classifyEntityMatch } from "@/lib/entity";
+import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug, classifyEntityMatch, getPersonRole, PersonRole } from "@/lib/entity";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
@@ -156,6 +156,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
   // Position-based classification: Strong (title) / Medium (summary or top-of-array) / Weak.
   // Any AI-curated "featured" episode is promoted to Strong regardless of position.
+  // For person pages we *also* compute a role from people_roles (v2 extraction).
   const strengthById = useMemo(() => {
     const map = new Map<string, 1 | 2 | 3>();
     eps.forEach((e) => {
@@ -165,26 +166,79 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     return map;
   }, [eps, kind, displayName, featuredIdSet]);
 
+  // Person-only: role from people_roles JSONB (v2). Falls back to position-based bucketing.
+  const roleById = useMemo(() => {
+    const map = new Map<string, PersonRole | null>();
+    if (kind !== "person") return map;
+    eps.forEach((e) => {
+      map.set((e as any).id, getPersonRole(e as any, displayName));
+    });
+    return map;
+  }, [eps, kind, displayName]);
+
+  // Person role-aware buckets. Episodes without v2 data fall back to positional strength.
+  const subjectEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => {
+        const r = roleById.get((e as any).id);
+        if (r === "subject") return true;
+        // v1 fallback: if no role, use positional Strong as subject-equivalent
+        if (r == null) return strengthById.get((e as any).id) === 3;
+        return false;
+      })
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 24),
+    [kind, eps, roleById, strengthById],
+  );
+  const guestEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => roleById.get((e as any).id) === "guest")
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 18),
+    [kind, eps, roleById],
+  );
+  const hostEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => roleById.get((e as any).id) === "host")
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 18),
+    [kind, eps, roleById],
+  );
+  const mentionedEps = useMemo(
+    () => kind !== "person" ? [] : eps
+      .filter((e) => {
+        const r = roleById.get((e as any).id);
+        if (r === "mentioned") return true;
+        // v1 fallback for mentions: positional Weak/Medium when no v2 data
+        if (r == null) return strengthById.get((e as any).id) !== 3;
+        return false;
+      })
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, 24),
+    [kind, eps, roleById, strengthById],
+  );
+
+  // Non-person buckets keep the existing positional buckets.
   const strongEps = useMemo(
-    () => eps
+    () => kind === "person" ? [] : eps
       .filter((e) => strengthById.get((e as any).id) === 3)
       .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
       .slice(0, 18),
-    [eps, strengthById],
+    [kind, eps, strengthById],
   );
   const mediumEps = useMemo(
-    () => eps
+    () => kind === "person" ? [] : eps
       .filter((e) => strengthById.get((e as any).id) === 2)
       .sort(compareByScore)
       .slice(0, 18),
-    [eps, strengthById],
+    [kind, eps, strengthById],
   );
   const weakEps = useMemo(
-    () => eps
+    () => kind === "person" ? [] : eps
       .filter((e) => strengthById.get((e as any).id) === 1)
       .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
       .slice(0, 24),
-    [eps, strengthById],
+    [kind, eps, strengthById],
   );
 
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -259,26 +313,75 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {strongEps.length > 0 && (
+        {/* PERSON: role-aware sections (v2). Falls back to positional buckets for entities not yet re-extracted. */}
+        {kind === "person" && hostEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Hosted by {displayName}</h2>
+              <p className="text-xs text-muted-foreground mt-1">Episodes where {displayName} is the host of the show.</p>
+            </div>
+            <EpisodeList items={hostEps} showEntities />
+          </section>
+        )}
+
+        {kind === "person" && guestEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Appears as guest</h2>
+              <p className="text-xs text-muted-foreground mt-1">Interviews and conversations where {displayName} speaks.</p>
+            </div>
+            <EpisodeList items={guestEps} showEntities />
+          </section>
+        )}
+
+        {kind === "person" && subjectEps.length > 0 && (
+          <section>
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Episodes about {displayName}</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {displayName} is the main subject — deep dives, news, or analyses.
+              </p>
+            </div>
+            <EpisodeList items={subjectEps} showEntities />
+          </section>
+        )}
+
+        {kind === "person" && mentionedEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+                <div>
+                  <h2 className="text-xl font-semibold">Also mentioned in</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {mentionedEps.length} more episode{mentionedEps.length === 1 ? "" : "s"} that bring up {displayName} in passing.
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <EpisodeList items={mentionedEps} showEntities />
+              </CollapsibleContent>
+            </Collapsible>
+          </section>
+        )}
+
+        {/* NON-PERSON: original positional buckets (topic/company/ticker). */}
+        {kind !== "person" && strongEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">
                 Featuring {displayName}
-                <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">
-                  {kind === "person" ? "as guest or main subject" : "as primary subject"}
-                </span>
+                <span className="ml-2 text-xs font-normal text-muted-foreground align-middle">as primary subject</span>
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {speakerCount > 0
-                  ? `${speakerCount} episode${speakerCount === 1 ? "" : "s"} where ${displayName} actually speaks.`
-                  : `Episodes where ${displayName} appears in the title — interviews, deep dives, or main subjects.`}
+                Episodes where {displayName} appears in the title — deep dives or main subjects.
               </p>
             </div>
             <EpisodeList items={strongEps} showEntities />
           </section>
         )}
 
-        {mediumEps.length > 0 && (
+        {kind !== "person" && mediumEps.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-3">
               <div>
@@ -294,7 +397,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           </section>
         )}
 
-        {weakEps.length > 0 && (
+        {kind !== "person" && weakEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
             <Collapsible>
               <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">

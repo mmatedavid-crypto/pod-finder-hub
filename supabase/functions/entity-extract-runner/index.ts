@@ -4,7 +4,7 @@
 // daily $ budget, claim-by-kind, adaptive cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
-import { ENTITY_SYSTEM_PROMPT, ENTITY_TOOL, entityUserPrompt } from "../_shared/entity-prompt.ts";
+import { ENTITY_SYSTEM_PROMPT, ENTITY_TOOL, entityUserPrompt, postProcessPeople } from "../_shared/entity-prompt.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -209,21 +209,24 @@ Deno.serve(async (req) => {
         const parsed = args ? JSON.parse(args) : null;
         if (!parsed) throw new Error("no_tool_call");
 
-        const people = normArr(parsed.people, 8);
+        // v2: structured role-aware people with title-pattern + confidence post-check.
+        const title = (e as any).display_title || (e as any).title || "";
+        const { people_roles, people } = postProcessPeople(parsed.people, { title, podcast_title: podName });
         const companies = normArr(parsed.companies, 8);
         const tickers = normArr(parsed.tickers, 6, { upper: true });
         const topics = normArr(parsed.topics, 7, { lower: true });
 
         await admin.from("episodes").update({
           people, companies, tickers, topics,
-          ai_entities_version: 1,
+          people_roles,
+          ai_entities_version: 2,
         }).eq("id", job.target_id);
 
         await admin.from("ai_enrichment_jobs").update({
           status: "done",
           completed_at: new Date().toISOString(),
           model, cost_usd: cost, input_tokens: inTok, output_tokens: outTok,
-          result: { parsed: { people: people.length, companies: companies.length, tickers: tickers.length, topics: topics.length } },
+          result: { parsed: { people: people.length, roles: people_roles.map((p) => p.role), companies: companies.length, tickers: tickers.length, topics: topics.length } },
           last_error: null,
         }).eq("id", job.id);
 
