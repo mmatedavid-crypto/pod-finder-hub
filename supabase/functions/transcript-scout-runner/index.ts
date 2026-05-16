@@ -196,6 +196,120 @@ async function findYouTubeTranscript(youtubeUrl: string | null) {
   return { url: capUrl, text, format: "json", language: en.lang_code || "en" };
 }
 
+// --- Website scout: fetch the episode page, look for transcript links or inline transcript sections.
+// $0 cost (plain HTTP). Per-host failure cache prevents hammering sites that don't publish transcripts.
+const MAX_PAGE_BYTES = 1_500_000; // 1.5 MB cap for episode page HTML
+const _hostFailures = new Map<string, number>();
+const HOST_FAIL_LIMIT = 3; // after 3 consecutive misses in one run, skip this host for rest of run
+
+function hostOf(url: string): string {
+  try { return new URL(url).host.toLowerCase(); } catch { return ""; }
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+}
+
+function htmlBlockToText(html: string): string {
+  return decodeEntities(
+    html
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+  ).replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function extractInlineTranscript(html: string): string | null {
+  // Look for a container whose class/id contains "transcript" — common patterns on podcast sites
+  // (Lex Fridman, Tim Ferriss blog posts, Huberman, NPR-style transcripts).
+  const re = /<(article|section|div)\b[^>]*\b(?:class|id)\s*=\s*"[^"]*transcript[^"]*"[^>]*>([\s\S]*?)<\/\1>/gi;
+  let best = "";
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const text = htmlBlockToText(m[2]);
+    if (text.length > best.length) best = text;
+    if (best.length > 50_000) break;
+  }
+  if (best.length >= 1000) return best;
+  return null;
+}
+
+function findTranscriptLinks(html: string, baseUrl: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const linkRe = /<a\b[^>]*href\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(html)) !== null) {
+    const href = m[1];
+    const label = decodeEntities(m[2].replace(/<[^>]+>/g, " ")).toLowerCase();
+    const hrefLow = href.toLowerCase();
+    const looksLikeTranscript =
+      /transcript/.test(hrefLow) || /transcript/.test(label) ||
+      /\.(srt|vtt)(\?|$)/.test(hrefLow);
+    if (!looksLikeTranscript) continue;
+    // Skip obvious non-transcript false positives
+    if (/\.(jpg|jpeg|png|gif|webp|mp3|mp4|m4a|wav)(\?|$)/.test(hrefLow)) continue;
+    let abs: string;
+    try { abs = new URL(href, baseUrl).toString(); } catch { continue; }
+    if (seen.has(abs)) continue;
+    seen.add(abs);
+    // PDFs: skip — too costly/complex to parse here ($0 budget)
+    if (/\.pdf(\?|$)/i.test(abs)) continue;
+    out.push(abs);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+async function findWebsiteTranscript(episodeUrl: string | null) {
+  if (!episodeUrl) return null;
+  const host = hostOf(episodeUrl);
+  if (!host) return null;
+  if ((_hostFailures.get(host) || 0) >= HOST_FAIL_LIMIT) return null;
+  let html: string;
+  try {
+    const res = await fetchWithTimeout(episodeUrl, {
+      headers: { "User-Agent": "PodiverzumScout/1.0 (+https://podiverzum.com)" },
+    });
+    if (!res.ok) { _hostFailures.set(host, (_hostFailures.get(host) || 0) + 1); return null; }
+    const body = await readCapped(res, MAX_PAGE_BYTES);
+    if (!body) { _hostFailures.set(host, (_hostFailures.get(host) || 0) + 1); return null; }
+    html = body;
+  } catch {
+    _hostFailures.set(host, (_hostFailures.get(host) || 0) + 1);
+    return null;
+  }
+
+  // 1. Inline transcript block
+  const inline = extractInlineTranscript(html);
+  if (inline && inline.length >= 1000) {
+    _hostFailures.set(host, 0);
+    return { url: episodeUrl, text: inline.slice(0, 200_000), format: "txt" };
+  }
+
+  // 2. Transcript link(s) on the page
+  const links = findTranscriptLinks(html, episodeUrl);
+  for (const link of links) {
+    const parsed = await fetchAndParseTranscript(link);
+    if (parsed?.text) {
+      _hostFailures.set(host, 0);
+      return { url: link, text: parsed.text, format: parsed.format };
+    }
+  }
+
+  _hostFailures.set(host, (_hostFailures.get(host) || 0) + 1);
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const startedAt = Date.now();
