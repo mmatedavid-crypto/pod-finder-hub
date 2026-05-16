@@ -38,26 +38,45 @@ Deno.serve(async (req) => {
     });
   }
 
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "1";
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
+
   const log: any[] = [];
   try {
-    // 1. Resolve account id
+    // 0. Decode worker source + hash
+    const bin = Uint8Array.from(atob(WORKER_SRC_B64), c => c.charCodeAt(0));
+    const workerJs = new TextDecoder().decode(bin);
+    const sha = await sha256Hex(workerJs);
+    log.push({ step: "source", bytes: workerJs.length, sha });
+
+    // 1. Check stored hash
+    const { data: prev } = await sb.from("app_settings").select("value").eq("key", "cf_worker_sha").maybeSingle();
+    const prevSha = (prev?.value as any)?.sha as string | undefined;
+    log.push({ step: "prev_sha", prevSha: prevSha ?? null, force });
+
+    if (!force && prevSha === sha) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "sha_match", sha, log }, null, 2), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Resolve account id
     const accounts = await cf(token, "/accounts");
     if (!accounts.ok) throw new Error(`accounts: ${accounts.status} ${accounts.text}`);
     const accountId = accounts.json?.result?.[0]?.id;
     if (!accountId) throw new Error("no account in token");
     log.push({ step: "account", accountId });
 
-    // 2. Resolve zone id
+    // 3. Resolve zone id
     const zones = await cf(token, `/zones?name=${ZONE_NAME}`);
     if (!zones.ok) throw new Error(`zones: ${zones.status} ${zones.text}`);
     const zoneId = zones.json?.result?.[0]?.id;
     if (!zoneId) throw new Error(`zone ${ZONE_NAME} not found`);
     log.push({ step: "zone", zoneId });
-
-    // 3. Decode worker source
-    const bin = Uint8Array.from(atob(WORKER_SRC_B64), c => c.charCodeAt(0));
-    const workerJs = new TextDecoder().decode(bin);
-    log.push({ step: "source", bytes: workerJs.length });
 
     // 4. Upload script (modules syntax)
     const fd = new FormData();
@@ -73,6 +92,14 @@ Deno.serve(async (req) => {
     const uploadText = await upload.text();
     if (!upload.ok) throw new Error(`upload: ${upload.status} ${uploadText}`);
     log.push({ step: "upload", status: upload.status });
+
+    // 4b. Persist new hash
+    await sb.from("app_settings").upsert({
+      key: "cf_worker_sha",
+      value: { sha, deployed_at: new Date().toISOString(), bytes: workerJs.length },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
+    log.push({ step: "sha_stored", sha });
 
     // 5. Check routes
     const routes = await cf(token, `/zones/${zoneId}/workers/routes`);
