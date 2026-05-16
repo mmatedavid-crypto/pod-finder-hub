@@ -2474,6 +2474,7 @@ export type Database = {
         Returns: number
       }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
+      person_slugify: { Args: { p: string }; Returns: string }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
         Returns: number
@@ -2602,6 +2603,24 @@ export type Database = {
           tickers: string[]
           title: string
           topics: string[]
+        }[]
+      }
+      select_person_candidates: {
+        Args: { _limit?: number; _min_count?: number; _min_pods?: number }
+        Returns: {
+          cnt: number
+          display_name: string
+          pods: number
+          slug: string
+        }[]
+      }
+      select_person_refresh_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          display_name: string
+          generated_at: string
+          new_eps: number
+          slug: string
         }[]
       }
       select_transcript_scout_candidates: {
