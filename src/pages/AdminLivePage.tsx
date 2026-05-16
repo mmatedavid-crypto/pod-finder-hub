@@ -77,22 +77,27 @@ export default function AdminLivePage() {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        const [{ data: r }, { count: total }] = await Promise.all([
+        const [{ data: r }, { data: todayRows }] = await Promise.all([
           supabase
             .from("page_events")
-            .select("id,path,full_url,user_id,referrer,created_at")
+            .select("id,path,full_url,user_id,referrer,created_at,user_agent")
             .gte("created_at", sinceActive)
             .order("created_at", { ascending: false })
-            .limit(500),
+            .limit(1000),
           supabase
             .from("page_events")
-            .select("id", { count: "exact", head: true })
-            .gte("created_at", startOfDay.toISOString()),
+            .select("id,user_agent")
+            .gte("created_at", startOfDay.toISOString())
+            .limit(50000),
         ]);
 
         if (cancelled) return;
-        setRecent((r as Row[]) || []);
-        setTodayCount(total || 0);
+        const humanRecent = ((r as Row[]) || []).filter((row) => !isBotUA(row.user_agent));
+        const humanToday = ((todayRows as { user_agent: string | null }[]) || []).filter(
+          (row) => !isBotUA(row.user_agent),
+        ).length;
+        setRecent(humanRecent);
+        setTodayCount(humanToday);
         setLastRefreshed(new Date());
       } finally {
         if (!cancelled) setLoading(false);
