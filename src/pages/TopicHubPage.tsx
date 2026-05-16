@@ -201,15 +201,7 @@ export default function TopicHubPage() {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {featuredEps.length > 0 && (
-          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
-            <div className="mb-3">
-              <h2 className="text-xl font-semibold">Featured on {hub.title}</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strongest episodes by quality and freshness.</p>
-            </div>
-            <EpisodeList items={featuredEps} showEntities />
-          </section>
-        )}
+
 
         {strongEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
