@@ -354,39 +354,6 @@ const Index = () => {
 
         <MoodCollections />
 
-        {trendingEntityEps.length > 0 && (
-          <TrendingEntities
-            eyebrow="Topics"
-            title="What people are talking about"
-            subtitle="Topics surfacing across recent episodes."
-            items={topEntitiesFrom(trendingEntityEps, "topics", "topic", 10)}
-            icon="topic"
-          />
-        )}
-
-        {trendingEntityEps.length > 0 && (
-          <TrendingEntities
-            eyebrow="People"
-            title="Names in the conversation"
-            subtitle="Founders, scientists, leaders, athletes — who's coming up."
-            items={topEntitiesFrom(trendingEntityEps, "people", "person", 10)}
-            icon="person"
-          />
-        )}
-
-        {trendingEntityEps.length > 0 && (() => {
-          const companies = topEntitiesFrom(trendingEntityEps, "companies", "company", 10);
-          return companies.length ? (
-            <TrendingEntities
-              eyebrow="Companies"
-              title="Companies in the room"
-              subtitle="Brands and organizations showing up across shows."
-              items={companies}
-              icon="company"
-            />
-          ) : null;
-        })()}
-
         {(() => {
           const populated = cats
             .filter((c) => c.slug !== "trending" && (epsByCat[c.name]?.length ?? 0) > 0)
