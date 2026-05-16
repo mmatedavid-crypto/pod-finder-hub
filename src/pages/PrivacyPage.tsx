@@ -26,6 +26,16 @@ export default function PrivacyPage() {
           Like most web services, our infrastructure providers may process technical logs, including IP addresses, for security, reliability and abuse prevention. We do not build user profiles from IP addresses, and we do not run third-party advertising trackers.
         </p>
 
+        <h2 className="mt-8 text-xl font-semibold">Anonymous visitor and session identifiers</h2>
+        <p>
+          To count unique visitors and understand how sessions flow through the site, we store two random identifiers in your browser: a visitor identifier (persistent) and a session identifier (renewed after 30 minutes of inactivity). These identifiers are not linked to your name, email address or IP address, and are removed when you clear browser storage. We use them only to compute aggregate metrics such as unique visitors per day, average pages per session and conversion rates.
+        </p>
+
+        <h2 className="mt-8 text-xl font-semibold">Country</h2>
+        <p>
+          We may record the two-letter country code of your request (for example, HU or US), derived from network metadata by our content delivery network, to understand regional reach. We do not store IP addresses in our application database.
+        </p>
+
         <h2 className="mt-8 text-xl font-semibold">Browser storage</h2>
         <p>
           Podiverzum may store small amounts of data in your browser, such as recently viewed items or interface preferences, to make the product work. This can be cleared through your browser settings.

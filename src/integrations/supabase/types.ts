@@ -911,11 +911,13 @@ export type Database = {
       }
       page_events: {
         Row: {
+          country: string | null
           created_at: string
           full_url: string | null
           id: string
           path: string
           referrer: string | null
+          session_id: string | null
           user_agent: string | null
           user_id: string | null
           utm_campaign: string | null
@@ -924,13 +926,16 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           viewport_width: number | null
+          visitor_id: string | null
         }
         Insert: {
+          country?: string | null
           created_at?: string
           full_url?: string | null
           id?: string
           path: string
           referrer?: string | null
+          session_id?: string | null
           user_agent?: string | null
           user_id?: string | null
           utm_campaign?: string | null
@@ -939,13 +944,16 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           viewport_width?: number | null
+          visitor_id?: string | null
         }
         Update: {
+          country?: string | null
           created_at?: string
           full_url?: string | null
           id?: string
           path?: string
           referrer?: string | null
+          session_id?: string | null
           user_agent?: string | null
           user_id?: string | null
           utm_campaign?: string | null
@@ -954,6 +962,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           viewport_width?: number | null
+          visitor_id?: string | null
         }
         Relationships: []
       }

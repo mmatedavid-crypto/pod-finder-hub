@@ -12,6 +12,9 @@ type Row = {
   referrer: string | null;
   created_at: string;
   user_agent: string | null;
+  visitor_id: string | null;
+  session_id: string | null;
+  country: string | null;
 };
 
 const ACTIVE_WINDOW_MIN = 5;
@@ -40,7 +43,14 @@ function classifyRoute(path: string): string {
 }
 
 function visitorKey(r: Row): string {
-  return r.user_id || r.full_url || r.path;
+  // Prefer durable identifiers. Older rows without visitor_id fall back to URL/path.
+  return r.visitor_id || r.user_id || r.full_url || r.path;
+}
+
+function flagEmoji(cc: string | null | undefined): string {
+  if (!cc || cc.length !== 2) return "";
+  const A = 0x1f1e6;
+  return String.fromCodePoint(A + (cc.charCodeAt(0) - 65), A + (cc.charCodeAt(1) - 65));
 }
 
 export default function AdminLivePage() {
@@ -49,6 +59,7 @@ export default function AdminLivePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [recent, setRecent] = useState<Row[]>([]);
   const [todayCount, setTodayCount] = useState(0);
+  const [uniqueToday, setUniqueToday] = useState(0);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [tick, setTick] = useState(0);
@@ -80,24 +91,26 @@ export default function AdminLivePage() {
         const [{ data: r }, { data: todayRows }] = await Promise.all([
           supabase
             .from("page_events")
-            .select("id,path,full_url,user_id,referrer,created_at,user_agent")
+            .select("id,path,full_url,user_id,referrer,created_at,user_agent,visitor_id,session_id,country")
             .gte("created_at", sinceActive)
             .order("created_at", { ascending: false })
             .limit(1000),
           supabase
             .from("page_events")
-            .select("id,user_agent")
+            .select("id,user_agent,visitor_id")
             .gte("created_at", startOfDay.toISOString())
             .limit(50000),
         ]);
 
         if (cancelled) return;
         const humanRecent = ((r as Row[]) || []).filter((row) => !isBotUA(row.user_agent));
-        const humanToday = ((todayRows as { user_agent: string | null }[]) || []).filter(
+        const humanToday = ((todayRows as { user_agent: string | null; visitor_id: string | null }[]) || []).filter(
           (row) => !isBotUA(row.user_agent),
-        ).length;
+        );
+        const uniqueVisitorsToday = new Set(humanToday.map((r) => r.visitor_id).filter(Boolean)).size;
         setRecent(humanRecent);
-        setTodayCount(humanToday);
+        setTodayCount(humanToday.length);
+        setUniqueToday(uniqueVisitorsToday);
         setLastRefreshed(new Date());
       } finally {
         if (!cancelled) setLoading(false);
@@ -112,13 +125,13 @@ export default function AdminLivePage() {
 
   const stats = useMemo(() => {
     const now = Date.now();
-    const visitors = new Map<string, { key: string; lastAt: number; lastPath: string; views: number }>();
+    const visitors = new Map<string, { key: string; lastAt: number; lastPath: string; views: number; country: string | null }>();
     recent.forEach((r) => {
       const k = visitorKey(r);
       const ts = new Date(r.created_at).getTime();
       const cur = visitors.get(k);
       if (!cur || ts > cur.lastAt) {
-        visitors.set(k, { key: k, lastAt: ts, lastPath: r.path, views: (cur?.views || 0) + 1 });
+        visitors.set(k, { key: k, lastAt: ts, lastPath: r.path, views: (cur?.views || 0) + 1, country: r.country });
       } else {
         cur.views++;
       }
@@ -138,6 +151,16 @@ export default function AdminLivePage() {
     });
     const topPaths = Array.from(byPath.entries()).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n).slice(0, 10);
 
+    const byCountry = new Map<string, number>();
+    recent.forEach((r) => {
+      const c = r.country || "??";
+      byCountry.set(c, (byCountry.get(c) || 0) + 1);
+    });
+    const topCountries = Array.from(byCountry.entries())
+      .map(([k, n]) => ({ k: `${flagEmoji(k)} ${k}`.trim(), n }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 8);
+
     // pulse last 60s
     const pulse: number[] = new Array(60).fill(0);
     recent.forEach((r) => {
@@ -145,7 +168,7 @@ export default function AdminLivePage() {
       if (ageSec >= 0 && ageSec < 60) pulse[59 - ageSec]++;
     });
 
-    return { active, topRoutes, topPaths, pulse };
+    return { active, topRoutes, topPaths, topCountries, pulse };
   }, [recent, tick]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -174,9 +197,10 @@ export default function AdminLivePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat label="Active visitors" value={stats.active.length.toLocaleString()} accent />
-          <Stat label="Pageviews (last 5 min)" value={recent.length.toLocaleString()} />
+          <Stat label="Unique today" value={uniqueToday.toLocaleString()} />
+          <Stat label="Pageviews (5 min)" value={recent.length.toLocaleString()} />
           <Stat label="Pageviews today" value={todayCount.toLocaleString()} />
         </div>
 
@@ -204,6 +228,7 @@ export default function AdminLivePage() {
                 <thead className="bg-secondary text-xs">
                   <tr>
                     <th className="text-left px-3 py-2">Visitor</th>
+                    <th className="text-left px-3 py-2">Country</th>
                     <th className="text-left px-3 py-2">Last page</th>
                     <th className="text-right px-3 py-2">Views</th>
                     <th className="text-right px-3 py-2">Last seen</th>
@@ -215,6 +240,7 @@ export default function AdminLivePage() {
                     return (
                       <tr key={v.key} className="border-t border-border">
                         <td className="px-3 py-2 font-mono text-xs truncate max-w-[200px]">{v.key.slice(0, 24)}</td>
+                        <td className="px-3 py-2 text-xs">{v.country ? `${flagEmoji(v.country)} ${v.country}` : "—"}</td>
                         <td className="px-3 py-2"><a href={v.lastPath} className="hover:underline">{v.lastPath}</a></td>
                         <td className="px-3 py-2 text-right">{v.views}</td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{ageSec}s ago</td>
@@ -227,7 +253,7 @@ export default function AdminLivePage() {
           )}
         </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <section>
             <h2 className="font-semibold mb-2">Top routes (last 5 min)</h2>
             <MiniTable rows={stats.topRoutes} />
@@ -236,7 +262,16 @@ export default function AdminLivePage() {
             <h2 className="font-semibold mb-2">Top pages (last 5 min)</h2>
             <MiniTable rows={stats.topPaths} linkify />
           </section>
+          <section>
+            <h2 className="font-semibold mb-2">Countries (last 5 min)</h2>
+            <MiniTable rows={stats.topCountries} />
+          </section>
         </div>
+
+        <p className="text-xs text-muted-foreground pt-4">
+          For 24h breakdowns, UTM, funnel and search insights see{" "}
+          <a href="/admin/insights" className="underline hover:text-foreground">Admin · Insights</a>.
+        </p>
       </div>
     </Layout>
   );
