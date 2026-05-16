@@ -11,10 +11,20 @@ type Row = {
   user_id: string | null;
   referrer: string | null;
   created_at: string;
+  user_agent: string | null;
 };
 
 const ACTIVE_WINDOW_MIN = 5;
 const REFRESH_MS = 20_000;
+
+// Bot UA fragments — case-insensitive match. Covers Googlebot, GoogleOther,
+// Applebot, Bingbot, AI crawlers (GPTBot, Claude, Perplexity), social previews, etc.
+const BOT_UA_RE = /bot|crawler|spider|googleother|applebot|chatgpt-user|claude-|perplexity|bytespider|facebookexternalhit|whatsapp|embedly|slurp|duckduck|yandex|baidu|ccbot|cohere-ai|diffbot|amazonbot/i;
+
+function isBotUA(ua: string | null | undefined): boolean {
+  if (!ua) return true; // empty UA = treat as bot/scraper
+  return BOT_UA_RE.test(ua);
+}
 
 function classifyRoute(path: string): string {
   if (path === "/") return "/";
@@ -67,22 +77,27 @@ export default function AdminLivePage() {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        const [{ data: r }, { count: total }] = await Promise.all([
+        const [{ data: r }, { data: todayRows }] = await Promise.all([
           supabase
             .from("page_events")
-            .select("id,path,full_url,user_id,referrer,created_at")
+            .select("id,path,full_url,user_id,referrer,created_at,user_agent")
             .gte("created_at", sinceActive)
             .order("created_at", { ascending: false })
-            .limit(500),
+            .limit(1000),
           supabase
             .from("page_events")
-            .select("id", { count: "exact", head: true })
-            .gte("created_at", startOfDay.toISOString()),
+            .select("id,user_agent")
+            .gte("created_at", startOfDay.toISOString())
+            .limit(50000),
         ]);
 
         if (cancelled) return;
-        setRecent((r as Row[]) || []);
-        setTodayCount(total || 0);
+        const humanRecent = ((r as Row[]) || []).filter((row) => !isBotUA(row.user_agent));
+        const humanToday = ((todayRows as { user_agent: string | null }[]) || []).filter(
+          (row) => !isBotUA(row.user_agent),
+        ).length;
+        setRecent(humanRecent);
+        setTodayCount(humanToday);
         setLastRefreshed(new Date());
       } finally {
         if (!cancelled) setLoading(false);
