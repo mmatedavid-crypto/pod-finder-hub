@@ -211,22 +211,43 @@ export default function TopicHubPage() {
           </section>
         )}
 
-        {newest.length > 0 && (
-          <section>
-            <div className="flex items-end justify-between mb-3">
-              <h2 className="text-xl font-semibold">Latest</h2>
+        {strongEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-xl font-semibold">Featured on {hub.title}</h2>
+              <p className="text-xs text-muted-foreground mt-1">Episodes built around {hub.title} — the headline subject.</p>
             </div>
-            <EpisodeList items={newest} showEntities />
+            <EpisodeList items={strongEps} showEntities />
           </section>
         )}
 
-        {best.length > 0 && (
-          <section className="sm:rounded-2xl sm:border sm:border-border/70 sm:bg-card/40 sm:p-6">
-            <div className="mb-3">
-              <h2 className="text-xl font-semibold">Worth hearing</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strong matches across the index.</p>
+        {mediumEps.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-3">
+              <h2 className="text-xl font-semibold">
+                {strongEps.length > 0 ? `Also discussing ${hub.title}` : `Discussing ${hub.title}`}
+              </h2>
             </div>
-            <EpisodeList items={best} showEntities />
+            <EpisodeList items={mediumEps} showEntities />
+          </section>
+        )}
+
+        {weakEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+                <div>
+                  <h2 className="text-xl font-semibold">Briefly mentioned</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {weakEps.length} more episode{weakEps.length === 1 ? "" : "s"} that tag {hub.title} but don't focus on it.
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <EpisodeList items={weakEps} showEntities />
+              </CollapsibleContent>
+            </Collapsible>
           </section>
         )}
 
