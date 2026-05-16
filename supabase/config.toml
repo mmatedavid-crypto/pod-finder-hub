@@ -126,3 +126,6 @@ verify_jwt = false
 
 [functions.handle-email-suppression]
 verify_jwt = false
+
+[functions.yt-backfill-runner]
+verify_jwt = false
