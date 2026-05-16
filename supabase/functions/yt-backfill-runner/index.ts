@@ -59,6 +59,7 @@ async function ytSearch(apiKey: string, query: string): Promise<{ items: YTSearc
     videoId: it?.id?.videoId,
     title: it?.snippet?.title || "",
     channelTitle: it?.snippet?.channelTitle || "",
+    channelId: it?.snippet?.channelId || "",
   })).filter((x: YTSearchResult) => x.videoId);
   return { items };
 }
