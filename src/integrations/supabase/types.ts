@@ -408,6 +408,9 @@ export type Database = {
           episodes_summary: string | null
           featured_episode_ids: string[]
           generated_at: string
+          image_checked_at: string | null
+          image_source: string | null
+          image_url: string | null
           kind: string
           model: string | null
           slug: string
@@ -422,6 +425,9 @@ export type Database = {
           episodes_summary?: string | null
           featured_episode_ids?: string[]
           generated_at?: string
+          image_checked_at?: string | null
+          image_source?: string | null
+          image_url?: string | null
           kind: string
           model?: string | null
           slug: string
@@ -436,6 +442,9 @@ export type Database = {
           episodes_summary?: string | null
           featured_episode_ids?: string[]
           generated_at?: string
+          image_checked_at?: string | null
+          image_source?: string | null
+          image_url?: string | null
           kind?: string
           model?: string | null
           slug?: string
