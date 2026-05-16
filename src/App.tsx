@@ -30,6 +30,7 @@ import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
+import AdminInsightsPage from "./pages/AdminInsightsPage.tsx";
 import AdminXReplyAssistantPage from "./pages/AdminXReplyAssistantPage.tsx";
 import AdminTikTokPage from "./pages/AdminTikTokPage.tsx";
 import UnsubscribePage from "./pages/UnsubscribePage.tsx";
@@ -75,6 +76,7 @@ const App = () => (
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
+          <Route path="/admin/insights" element={<AdminInsightsPage />} />
           <Route path="/admin/x-reply-assistant" element={<AdminXReplyAssistantPage />} />
           <Route path="/admin/tiktok" element={<AdminTikTokPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
