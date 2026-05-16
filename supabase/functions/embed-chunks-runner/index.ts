@@ -130,12 +130,20 @@ Deno.serve(async (req) => {
         if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
         if (chunkSpend >= dailyBudget) { stop = true; return; }
         try {
-          // Source priority: transcript > description
+          // Transcript-only chunks. Description-based chunks were dropped — they
+          // duplicated what episode_embeddings + search_tsv already cover, and
+          // diluted retrieval. If no transcript yet, mark and skip (scout pipeline
+          // will land one later → episode flips to chunks_status='stale' → retry).
           const useTranscript = e.transcript_text && String(e.transcript_text).length >= 500;
-          const sourceText = useTranscript ? String(e.transcript_text) : String(e.description || "");
-          const source = useTranscript
-            ? (e.transcript_source === "youtube" ? "transcript_youtube" : "transcript_rss")
-            : "description";
+          if (!useTranscript) {
+            await admin.from("episodes").update({
+              chunks_status: "no_transcript",
+              chunks_updated_at: new Date().toISOString(),
+            }).eq("id", e.id);
+            return;
+          }
+          const sourceText = String(e.transcript_text);
+          const source = e.transcript_source === "youtube" ? "transcript_youtube" : "transcript_rss";
 
           const chunks = chunkText(sourceText, chunkSize, overlap);
           const sourceHash = await sha256(`${source}:${sourceText.length}:${chunks.length}:${chunks[0]?.slice(0,40) || ""}`);
