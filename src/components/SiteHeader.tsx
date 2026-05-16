@@ -2,7 +2,6 @@ import { useLocation } from "react-router-dom";
 import { LayoutGrid } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { NavLink } from "react-router-dom";
-import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
   const isHome = useLocation().pathname === "/";
@@ -32,6 +31,15 @@ export function SiteHeader() {
         {isHome && (
           <div className="ml-auto sm:hidden flex items-center gap-2.5 text-sm font-medium">
             <NavLink
+              to="/daily"
+              className={({ isActive }) =>
+                `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+              }
+            >
+              Daily
+            </NavLink>
+            <span aria-hidden className="h-3 w-px bg-border" />
+            <NavLink
               to="/topics"
               className={({ isActive }) =>
                 `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
@@ -52,7 +60,6 @@ export function SiteHeader() {
           </div>
         )}
         {/* Header search removed — single search lives on the home page (Ask Podiverzum) and /search. */}
-        <div className="ml-auto"><ThemeToggle /></div>
       </div>
     </header>
   );
