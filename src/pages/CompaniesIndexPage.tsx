@@ -39,6 +39,7 @@ export default function CompaniesIndexPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"popular" | "az">("popular");
+  const [tickerOnly, setTickerOnly] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -55,8 +56,15 @@ export default function CompaniesIndexPage() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     let list = companies;
+    if (tickerOnly) {
+      list = list.filter((p) => !!TICKER_BY_SLUG[p.slug]);
+    }
     if (needle) {
-      list = list.filter((p) => p.display_name.toLowerCase().includes(needle));
+      list = list.filter(
+        (p) =>
+          p.display_name.toLowerCase().includes(needle) ||
+          (TICKER_BY_SLUG[p.slug] || "").toLowerCase().includes(needle),
+      );
     }
     if (sort === "popular") {
       list = [...list].sort(
@@ -64,7 +72,7 @@ export default function CompaniesIndexPage() {
       );
     }
     return list;
-  }, [companies, q, sort]);
+  }, [companies, q, sort, tickerOnly]);
 
   return (
     <Layout>
