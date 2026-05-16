@@ -259,7 +259,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
       </section>
 
       <div className="container mx-auto py-10 max-w-5xl space-y-12">
-        {featuredEps.length > 0 && (
+        {strongEps.length > 0 && (
           <section className="sm:rounded-2xl sm:border sm:border-primary/30 sm:bg-primary/[0.04] sm:p-6">
             <div className="mb-3">
               <h2 className="text-xl font-semibold">
@@ -271,34 +271,45 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
               <p className="text-xs text-muted-foreground mt-1">
                 {speakerCount > 0
                   ? `${speakerCount} episode${speakerCount === 1 ? "" : "s"} where ${displayName} actually speaks.`
-                  : `Episodes built around ${displayName}.`}
+                  : `Episodes where ${displayName} appears in the title — interviews, deep dives, or main subjects.`}
               </p>
             </div>
-            <EpisodeList items={featuredEps} showEntities />
+            <EpisodeList items={strongEps} showEntities />
           </section>
         )}
 
-        <section>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <h2 className="text-xl font-semibold">
-                {featuredEps.length > 0 ? `Also mentioning ${displayName}` : "Latest episodes"}
-              </h2>
-              {featuredEps.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">Episodes that discuss {displayName} but where they don't appear directly.</p>
-              )}
+        {mediumEps.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {strongEps.length > 0 ? `Also discussing ${displayName}` : `Discussing ${displayName}`}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {displayName} is a meaningful topic of these episodes, though not the headline subject.
+                </p>
+              </div>
             </div>
-          </div>
-          <EpisodeList items={newest} showEntities />
-        </section>
+            <EpisodeList items={mediumEps} showEntities />
+          </section>
+        )}
 
-        {rich && (
-          <section className="sm:rounded-2xl sm:border sm:border-border/70 sm:bg-card/40 sm:p-6">
-            <div className="mb-3">
-              <h2 className="text-xl font-semibold">Episodes worth hearing</h2>
-              <p className="text-xs text-muted-foreground mt-1">Strong matches across the index.</p>
-            </div>
-            <EpisodeList items={best} showEntities />
+        {weakEps.length > 0 && (
+          <section className="sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card/30 sm:p-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full text-left group">
+                <div>
+                  <h2 className="text-xl font-semibold">Briefly mentioned</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {weakEps.length} more episode{weakEps.length === 1 ? "" : "s"} that tag {displayName} but don't focus on them.
+                  </p>
+                </div>
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <EpisodeList items={weakEps} showEntities />
+              </CollapsibleContent>
+            </Collapsible>
           </section>
         )}
 
