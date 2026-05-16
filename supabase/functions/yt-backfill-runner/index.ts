@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         }
         const epTok = tokens(epTitle);
         const pdTok = tokens(pdTitle);
-        let best: { videoId: string; score: number } | null = null;
+        let best: { videoId: string; channelId: string; channelTitle: string; score: number } | null = null;
         for (const item of r.items) {
           const titleTok = tokens(item.title);
           const channelTok = tokens(item.channelTitle);
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
           const channelScore = jaccard(pdTok, channelTok);
           // Combined: title is dominant, but channel match acts as a tiebreaker / confidence boost
           const score = titleScore * 0.75 + channelScore * 0.25;
-          if (!best || score > best.score) best = { videoId: item.videoId, score };
+          if (!best || score > best.score) best = { videoId: item.videoId, channelId: item.channelId, channelTitle: item.channelTitle, score };
         }
         const { data: existing } = await admin.from("yt_url_backfill_attempts").select("attempts").eq("episode_id", e.id).maybeSingle();
         const attemptCount = Number(existing?.attempts || 0) + 1;
@@ -155,6 +155,16 @@ Deno.serve(async (req) => {
             match_score: best.score,
             updated_at: new Date().toISOString(),
           }, { onConflict: "episode_id" });
+          // Promote channel URL to podcast if we found a high-confidence match and podcast has no YT URL yet
+          if (best.score >= CHANNEL_PROMOTE_THRESHOLD && best.channelId) {
+            const { data: pod } = await admin.from("podcasts").select("youtube_url").eq("id", e.podcast_id).maybeSingle();
+            if (pod && !pod.youtube_url) {
+              await admin.from("podcasts").update({
+                youtube_url: `https://www.youtube.com/channel/${best.channelId}`,
+                updated_at: new Date().toISOString(),
+              }).eq("id", e.podcast_id).is("youtube_url", null);
+            }
+          }
           // Nudge transcript scout to recheck this episode
           await admin.from("episodes").update({
             transcript_status: null,
