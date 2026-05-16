@@ -129,15 +129,26 @@ export default function TopicHubPage() {
     );
   }
 
+  // Position-based strength: Strong (title) / Medium (summary or top-of-array) / Weak.
+  // AI-curated featured_episode_ids are promoted to Strong.
   const featuredIdSet = new Set(hub.featured_episode_ids || []);
-  const featuredEps = featuredIdSet.size
-    ? eps.filter((e) => featuredIdSet.has((e as any).id))
-        .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-        .slice(0, 12)
-    : eps.slice(0, 12);
-  const remainder = featuredIdSet.size ? eps.filter((e) => !featuredIdSet.has((e as any).id)) : eps.slice(12);
-  const newest = remainder.slice().sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()).slice(0, 12);
-  const best = remainder.slice().sort((a, b) => episodeScore(b) - episodeScore(a)).slice(0, 12);
+  const strengthById = new Map<string, 1 | 2 | 3>();
+  eps.forEach((e) => {
+    const s = classifyEntityMatch(e as any, "topic", hub.title, hub.aliases);
+    strengthById.set((e as any).id, featuredIdSet.has((e as any).id) ? 3 : s);
+  });
+  const strongEps = eps
+    .filter((e) => strengthById.get((e as any).id) === 3)
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .slice(0, 18);
+  const mediumEps = eps
+    .filter((e) => strengthById.get((e as any).id) === 2)
+    .sort(compareByScore)
+    .slice(0, 18);
+  const weakEps = eps
+    .filter((e) => strengthById.get((e as any).id) === 1)
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .slice(0, 24);
   const last30 = eps.filter((e) => e.published_at && Date.now() - new Date(e.published_at).getTime() < 30 * 86400_000).length;
   const pageUrl = `${siteOrigin()}/topic/${hub.slug}`;
   const accent = hub.accent_hsl ? { background: `hsl(${hub.accent_hsl} / 0.12)` } : undefined;
