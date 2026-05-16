@@ -328,7 +328,7 @@ Deno.serve(async (req) => {
     const concurrency = Math.max(1, Math.min(12, Number(body.concurrency) || Number(ctrl.concurrency) || 4));
     const backoffDays: number[] = Array.isArray(ctrl.backoff_days) ? ctrl.backoff_days : [7, 30];
 
-    let processed = 0, foundRss = 0, foundYt = 0, notAvailable = 0, failed = 0, errors = 0;
+    let processed = 0, foundRss = 0, foundYt = 0, foundWeb = 0, notAvailable = 0, failed = 0, errors = 0;
     const errorSamples: any[] = [];
     let drainPasses = 0;
     let stop = false;
