@@ -125,13 +125,13 @@ export default function AdminLivePage() {
 
   const stats = useMemo(() => {
     const now = Date.now();
-    const visitors = new Map<string, { key: string; lastAt: number; lastPath: string; views: number }>();
+    const visitors = new Map<string, { key: string; lastAt: number; lastPath: string; views: number; country: string | null }>();
     recent.forEach((r) => {
       const k = visitorKey(r);
       const ts = new Date(r.created_at).getTime();
       const cur = visitors.get(k);
       if (!cur || ts > cur.lastAt) {
-        visitors.set(k, { key: k, lastAt: ts, lastPath: r.path, views: (cur?.views || 0) + 1 });
+        visitors.set(k, { key: k, lastAt: ts, lastPath: r.path, views: (cur?.views || 0) + 1, country: r.country });
       } else {
         cur.views++;
       }
@@ -151,6 +151,16 @@ export default function AdminLivePage() {
     });
     const topPaths = Array.from(byPath.entries()).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n).slice(0, 10);
 
+    const byCountry = new Map<string, number>();
+    recent.forEach((r) => {
+      const c = r.country || "??";
+      byCountry.set(c, (byCountry.get(c) || 0) + 1);
+    });
+    const topCountries = Array.from(byCountry.entries())
+      .map(([k, n]) => ({ k: `${flagEmoji(k)} ${k}`.trim(), n }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 8);
+
     // pulse last 60s
     const pulse: number[] = new Array(60).fill(0);
     recent.forEach((r) => {
@@ -158,7 +168,7 @@ export default function AdminLivePage() {
       if (ageSec >= 0 && ageSec < 60) pulse[59 - ageSec]++;
     });
 
-    return { active, topRoutes, topPaths, pulse };
+    return { active, topRoutes, topPaths, topCountries, pulse };
   }, [recent, tick]);
 
   if (!ready) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
@@ -187,9 +197,10 @@ export default function AdminLivePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat label="Active visitors" value={stats.active.length.toLocaleString()} accent />
-          <Stat label="Pageviews (last 5 min)" value={recent.length.toLocaleString()} />
+          <Stat label="Unique today" value={uniqueToday.toLocaleString()} />
+          <Stat label="Pageviews (5 min)" value={recent.length.toLocaleString()} />
           <Stat label="Pageviews today" value={todayCount.toLocaleString()} />
         </div>
 
@@ -217,6 +228,7 @@ export default function AdminLivePage() {
                 <thead className="bg-secondary text-xs">
                   <tr>
                     <th className="text-left px-3 py-2">Visitor</th>
+                    <th className="text-left px-3 py-2">Country</th>
                     <th className="text-left px-3 py-2">Last page</th>
                     <th className="text-right px-3 py-2">Views</th>
                     <th className="text-right px-3 py-2">Last seen</th>
@@ -228,6 +240,7 @@ export default function AdminLivePage() {
                     return (
                       <tr key={v.key} className="border-t border-border">
                         <td className="px-3 py-2 font-mono text-xs truncate max-w-[200px]">{v.key.slice(0, 24)}</td>
+                        <td className="px-3 py-2 text-xs">{v.country ? `${flagEmoji(v.country)} ${v.country}` : "—"}</td>
                         <td className="px-3 py-2"><a href={v.lastPath} className="hover:underline">{v.lastPath}</a></td>
                         <td className="px-3 py-2 text-right">{v.views}</td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{ageSec}s ago</td>
@@ -240,7 +253,7 @@ export default function AdminLivePage() {
           )}
         </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <section>
             <h2 className="font-semibold mb-2">Top routes (last 5 min)</h2>
             <MiniTable rows={stats.topRoutes} />
@@ -249,7 +262,16 @@ export default function AdminLivePage() {
             <h2 className="font-semibold mb-2">Top pages (last 5 min)</h2>
             <MiniTable rows={stats.topPaths} linkify />
           </section>
+          <section>
+            <h2 className="font-semibold mb-2">Countries (last 5 min)</h2>
+            <MiniTable rows={stats.topCountries} />
+          </section>
         </div>
+
+        <p className="text-xs text-muted-foreground pt-4">
+          For 24h breakdowns, UTM, funnel and search insights see{" "}
+          <a href="/admin/insights" className="underline hover:text-foreground">Admin · Insights</a>.
+        </p>
       </div>
     </Layout>
   );
