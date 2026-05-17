@@ -2830,6 +2830,7 @@ export type Database = {
           token: string
         }[]
       }
+      transcript_roi_report: { Args: { _hours?: number }; Returns: Json }
       transcript_scout_stats: {
         Args: never
         Returns: {
