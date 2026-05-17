@@ -132,3 +132,6 @@ verify_jwt = false
 
 [functions.yt-backfill-runner]
 verify_jwt = false
+
+[functions.embed-description-runner]
+verify_jwt = false

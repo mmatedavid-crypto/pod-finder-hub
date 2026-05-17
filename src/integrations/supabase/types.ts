@@ -2314,6 +2314,14 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      description_chunk_candidate_stats: {
+        Args: never
+        Returns: {
+          done_episodes: number
+          pending: number
+          total_desc_chunks: number
+        }[]
+      }
       embed_candidate_stats: {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
@@ -2610,6 +2618,14 @@ export type Database = {
           slug: string
         }[]
       }
+      select_description_chunk_candidates: {
+        Args: { _limit?: number }
+        Returns: {
+          description: string
+          id: string
+          podcast_id: string
+        }[]
+      }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {
@@ -2694,6 +2710,10 @@ export type Database = {
         Returns: undefined
       }
       set_embed_chunks_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_embed_description_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
