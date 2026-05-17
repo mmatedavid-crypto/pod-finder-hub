@@ -33,6 +33,7 @@ import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminInsightsPage from "./pages/AdminInsightsPage.tsx";
 import AdminXReplyAssistantPage from "./pages/AdminXReplyAssistantPage.tsx";
 import AdminTikTokPage from "./pages/AdminTikTokPage.tsx";
+import AdminTranscriptROIPage from "./pages/AdminTranscriptROIPage.tsx";
 import UnsubscribePage from "./pages/UnsubscribePage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 
