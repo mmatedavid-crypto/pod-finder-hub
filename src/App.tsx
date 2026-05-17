@@ -80,6 +80,7 @@ const App = () => (
           <Route path="/admin/insights" element={<AdminInsightsPage />} />
           <Route path="/admin/x-reply-assistant" element={<AdminXReplyAssistantPage />} />
           <Route path="/admin/tiktok" element={<AdminTikTokPage />} />
+          <Route path="/admin/transcript-roi" element={<AdminTranscriptROIPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
