@@ -25,8 +25,15 @@ export function Seo({
   jsonLd,
   hreflang,
 }: SeoProps) {
-  const desc = description?.slice(0, 160);
-  const t = title.slice(0, 70);
+  // Keep titles under 60 chars to avoid SERP truncation.
+  const t = title.length > 60 ? title.slice(0, 57).trimEnd() + "…" : title;
+  // Pad very short descriptions to meet the 50-char SERP minimum.
+  const rawDesc = description?.trim();
+  const paddedDesc =
+    rawDesc && rawDesc.length > 0 && rawDesc.length < 50
+      ? `${rawDesc} Discover this on Podiverzum — the smart podcast index.`.slice(0, 160)
+      : rawDesc?.slice(0, 160);
+  const desc = paddedDesc;
   const href =
     canonical ||
     (typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined);
