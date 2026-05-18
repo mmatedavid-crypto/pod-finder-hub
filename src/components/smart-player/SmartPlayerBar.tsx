@@ -105,22 +105,37 @@ export function SmartPlayerBar() {
               <div className="text-lg font-semibold">{ep.title}</div>
               <div className="text-sm text-muted-foreground mt-1">{ep.podcastTitle}</div>
             </div>
-            <div className="w-full max-w-md">
-              <PlayerProgress />
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => seekBy(-15)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("back15")}>−15s</button>
-              <button
-                onClick={toggle}
-                className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg"
-                aria-label={isPlaying ? t("pause") : t("play")}
-              >
-                {isPlaying ? "❚❚" : "▶"}
-              </button>
-              <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
-            </div>
-            <SpeedSection />
-          </div>
+            {error ? (
+              <div className="w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-center">
+                <div className="mb-3">{t("fallbackUnavailable")}</div>
+                {ep.externalUrl && (
+                  <a
+                    href={ep.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm px-4 py-2 rounded-md bg-primary text-primary-foreground"
+                  >{t("openOriginal")}</a>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="w-full max-w-md">
+                  <PlayerProgress />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => seekBy(-15)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("back15")}>−15s</button>
+                  <button
+                    onClick={toggle}
+                    className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg"
+                    aria-label={isPlaying ? t("pause") : t("play")}
+                  >
+                    {isPlaying ? "❚❚" : "▶"}
+                  </button>
+                  <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
+                </div>
+                <SpeedSection />
+              </>
+            )}
         </div>
       )}
     </>
