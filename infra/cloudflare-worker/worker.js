@@ -118,6 +118,25 @@ export default {
           "X-Blocked": "scanner-path",
         },
       });
+
+    // /search* — server-side noindex for bots. SPA's Helmet noindex isn't
+    // visible until JS executes, so emit a tiny noindex stub + X-Robots-Tag
+    // header so Googlebot/AI crawlers see it immediately.
+    if (
+      request.method === "GET" &&
+      isBot(ua) &&
+      /^\/search(\/|$)/.test(url.pathname)
+    ) {
+      const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex, follow"><title>Search — Podiverzum</title><link rel="canonical" href="https://podiverzum.com/"></head><body><p>Search results are not indexed. <a href="https://podiverzum.com/">Go to homepage</a>.</p></body></html>`;
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+          "X-Robots-Tag": "noindex, follow",
+          "X-Noindex": "search-bot-stub",
+        },
+      });
     }
 
     // Dynamic sitemap proxy — /sitemap.xml (and /sitemap.xml?type=...) → edge fn.
