@@ -92,6 +92,7 @@ export function SmartPlayerBar() {
           role="dialog"
           aria-label="Expanded player"
         >
+          <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
           <div className="flex items-center justify-between p-3 border-b border-border">
             <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
             {href && (
