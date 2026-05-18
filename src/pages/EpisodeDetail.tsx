@@ -280,3 +280,19 @@ export default function EpisodeDetail() {
     </Layout>
   );
 }
+
+function LegacyAudioFallback({
+  episode, podcast, audioRef,
+}: { episode: any; podcast: any; audioRef: React.RefObject<HTMLAudioElement> }) {
+  const { playerVisible } = useSmartPlayer();
+  if (playerVisible) return null;
+  if (!episode?.audio_url) return null;
+  return (
+    <InlineAudioPlayer
+      ref={audioRef}
+      src={episode.audio_url}
+      title={episode.display_title || episode.title}
+      onFirstPlay={() => logEpisodeEvent({ episodeId: episode.id, podcastId: podcast.id, eventType: "audio_play", platform: "audio" })}
+    />
+  );
+}
