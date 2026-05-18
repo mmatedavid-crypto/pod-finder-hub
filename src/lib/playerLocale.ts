@@ -26,6 +26,8 @@ type Dict = {
   externalOnly: string;
   playbackError: string;
   durationUnknown: string;
+  fallbackUnavailable: string;
+  openOriginal: string;
 };
 
 const STRINGS: Record<PlayerLocale, Dict> = {
@@ -41,9 +43,11 @@ const STRINGS: Record<PlayerLocale, Dict> = {
     seek: "Seek",
     resumeFrom: "Resume",
     loading: "loading…",
-    externalOnly: "This episode is available on its original player.",
+    externalOnly: "Playback is not available here. Open the original page to listen.",
     playbackError: "Playback error",
     durationUnknown: "--:--",
+    fallbackUnavailable: "Playback is not available here right now. Open the original page to listen.",
+    openOriginal: "Open original page",
   },
   hu: {
     preview: "előnézet",
@@ -57,9 +61,11 @@ const STRINGS: Record<PlayerLocale, Dict> = {
     seek: "Tekerés",
     resumeFrom: "Folytatás innen",
     loading: "betöltés…",
-    externalOnly: "Ezt az epizódot a saját lejátszójában tudod meghallgatni.",
+    externalOnly: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
     playbackError: "Lejátszási hiba",
     durationUnknown: "--:--",
+    fallbackUnavailable: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
+    openOriginal: "Megnyitás külső lejátszóban",
   },
 };
 
