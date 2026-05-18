@@ -79,7 +79,7 @@ export default {
     // SPA renders <meta name="robots" content="noindex, follow"> via Helmet,
     // but non-JS-executing crawlers (and Googlebot pre-render) would see the
     // bare SPA shell. Serve a minimal noindex HTML so GSC stops flagging these.
-    if (isBot && /^\/search(\/|$|\?)/.test(url.pathname + (url.search ? "?" : ""))) {
+    if (isBot && /^\/search(\/|$)/.test(url.pathname)) {
       const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex, follow"><title>Search — Podiverzum</title><link rel="canonical" href="https://podiverzum.com/"></head><body><p>Search results are not indexed. <a href="https://podiverzum.com/">Go to homepage</a>.</p></body></html>`;
       return new Response(body, {
         status: 200,
