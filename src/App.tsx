@@ -36,6 +36,8 @@ import AdminTikTokPage from "./pages/AdminTikTokPage.tsx";
 import AdminTranscriptROIPage from "./pages/AdminTranscriptROIPage.tsx";
 import UnsubscribePage from "./pages/UnsubscribePage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
+import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
+import { SmartPlayerBar } from "./components/smart-player/SmartPlayerBar";
 
 const queryClient = new QueryClient();
 
@@ -45,9 +47,10 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <PageViewTracker />
-        <SearchHotkey />
-        <Routes>
+        <SmartPlayerProvider>
+          <PageViewTracker />
+          <SearchHotkey />
+          <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/category/:slug" element={<CategoryDetail />} />
@@ -83,7 +86,9 @@ const App = () => (
           <Route path="/admin/transcript-roi" element={<AdminTranscriptROIPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+          <SmartPlayerBar />
+        </SmartPlayerProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
