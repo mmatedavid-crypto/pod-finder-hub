@@ -1,19 +1,58 @@
 // Strip raw HTML and normalise whitespace for any RSS-derived public text.
+
+// Common named HTML entities (safe text-only decoding, no markup injection).
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  lsquo: "\u2018", rsquo: "\u2019", ldquo: "\u201C", rdquo: "\u201D",
+  sbquo: "\u201A", bdquo: "\u201E", lsaquo: "\u2039", rsaquo: "\u203A",
+  laquo: "\u00AB", raquo: "\u00BB",
+  ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022",
+  middot: "\u00B7", trade: "\u2122", copy: "\u00A9", reg: "\u00AE",
+  deg: "\u00B0", plusmn: "\u00B1", times: "\u00D7", divide: "\u00F7",
+  euro: "\u20AC", pound: "\u00A3", yen: "\u00A5", cent: "\u00A2",
+  iexcl: "\u00A1", iquest: "\u00BF",
+  Auml: "\u00C4", auml: "\u00E4", Ouml: "\u00D6", ouml: "\u00F6",
+  Uuml: "\u00DC", uuml: "\u00FC", szlig: "\u00DF",
+  aacute: "\u00E1", eacute: "\u00E9", iacute: "\u00ED", oacute: "\u00F3",
+  uacute: "\u00FA", Aacute: "\u00C1", Eacute: "\u00C9", Iacute: "\u00CD",
+  Oacute: "\u00D3", Uacute: "\u00DA",
+  ntilde: "\u00F1", Ntilde: "\u00D1",
+};
+
+export function decodeEntities(s: string): string {
+  if (!s || s.indexOf("&") === -1) return s;
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex) => {
+      const cp = parseInt(hex, 16);
+      return Number.isFinite(cp) ? safeFromCodePoint(cp) : _m;
+    })
+    .replace(/&#(\d+);/g, (_m, dec) => {
+      const cp = parseInt(dec, 10);
+      return Number.isFinite(cp) ? safeFromCodePoint(cp) : _m;
+    })
+    .replace(/&([a-zA-Z][a-zA-Z0-9]+);/g, (m, name) =>
+      Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, name) ? NAMED_ENTITIES[name] : m,
+    );
+}
+
+function safeFromCodePoint(cp: number): string {
+  try {
+    if (cp <= 0 || cp > 0x10ffff) return "";
+    return String.fromCodePoint(cp);
+  } catch { return ""; }
+}
+
 export function stripHtml(s?: string | null): string {
   if (!s) return "";
   let t = String(s);
   // remove script/style blocks
   t = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ");
-  // common entities
+  // line breaks
   t = t.replace(/<br\s*\/?>(?=)/gi, "\n").replace(/<\/p>/gi, "\n\n");
+  // remove remaining tags (no HTML reinjected — plain text output)
   t = t.replace(/<[^>]+>/g, " ");
-  t = t.replace(/&nbsp;/g, " ")
-       .replace(/&amp;/g, "&")
-       .replace(/&lt;/g, "<")
-       .replace(/&gt;/g, ">")
-       .replace(/&quot;/g, '"')
-       .replace(/&#39;/g, "'")
-       .replace(/&apos;/g, "'");
+  // decode entities (named + numeric)
+  t = decodeEntities(t);
   t = t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
   return t;
 }
