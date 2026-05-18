@@ -156,6 +156,3 @@ function SpeedSection() {
     </div>
   );
 }
-
-// useState import
-import { useState } from "react";
