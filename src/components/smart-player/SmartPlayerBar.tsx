@@ -47,21 +47,32 @@ export function SmartPlayerBar() {
               {hasDuration && (
                 <span className="ml-2 tabular-nums">· {formatTime(currentTime)} / {formatTime(duration)}</span>
               )}
-              {isLoading && <span className="ml-2">· {t("loading")}</span>}
+              {isLoading && !error && <span className="ml-2">· {t("loading")}</span>}
               {error && <span className="ml-2 text-amber-500">· {t("playbackError")}</span>}
             </div>
           </button>
-          <div className="hidden sm:flex items-center gap-1">
-            <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
-            <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
-          </div>
-          <button
-            onClick={toggle}
-            className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
-            aria-label={isPlaying ? t("pause") : t("play")}
-          >
-            {isPlaying ? "❚❚" : "▶"}
-          </button>
+          {!error && (
+            <div className="hidden sm:flex items-center gap-1">
+              <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
+              <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
+            </div>
+          )}
+          {error && ep.externalUrl ? (
+            <a
+              href={ep.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground shrink-0"
+            >{t("openOriginal")}</a>
+          ) : (
+            <button
+              onClick={toggle}
+              className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
+              aria-label={isPlaying ? t("pause") : t("play")}
+            >
+              {isPlaying ? "❚❚" : "▶"}
+            </button>
+          )}
           <button
             onClick={stop}
             className="text-muted-foreground hover:text-foreground text-xs px-1.5 hidden sm:inline-flex"
