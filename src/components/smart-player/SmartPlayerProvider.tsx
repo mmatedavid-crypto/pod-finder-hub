@@ -185,7 +185,7 @@ export function SmartPlayerProvider({ children }: { children: ReactNode }) {
         album: "Podiverzum",
         artwork: currentEpisode.imageUrl
           ? [{ src: currentEpisode.imageUrl, sizes: "512x512", type: "image/jpeg" }]
-          : [],
+          : [{ src: "/icon-512.png", sizes: "512x512", type: "image/png" }],
       });
       navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
       navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
