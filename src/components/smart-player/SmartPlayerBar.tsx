@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
+import { PlayerBrandMark } from "./BrandMark";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
 export function SmartPlayerBar() {

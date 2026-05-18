@@ -1,8 +1,9 @@
 import { useSmartPlayer, SmartPlayerEpisode, detectAudioSource } from "./SmartPlayerProvider";
-import { PlayerControls, PlayerProgress } from "./PlayerControls";
+import { PlayerProgress } from "./PlayerControls";
 import { getProgress } from "@/lib/playerProgress";
-import { TasteFeedbackButtons } from "./TasteFeedbackButtons";
-import { t } from "@/lib/playerLocale";
+import { t, formatSpeedLabel } from "@/lib/playerLocale";
+import { PlayerBrandMark } from "./BrandMark";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   episode: {
@@ -24,7 +25,10 @@ type Props = {
 };
 
 export function EpisodeAudioPlayer({ episode, podcast }: Props) {
-  const { playerVisible, previewActive, flags, currentEpisode, isPlaying, error, play, toggle } = useSmartPlayer();
+  const {
+    playerVisible, previewActive, flags, currentEpisode, isPlaying, error,
+    play, toggle, seekBy, playbackRate, setPlaybackRate,
+  } = useSmartPlayer();
   if (!playerVisible) return null;
 
   const showPreviewLabel = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
@@ -40,9 +44,11 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
   if (!src || showErrorFallback) {
     return (
       <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-        <div className="text-xs uppercase tracking-[0.18em] text-amber-500/80 mb-1">
-          Smart Player{showPreviewLabel ? ` · ${t("preview")}` : ""}
-        </div>
+        {showPreviewLabel && (
+          <div className="text-[10px] uppercase tracking-[0.18em] text-amber-500/80 mb-1">
+            {t("preview")}
+          </div>
+        )}
         <div className="mb-3">{t("fallbackUnavailable")}</div>
         {externalHref && (
           <a
@@ -70,49 +76,118 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
   const prog = getProgress(episode.id);
   const canResume = !!prog && prog.currentTime > 30 && !prog.completed;
 
+  const onPrimary = () => (isCurrent ? toggle() : play(ep, { resume: canResume }));
+
   return (
-    <div className="mt-5 rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Smart Player{showPreviewLabel ? ` · ${t("preview")}` : ""}
-        </div>
-      </div>
-      <div className="flex gap-4">
-        {img && (
-          <img
-            src={img}
-            alt=""
-            className="h-20 w-20 rounded-lg object-cover shrink-0 border border-border"
-            loading="lazy"
-          />
+    <div className="relative mt-5 rounded-2xl border border-border bg-card p-4 overflow-hidden">
+      {/* Subtle Podiverzum brand motif */}
+      <PlayerBrandMark className="-right-6 -bottom-12" size={220} opacity={0.045} />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-[hsl(var(--brand-red)/0.05)]"
+      />
+      <div className="relative">
+        {showPreviewLabel && (
+          <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            {t("preview")}
+          </div>
         )}
-        <div className="min-w-0 flex-1">
-          <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
-          <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => (isCurrent ? toggle() : play(ep, { resume: canResume }))}
-              className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base"
-              aria-label={isCurrent && isPlaying ? t("pause") : t("play")}
-            >
-              {isCurrent && isPlaying ? "❚❚" : "▶"}
-            </button>
+        <div className="flex gap-4">
+          {img && (
+            <img
+              src={img}
+              alt=""
+              className="h-20 w-20 rounded-lg object-cover shrink-0 border border-border"
+              loading="lazy"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
+            <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
             {canResume && !isCurrent && (
-              <button
-                onClick={() => play(ep, { resume: true })}
-                className="text-xs px-2 py-1 rounded-md bg-secondary"
-              >{t("resumeFrom")}</button>
+              <div className="mt-2">
+                <button
+                  onClick={() => play(ep, { resume: true })}
+                  className="text-xs px-2 py-1 rounded-md bg-secondary"
+                >{t("resumeFrom")}</button>
+              </div>
             )}
-            {isCurrent && <PlayerControls />}
           </div>
         </div>
+
+        {/* Single unified control row */}
+        <div className="mt-4 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => isCurrent && seekBy(-15)}
+            disabled={!isCurrent}
+            className="px-2 py-1 rounded-md text-xs hover:bg-secondary disabled:opacity-40"
+            aria-label={t("back15")}
+          >−15s</button>
+          <button
+            onClick={onPrimary}
+            className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base shadow-[0_4px_18px_-6px_hsl(var(--brand-red)/0.55)]"
+            aria-label={isCurrent && isPlaying ? t("pause") : t("play")}
+          >
+            {isCurrent && isPlaying ? "❚❚" : "▶"}
+          </button>
+          <button
+            onClick={() => isCurrent && seekBy(30)}
+            disabled={!isCurrent}
+            className="px-2 py-1 rounded-md text-xs hover:bg-secondary disabled:opacity-40"
+            aria-label={t("fwd30")}
+          >+30s</button>
+          <SpeedPicker
+            disabled={!isCurrent}
+            value={playbackRate}
+            onChange={setPlaybackRate}
+          />
+        </div>
+
+        {isCurrent && (
+          <div className="mt-3">
+            <PlayerProgress />
+          </div>
+        )}
       </div>
-      {isCurrent && (
-        <div className="mt-3">
-          <PlayerProgress />
+    </div>
+  );
+}
+
+function SpeedPicker({
+  value, onChange, disabled,
+}: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div className="relative ml-auto" ref={ref}>
+      <button
+        onClick={() => !disabled && setOpen((v) => !v)}
+        disabled={disabled}
+        className="text-xs px-2 py-1 rounded-md bg-secondary disabled:opacity-40"
+        aria-label={t("playbackSpeed")}
+        aria-expanded={open}
+      >{formatSpeedLabel(value)}</button>
+      {open && (
+        <div className="absolute right-0 bottom-full mb-1 z-10 bg-popover border border-border rounded-md shadow-lg p-1 flex flex-col min-w-[80px]">
+          {[0.5, 1, 1.25, 1.5, 2].map((s) => (
+            <button
+              key={s}
+              onClick={() => { onChange(s); setOpen(false); }}
+              className={`text-xs px-3 py-1.5 rounded text-left ${
+                value === s ? "bg-primary/15 text-primary font-semibold" : "hover:bg-secondary"
+              }`}
+            >{formatSpeedLabel(s)}</button>
+          ))}
         </div>
       )}
-      <TasteFeedbackButtons episodeId={episode.id} />
     </div>
   );
 }
