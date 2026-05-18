@@ -80,6 +80,25 @@ export default function CompaniesIndexPage() {
         title="Companies — every brand podcasts are discussing"
         description="Browse every company we've indexed across thousands of podcast episodes. OpenAI, Apple, Tesla, Nvidia, Anthropic and hundreds more — find the conversations shaping each one."
         canonical={`${siteOrigin()}/companies`}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Companies on Podiverzum",
+          description:
+            "Every company indexed across thousands of podcast episodes — from frontier AI labs and big tech to scrappy startups.",
+          url: `${siteOrigin()}/companies`,
+          isPartOf: { "@type": "WebSite", name: "Podiverzum", url: siteOrigin() },
+          mainEntity: {
+            "@type": "ItemList",
+            numberOfItems: companies.length,
+            itemListElement: filtered.slice(0, 50).map((c, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: c.display_name,
+              url: `${siteOrigin()}/company/${c.slug}`,
+            })),
+          },
+        }}
       />
 
       <section className="border-b border-border bg-background">

@@ -94,6 +94,25 @@ export default function PeopleIndexPage() {
         title="People — every name podcasts are talking about"
         description="Browse every person we've indexed across thousands of podcast episodes. Find the best conversations about Elon Musk, Sam Altman, Donald Trump, Andrew Huberman and 260+ more."
         canonical={`${siteOrigin()}/people`}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "People on Podiverzum",
+          description:
+            "Every person indexed across thousands of podcast episodes — founders, politicians, scientists, athletes, writers.",
+          url: `${siteOrigin()}/people`,
+          isPartOf: { "@type": "WebSite", name: "Podiverzum", url: siteOrigin() },
+          mainEntity: {
+            "@type": "ItemList",
+            numberOfItems: people.length,
+            itemListElement: filtered.slice(0, 50).map((p, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: p.display_name,
+              url: `${siteOrigin()}/person/${p.slug}`,
+            })),
+          },
+        }}
       />
 
       <section className="border-b border-border bg-background">
