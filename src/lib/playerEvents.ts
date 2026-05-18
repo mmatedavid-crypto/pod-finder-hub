@@ -48,7 +48,7 @@ export function logPlayerEvent(opts: {
       playback_rate: typeof opts.playbackRate === "number" ? opts.playbackRate : null,
       viewport_width: typeof window !== "undefined" ? window.innerWidth : null,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-      meta: opts.meta ?? {},
+      meta: (opts.meta ?? {}) as never,
     });
   } catch {
     /* fail-safe */
