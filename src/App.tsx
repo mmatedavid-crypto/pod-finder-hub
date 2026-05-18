@@ -86,7 +86,9 @@ const App = () => (
           <Route path="/admin/transcript-roi" element={<AdminTranscriptROIPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+          <SmartPlayerBar />
+        </SmartPlayerProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
