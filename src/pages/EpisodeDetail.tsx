@@ -147,14 +147,21 @@ export default function EpisodeDetail() {
   const aiSum = stripHtml(e.ai_summary);
   const cleanSummary = stripHtml(e.summary);
   const cleanDesc = stripHtml(e.description);
-  const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || `Episode of ${p.display_title || p.title} on Podiverzum.`).slice(0, 160);
+  const fallbackDesc = `Listen to this episode of ${p.display_title || p.title} on Podiverzum — the smart podcast index.`;
+  const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || fallbackDesc).slice(0, 160);
   const epUrl = `${siteOrigin()}/podcast/${p.slug}/${e.slug}`;
   const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
+
+  // Build a ≤60 char SEO title: prefer "{episode} — {podcast}", else just episode.
+  const epTitleRaw = e.display_title || e.title;
+  const podTitleRaw = p.display_title || p.title;
+  const combined = `${epTitleRaw} — ${podTitleRaw}`;
+  const autoTitle = combined.length <= 60 ? combined : epTitleRaw;
 
   return (
     <Layout>
       <Seo
-        title={e.seo_title || `${e.display_title || e.title} — ${p.display_title || p.title} | Podiverzum`}
+        title={e.seo_title || autoTitle}
         description={metaDesc}
         canonical={epUrl}
         ogType="article"
