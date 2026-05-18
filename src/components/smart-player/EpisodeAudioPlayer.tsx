@@ -24,7 +24,7 @@ type Props = {
 };
 
 export function EpisodeAudioPlayer({ episode, podcast }: Props) {
-  const { playerVisible, previewActive, flags, currentEpisode, isPlaying, play, toggle } = useSmartPlayer();
+  const { playerVisible, previewActive, flags, currentEpisode, isPlaying, error, play, toggle } = useSmartPlayer();
   if (!playerVisible) return null;
 
   const showPreviewLabel = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
@@ -32,14 +32,26 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
   const epTitle = episode.display_title || episode.title;
   const podTitle = podcast.display_title || podcast.title;
   const img = episode.image_url || podcast.image_url || null;
+  const externalHref = episode.episode_url || episode.audio_url || null;
 
-  if (!src) {
+  const isCurrent = currentEpisode?.id === episode.id;
+  const showErrorFallback = isCurrent && !!error;
+
+  if (!src || showErrorFallback) {
     return (
       <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
         <div className="text-xs uppercase tracking-[0.18em] text-amber-500/80 mb-1">
           Smart Player{showPreviewLabel ? ` · ${t("preview")}` : ""}
         </div>
-        {t("externalOnly")}
+        <div className="mb-3">{t("fallbackUnavailable")}</div>
+        {externalHref && (
+          <a
+            href={externalHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground"
+          >{t("openOriginal")}</a>
+        )}
       </div>
     );
   }
@@ -53,8 +65,8 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
     episodeSlug: episode.slug || null,
     imageUrl: img,
     audioUrl: src.url,
+    externalUrl: externalHref,
   };
-  const isCurrent = currentEpisode?.id === episode.id;
   const prog = getProgress(episode.id);
   const canResume = !!prog && prog.currentTime > 30 && !prog.completed;
 

@@ -1,13 +1,42 @@
 // Detect whether an episode has a usable in-browser audio source.
-// Rules: must be a non-empty, http(s) URL, not a Spotify/Apple page,
-// preferably ending in a browser-supported audio extension.
+// Rules: must be a non-empty, http(s) URL, not a known non-direct service page,
+// preferably ending in a browser-supported audio extension or served from a
+// known direct-audio host.
 
-const BAD_HOSTS = [
+import { decodeEntities } from "@/lib/text";
+
+// Hosts whose URLs are NEVER direct audio (they are listener web pages).
+const BAD_HOST_SUFFIXES = [
   "open.spotify.com",
+  "spotify.com",
   "podcasts.apple.com",
   "music.apple.com",
   "youtube.com",
   "youtu.be",
+  "soundcloud.com",
+  "iheart.com",
+  "stitcher.com",
+  "castbox.fm",
+  "overcast.fm",
+];
+
+// Hosts that ARE known direct audio CDNs even if the path lacks an extension.
+const DIRECT_AUDIO_HOST_SUFFIXES = [
+  "traffic.omny.fm",
+  "traffic.libsyn.com",
+  "traffic.megaphone.fm",
+  "dts.podtrac.com",
+  "chrt.fm",
+  "pdst.fm",
+  "mcdn.podbean.com",
+  "anchor.fm/s",
+  "stitcher.simplecastaudio.com",
+  "media.transistor.fm",
+  "audio.transistor.fm",
+  "rss.art19.com",
+  "cdn.simplecast.com",
+  "pdcn.co",
+  "play.podtrac.com",
 ];
 
 const AUDIO_EXT = /\.(mp3|m4a|mp4|aac|wav|ogg|oga|opus|webm|m3u8)(\?|#|$)/i;
@@ -17,13 +46,49 @@ export type AudioSource = {
   likelyDirect: boolean;
 };
 
-export function detectAudioSource(ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined): AudioSource | null {
-  if (!ep) return null;
-  const raw = (ep.audio_url || "").trim();
-  if (!raw) return null;
+export type AudioRejectReason =
+  | "missing_audio_url"
+  | "invalid_url"
+  | "non_http"
+  | "non_direct_audio_url"
+  | "unsupported_mime";
+
+export type EligibilityResult =
+  | { ok: true; source: AudioSource }
+  | { ok: false; reason: AudioRejectReason };
+
+function hostMatches(host: string, list: string[]): boolean {
+  const h = host.toLowerCase();
+  return list.some((suf) => h === suf || h.endsWith("." + suf) || h.endsWith(suf));
+}
+
+export function evaluateAudioEligibility(
+  ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined,
+): EligibilityResult {
+  if (!ep) return { ok: false, reason: "missing_audio_url" };
+  const raw0 = (ep.audio_url || "").trim();
+  if (!raw0) return { ok: false, reason: "missing_audio_url" };
+  // Decode HTML entities like &amp; that creep in from RSS feeds.
+  const raw = decodeEntities(raw0).trim();
   let u: URL;
-  try { u = new URL(raw); } catch { return null; }
-  if (!/^https?:$/.test(u.protocol)) return null;
-  if (BAD_HOSTS.some((h) => u.hostname.endsWith(h))) return null;
-  return { url: raw, likelyDirect: AUDIO_EXT.test(u.pathname) || AUDIO_EXT.test(raw) };
+  try { u = new URL(raw); } catch { return { ok: false, reason: "invalid_url" }; }
+  if (!/^https?:$/.test(u.protocol)) return { ok: false, reason: "non_http" };
+  // Hard-reject known non-audio listener page hosts.
+  if (hostMatches(u.hostname, BAD_HOST_SUFFIXES)) {
+    return { ok: false, reason: "non_direct_audio_url" };
+  }
+  const extHit = AUDIO_EXT.test(u.pathname) || AUDIO_EXT.test(raw);
+  const directHost = hostMatches(u.hostname, DIRECT_AUDIO_HOST_SUFFIXES);
+  if (!extHit && !directHost) {
+    return { ok: false, reason: "non_direct_audio_url" };
+  }
+  return { ok: true, source: { url: raw, likelyDirect: extHit || directHost } };
+}
+
+// Back-compat wrapper used across the player.
+export function detectAudioSource(
+  ep: { audio_url?: string | null; episode_url?: string | null } | null | undefined,
+): AudioSource | null {
+  const r = evaluateAudioEligibility(ep);
+  return r.ok ? r.source : null;
 }

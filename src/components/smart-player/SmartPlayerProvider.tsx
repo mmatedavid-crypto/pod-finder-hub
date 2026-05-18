@@ -14,6 +14,7 @@ export type SmartPlayerEpisode = {
   episodeSlug?: string | null;
   imageUrl?: string | null;
   audioUrl: string;
+  externalUrl?: string | null;
 };
 
 type FlagShape = {
