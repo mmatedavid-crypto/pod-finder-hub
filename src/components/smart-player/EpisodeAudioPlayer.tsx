@@ -65,6 +65,7 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
     episodeSlug: episode.slug || null,
     imageUrl: img,
     audioUrl: src.url,
+    externalUrl: externalHref,
   };
   const prog = getProgress(episode.id);
   const canResume = !!prog && prog.currentTime > 30 && !prog.completed;
