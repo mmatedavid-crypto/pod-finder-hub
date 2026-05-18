@@ -2,6 +2,7 @@ import { useSmartPlayer, SmartPlayerEpisode, detectAudioSource } from "./SmartPl
 import { PlayerControls, PlayerProgress } from "./PlayerControls";
 import { getProgress } from "@/lib/playerProgress";
 import { TasteFeedbackButtons } from "./TasteFeedbackButtons";
+import { t } from "@/lib/playerLocale";
 
 type Props = {
   episode: {
@@ -23,9 +24,10 @@ type Props = {
 };
 
 export function EpisodeAudioPlayer({ episode, podcast }: Props) {
-  const { playerVisible, previewActive, currentEpisode, isPlaying, play, toggle } = useSmartPlayer();
+  const { playerVisible, previewActive, flags, currentEpisode, isPlaying, play, toggle } = useSmartPlayer();
   if (!playerVisible) return null;
 
+  const showPreviewLabel = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
   const src = detectAudioSource(episode);
   const epTitle = episode.display_title || episode.title;
   const podTitle = podcast.display_title || podcast.title;
@@ -35,9 +37,9 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
     return (
       <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
         <div className="text-xs uppercase tracking-[0.18em] text-amber-500/80 mb-1">
-          Smart Player {previewActive ? "· preview" : ""}
+          Smart Player{showPreviewLabel ? ` · ${t("preview")}` : ""}
         </div>
-        Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.
+        {t("externalOnly")}
       </div>
     );
   }
@@ -60,7 +62,7 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
     <div className="mt-5 rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Smart Player {previewActive ? "· preview" : ""}
+          Smart Player{showPreviewLabel ? ` · ${t("preview")}` : ""}
         </div>
       </div>
       <div className="flex gap-4">
@@ -75,11 +77,11 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
         <div className="min-w-0 flex-1">
           <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
           <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
             <button
               onClick={() => (isCurrent ? toggle() : play(ep, { resume: canResume }))}
               className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base"
-              aria-label={isCurrent && isPlaying ? "Pause" : "Play"}
+              aria-label={isCurrent && isPlaying ? t("pause") : t("play")}
             >
               {isCurrent && isPlaying ? "❚❚" : "▶"}
             </button>
@@ -87,7 +89,7 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
               <button
                 onClick={() => play(ep, { resume: true })}
                 className="text-xs px-2 py-1 rounded-md bg-secondary"
-              >Folytatás innen</button>
+              >{t("resumeFrom")}</button>
             )}
             {isCurrent && <PlayerControls />}
           </div>
