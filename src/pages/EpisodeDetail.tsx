@@ -19,6 +19,7 @@ import { extractKeyMoments } from "@/lib/keyMoments";
 import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 import { logEpisodeEvent } from "@/lib/listenEvents";
+import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -222,6 +223,8 @@ export default function EpisodeDetail() {
           {p.youtube_url && <a href={p.youtube_url} target="_blank" rel="noreferrer" onClick={() => logEpisodeEvent({ episodeId: e.id, podcastId: p.id, eventType: "listen_click", platform: "youtube" })} className="inline-flex items-center gap-1 px-3 py-2 rounded-md bg-secondary text-sm"><Youtube className="h-4 w-4" /> YouTube</a>}
           <SharePanel title={`${e.display_title || e.title} — ${p.display_title || p.title}`} kind="episode" />
         </div>
+
+        <EpisodeAudioPlayer episode={e} podcast={p} />
 
         {e.audio_url && (
           <InlineAudioPlayer
