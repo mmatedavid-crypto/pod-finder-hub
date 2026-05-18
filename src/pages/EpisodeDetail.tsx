@@ -20,6 +20,7 @@ import { KeyMoments } from "@/components/KeyMoments";
 import { InlineAudioPlayer } from "@/components/InlineAudioPlayer";
 import { logEpisodeEvent } from "@/lib/listenEvents";
 import { EpisodeAudioPlayer } from "@/components/smart-player/EpisodeAudioPlayer";
+import { useSmartPlayer } from "@/components/smart-player/SmartPlayerProvider";
 
 const ENT_KINDS: { kind: EntityKind; label: string }[] = [
   { kind: "topic", label: "Topics" },
@@ -226,14 +227,7 @@ export default function EpisodeDetail() {
 
         <EpisodeAudioPlayer episode={e} podcast={p} />
 
-        {e.audio_url && (
-          <InlineAudioPlayer
-            ref={audioRef}
-            src={e.audio_url}
-            title={e.display_title || e.title}
-            onFirstPlay={() => logEpisodeEvent({ episodeId: e.id, podcastId: p.id, eventType: "audio_play", platform: "audio" })}
-          />
-        )}
+        <LegacyAudioFallback episode={e} podcast={p} audioRef={audioRef} />
 
         {summary && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-card">
@@ -284,5 +278,21 @@ export default function EpisodeDetail() {
         </p>
       </div>
     </Layout>
+  );
+}
+
+function LegacyAudioFallback({
+  episode, podcast, audioRef,
+}: { episode: any; podcast: any; audioRef: React.RefObject<HTMLAudioElement> }) {
+  const { playerVisible } = useSmartPlayer();
+  if (playerVisible) return null;
+  if (!episode?.audio_url) return null;
+  return (
+    <InlineAudioPlayer
+      ref={audioRef}
+      src={episode.audio_url}
+      title={episode.display_title || episode.title}
+      onFirstPlay={() => logEpisodeEvent({ episodeId: episode.id, podcastId: podcast.id, eventType: "audio_play", platform: "audio" })}
+    />
   );
 }

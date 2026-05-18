@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
+import { PlayerBrandMark } from "./BrandMark";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
 export function SmartPlayerBar() {
@@ -28,8 +29,8 @@ export function SmartPlayerBar() {
         aria-label="Smart Player"
       >
         {showPreviewChip && (
-          <div className="absolute -top-5 left-3 text-[9px] uppercase tracking-[0.18em] text-primary bg-card border border-primary/40 rounded-t-md px-1.5 py-0.5">
-            Smart Player · {t("preview")}
+          <div className="absolute -top-4 left-3 text-[8px] uppercase tracking-[0.16em] text-muted-foreground bg-card border border-border rounded-t px-1.5 py-0.5">
+            {t("preview")}
           </div>
         )}
         <div className="container mx-auto px-3 py-2 flex items-center gap-3">
@@ -86,11 +87,12 @@ export function SmartPlayerBar() {
 
       {expanded && (
         <div
-          className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col"
+          className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col overflow-hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           role="dialog"
           aria-label="Expanded player"
         >
+          <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
           <div className="flex items-center justify-between p-3 border-b border-border">
             <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
             {href && (
