@@ -58,8 +58,10 @@ Disallow: /admin/
 Disallow: /admin-bootstrap
 Disallow: /auth
 Disallow: /growth-status
-Disallow: /search?
-Disallow: /search/
+# NOTE: /search is intentionally crawl-allowed.
+# Search result pages emit <meta name="robots" content="noindex, follow">.
+# Blocking crawl would prevent Google from seeing that noindex tag,
+# which is what was causing the "Blocked by robots.txt" category in GSC.
 
 Sitemap: https://podiverzum.com/sitemap.xml
 
