@@ -136,6 +136,7 @@ export function SmartPlayerBar() {
                 <SpeedSection />
               </>
             )}
+          </div>
         </div>
       )}
     </>
