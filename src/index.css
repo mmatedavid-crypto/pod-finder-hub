@@ -101,7 +101,7 @@
     --secondary-foreground: 0 0% 10%;
 
     --muted: 40 16% 95%;
-    --muted-foreground: 0 0% 38%;       /* meta text */
+    --muted-foreground: 0 0% 34%;       /* meta text — WCAG AA on warm off-white */
 
     --accent: 0 84% 50%;
     --accent-foreground: 0 0% 100%;

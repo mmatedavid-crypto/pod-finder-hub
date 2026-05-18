@@ -55,8 +55,8 @@ export default function PodcastDetail() {
   return (
     <Layout>
       <Seo
-        title={p.seo_title || `${p.title} — podcast on Podiverzum`}
-        description={(p.seo_description || cleanSummary || cleanDesc || `Listen to ${p.title} on Podiverzum.`).slice(0, 160)}
+        title={p.seo_title || (`${p.display_title || p.title} podcast`.length <= 60 ? `${p.display_title || p.title} podcast` : (p.display_title || p.title))}
+        description={(p.seo_description || cleanSummary || cleanDesc || `Listen to ${p.display_title || p.title} on Podiverzum — full episode list, summaries and smart search.`).slice(0, 160)}
         canonical={podUrl}
         noindex={p.rss_status === "failed" || p.rss_status === "inactive"}
         image={ogImageUrl({ kind: "podcast", title: p.display_title || p.title, subtitle: p.category || "Podcast", image: p.image_url })}

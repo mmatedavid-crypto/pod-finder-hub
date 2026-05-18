@@ -43,6 +43,25 @@ export default function TopicsIndexPage() {
         title="Topic hubs — Podiverzum"
         description="Curated podcast topic hubs: GLP-1, AI agents, longevity, tariffs, Bitcoin and more. Find the best episodes on the conversations shaping the world."
         canonical={`${siteOrigin()}/topics`}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Topic hubs on Podiverzum",
+          description:
+            "Curated podcast topic hubs covering the conversations shaping the world — GLP-1, AI agents, longevity, tariffs, Bitcoin and more.",
+          url: `${siteOrigin()}/topics`,
+          isPartOf: { "@type": "WebSite", name: "Podiverzum", url: siteOrigin() },
+          mainEntity: {
+            "@type": "ItemList",
+            numberOfItems: hubs.length,
+            itemListElement: hubs.slice(0, 50).map((h, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: h.title,
+              url: `${siteOrigin()}/topic/${h.slug}`,
+            })),
+          },
+        }}
       />
       <section className="border-b border-border bg-background">
         <div className="container mx-auto py-12 sm:py-14 max-w-5xl">
