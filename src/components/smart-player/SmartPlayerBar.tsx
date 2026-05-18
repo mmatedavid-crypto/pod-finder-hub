@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
 import { PlayerProgress } from "./PlayerControls";
+import { t, formatSpeedLabel } from "@/lib/playerLocale";
 
 export function SmartPlayerBar() {
   const {
-    playerVisible, currentEpisode, isPlaying, isLoading, error,
+    playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
   } = useSmartPlayer();
 
@@ -12,6 +14,10 @@ export function SmartPlayerBar() {
 
   const ep = currentEpisode;
   const href = ep.podcastSlug && ep.episodeSlug ? `/podcast/${ep.podcastSlug}/${ep.episodeSlug}` : null;
+  const hasDuration = isFinite(duration) && duration > 0;
+  // Preview chip ONLY when running in dev-preview mode (URL/localStorage opt-in).
+  // Never shown to normal public users; also suppressed once the feature is publicly enabled.
+  const showPreviewChip = previewActive && !(flags.enabled && flags.show_on_public_episode_pages);
 
   return (
     <>
@@ -21,9 +27,9 @@ export function SmartPlayerBar() {
         role="region"
         aria-label="Smart Player"
       >
-        {previewActive && (
+        {showPreviewChip && (
           <div className="absolute -top-5 left-3 text-[9px] uppercase tracking-[0.18em] text-primary bg-card border border-primary/40 rounded-t-md px-1.5 py-0.5">
-            Smart Player preview
+            Smart Player · {t("preview")}
           </div>
         )}
         <div className="container mx-auto px-3 py-2 flex items-center gap-3">
@@ -33,33 +39,33 @@ export function SmartPlayerBar() {
           <button
             className="min-w-0 flex-1 text-left"
             onClick={() => setExpanded(true)}
-            aria-label="Open player"
+            aria-label={t("open")}
           >
             <div className="text-sm font-medium truncate">{ep.title}</div>
             <div className="text-[11px] text-muted-foreground truncate">
               {ep.podcastTitle}
-              {duration > 0 && (
+              {hasDuration && (
                 <span className="ml-2 tabular-nums">· {formatTime(currentTime)} / {formatTime(duration)}</span>
               )}
-              {isLoading && <span className="ml-2">· loading…</span>}
-              {error && <span className="ml-2 text-amber-500">· {error}</span>}
+              {isLoading && <span className="ml-2">· {t("loading")}</span>}
+              {error && <span className="ml-2 text-amber-500">· {t("playbackError")}</span>}
             </div>
           </button>
           <div className="hidden sm:flex items-center gap-1">
-            <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label="Back 15s">−15</button>
-            <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label="Forward 30s">+30</button>
+            <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
+            <button onClick={() => seekBy(30)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("fwd30")}>+30</button>
           </div>
           <button
             onClick={toggle}
             className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
-            aria-label={isPlaying ? "Pause" : "Play"}
+            aria-label={isPlaying ? t("pause") : t("play")}
           >
             {isPlaying ? "❚❚" : "▶"}
           </button>
           <button
             onClick={stop}
             className="text-muted-foreground hover:text-foreground text-xs px-1.5 hidden sm:inline-flex"
-            aria-label="Close player"
+            aria-label={t("close")}
           >✕</button>
         </div>
         <div className="container mx-auto px-3 pb-2">
@@ -75,9 +81,9 @@ export function SmartPlayerBar() {
           aria-label="Expanded player"
         >
           <div className="flex items-center justify-between p-3 border-b border-border">
-            <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ Bezárás</button>
+            <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
             {href && (
-              <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">Megnyitás</Link>
+              <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">{t("open")}</Link>
             )}
           </div>
           <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
@@ -92,17 +98,17 @@ export function SmartPlayerBar() {
               <PlayerProgress />
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={() => seekBy(-15)} className="px-3 py-2 rounded-md bg-secondary text-sm">−15s</button>
+              <button onClick={() => seekBy(-15)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("back15")}>−15s</button>
               <button
                 onClick={toggle}
                 className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg"
-                aria-label={isPlaying ? "Pause" : "Play"}
+                aria-label={isPlaying ? t("pause") : t("play")}
               >
                 {isPlaying ? "❚❚" : "▶"}
               </button>
-              <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm">+30s</button>
+              <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
             </div>
-            <SpeedPicker />
+            <SpeedSection />
           </div>
         </div>
       )}
@@ -110,17 +116,46 @@ export function SmartPlayerBar() {
   );
 }
 
-function SpeedPicker() {
+function SpeedSection() {
   const { playbackRate, setPlaybackRate } = useSmartPlayer();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
   return (
-    <div className="flex gap-1">
-      {[1, 1.25, 1.5, 2].map((s) => (
-        <button
-          key={s}
-          onClick={() => setPlaybackRate(s)}
-          className={`text-xs px-2 py-1 rounded-md border ${playbackRate === s ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-secondary"}`}
-        >{s}x</button>
-      ))}
+    <div className="w-full max-w-md flex flex-col items-center gap-2" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground"
+        aria-expanded={open}
+      >
+        {t("playbackSpeed")} · {formatSpeedLabel(playbackRate)}
+      </button>
+      {open && (
+        <div className="w-full flex flex-wrap justify-center gap-2 px-4">
+          {[0.5, 1, 1.25, 1.5, 2].map((s) => (
+            <button
+              key={s}
+              onClick={() => { setPlaybackRate(s); setOpen(false); }}
+              className={`text-xs px-3 py-1.5 rounded-md border min-w-[56px] ${
+                playbackRate === s
+                  ? "border-primary bg-primary/15 text-primary font-semibold"
+                  : "border-border bg-card hover:bg-secondary"
+              }`}
+              aria-pressed={playbackRate === s}
+            >{formatSpeedLabel(s)}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+// useState import
+import { useState } from "react";
