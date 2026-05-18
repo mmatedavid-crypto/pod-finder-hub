@@ -118,6 +118,7 @@ export default {
           "X-Blocked": "scanner-path",
         },
       });
+    }
 
     // /search* — server-side noindex for bots. SPA's Helmet noindex isn't
     // visible until JS executes, so emit a tiny noindex stub + X-Robots-Tag
