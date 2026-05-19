@@ -945,24 +945,23 @@ Deno.serve(async (req) => {
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
-    // v12: Cohere cross-encoder reranker. Runs BEFORE the LLM rerank — if it
-    // succeeds, we skip the Gemini rerank (cross-encoder is strictly better
-    // for relevance, ~150ms vs ~1500ms). Skipped on low confidence (no
-    // signal worth refining), <10 hits (not enough to reorder), and when the
-    // daily $2 budget is exhausted.
+    // Cohere cross-encoder reranker. Quality-first mode: run on any query with
+    // ≥5 candidates regardless of confidence band — low-confidence queries are
+    // exactly where reordering helps most. Wider candidate slice (60) for
+    // better recall. Gemini LLM rerank still runs after (tandem), to add
+    // semantic reasoning and "why" snippets on top of the cross-encoder order.
     let cohereRerankUsed = false;
     let cohereLatency = 0;
     if (
       FF.cohere &&
-      ordered.length >= 10 &&
-      (confidenceBand === "high" || confidenceBand === "medium") &&
+      ordered.length >= 5 &&
       !sectorFallback
     ) {
-      const candidates: CohereRerankInput[] = ordered.slice(0, 30).map((e: any) => ({
+      const candidates: CohereRerankInput[] = ordered.slice(0, 60).map((e: any) => ({
         id: e.id,
         text: `${e.podcasts?.title || ""} — ${e.title || ""}\n${(e.ai_summary || e.summary || e.description || "").slice(0, 500)}`,
       }));
-      const co = await cohereRerank(supa, q, candidates, Math.min(30, candidates.length));
+      const co = await cohereRerank(supa, q, candidates, Math.min(60, candidates.length));
       if (co && co.ids.length) {
         cohereRerankUsed = true;
         cohereLatency = co.latency_ms;
@@ -977,7 +976,9 @@ Deno.serve(async (req) => {
 
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank && !cohereRerankUsed) {
+    // Quality-first: always run Gemini rerank when wanted, even after Cohere.
+    // Gemini reorders only the head + adds "why" snippets for UI.
+    if (wantRerank) {
       if (cachedRerank) {
         // Filter to ids actually present in this result-set (DB content may have shifted)
         const present = new Set(ordered.map((e: any) => e.id));
