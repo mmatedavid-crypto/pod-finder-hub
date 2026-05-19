@@ -2292,6 +2292,18 @@ export type Database = {
         Args: { p_kind: string; p_slugs: string[]; p_urls: string[] }
         Returns: number
       }
+      backfill_desc_chunk_status_done: {
+        Args: { _limit?: number }
+        Returns: number
+      }
+      backfill_desc_chunk_status_pending: {
+        Args: { _limit?: number }
+        Returns: number
+      }
+      backfill_desc_chunk_status_skipped: {
+        Args: { _limit?: number }
+        Returns: number
+      }
       chunk_candidate_stats: {
         Args: never
         Returns: {
