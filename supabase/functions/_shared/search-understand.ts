@@ -42,7 +42,7 @@ function cbRecordFail() {
   }
 }
 
-export async function understandQuery(q: string, timeoutMs = 1500): Promise<Understanding> {
+export async function understandQuery(q: string, timeoutMs = 3000): Promise<Understanding> {
   if (!LOVABLE_API_KEY || !q) return EMPTY;
   if (!cbAllow()) return EMPTY;
   const ctrl = new AbortController();

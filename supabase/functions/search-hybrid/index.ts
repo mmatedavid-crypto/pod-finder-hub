@@ -225,7 +225,7 @@ async function embedRaw(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
-const embed = (q: string) => withTimeout(embedRaw(q), 1800, "embed");
+const embed = (q: string) => withTimeout(embedRaw(q), 3000, "embed");
 
 async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
   if (!LOVABLE_API_KEY || items.length < 5) return null;
@@ -282,7 +282,7 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
     return { ids, why };
   } catch (e) { console.warn("rerank err", e); return null; }
 }
-const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 7000, "rerank");
+const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 12000, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -607,7 +607,7 @@ Deno.serve(async (req) => {
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
       const resolved = await withTimeout(
         supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
-        400, "resolve_query_entities",
+        1500, "resolve_query_entities",
       );
       if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
@@ -701,7 +701,7 @@ Deno.serve(async (req) => {
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-      limit_n: Math.max(limit, 50),
+      limit_n: Math.max(limit, 100),
       lang,
       required_terms: requiredTerms.length ? requiredTerms : null,
       entity_terms: entityTerms.length ? entityTerms : null,
@@ -736,7 +736,7 @@ Deno.serve(async (req) => {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-          limit_n: Math.max(limit, 50),
+          limit_n: Math.max(limit, 100),
           lang,
           required_terms: noPhraseTerms.length ? noPhraseTerms : null,
           entity_terms: entityTerms.length ? entityTerms : null,
@@ -756,7 +756,7 @@ Deno.serve(async (req) => {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-          limit_n: Math.max(limit, 50),
+          limit_n: Math.max(limit, 100),
           lang,
           required_terms: relaxedTerms,
           entity_terms: entityTerms.length ? entityTerms : null,
@@ -774,7 +774,7 @@ Deno.serve(async (req) => {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
-        limit_n: Math.max(limit, 50),
+        limit_n: Math.max(limit, 100),
         lang,
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
@@ -825,7 +825,7 @@ Deno.serve(async (req) => {
           const retry3 = await supa.rpc("search_episodes_hybrid", {
             q: entityName,
             q_embedding: `[${sectorEmb.join(",")}]`,
-            limit_n: Math.max(limit, 30),
+            limit_n: Math.max(limit, 60),
             lang,
             required_terms: null,
             entity_terms: null,
@@ -851,7 +851,7 @@ Deno.serve(async (req) => {
       const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
       const pmRes = await withTimeout(
         supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
-        300, "match_podcast_by_name",
+        1200, "match_podcast_by_name",
       );
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       // Only pin if similarity is strong (≥0.6) — weak matches would pollute results.
@@ -898,8 +898,8 @@ Deno.serve(async (req) => {
       try {
         const { data: chunkRows } = await supa.rpc("search_episode_chunks", {
           query_embedding: `[${q_embedding.join(",")}]`,
-          match_count: 30,
-          candidate_pool: 400,
+          match_count: 60,
+          candidate_pool: 800,
         });
         const cr = (chunkRows as any[]) || [];
         for (const c of cr) {
@@ -945,24 +945,23 @@ Deno.serve(async (req) => {
       })
       .sort((a: any, b: any) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999));
 
-    // v12: Cohere cross-encoder reranker. Runs BEFORE the LLM rerank — if it
-    // succeeds, we skip the Gemini rerank (cross-encoder is strictly better
-    // for relevance, ~150ms vs ~1500ms). Skipped on low confidence (no
-    // signal worth refining), <10 hits (not enough to reorder), and when the
-    // daily $2 budget is exhausted.
+    // Cohere cross-encoder reranker. Quality-first mode: run on any query with
+    // ≥5 candidates regardless of confidence band — low-confidence queries are
+    // exactly where reordering helps most. Wider candidate slice (60) for
+    // better recall. Gemini LLM rerank still runs after (tandem), to add
+    // semantic reasoning and "why" snippets on top of the cross-encoder order.
     let cohereRerankUsed = false;
     let cohereLatency = 0;
     if (
       FF.cohere &&
-      ordered.length >= 10 &&
-      (confidenceBand === "high" || confidenceBand === "medium") &&
+      ordered.length >= 5 &&
       !sectorFallback
     ) {
-      const candidates: CohereRerankInput[] = ordered.slice(0, 30).map((e: any) => ({
+      const candidates: CohereRerankInput[] = ordered.slice(0, 60).map((e: any) => ({
         id: e.id,
         text: `${e.podcasts?.title || ""} — ${e.title || ""}\n${(e.ai_summary || e.summary || e.description || "").slice(0, 500)}`,
       }));
-      const co = await cohereRerank(supa, q, candidates, Math.min(30, candidates.length));
+      const co = await cohereRerank(supa, q, candidates, Math.min(60, candidates.length));
       if (co && co.ids.length) {
         cohereRerankUsed = true;
         cohereLatency = co.latency_ms;
@@ -977,7 +976,9 @@ Deno.serve(async (req) => {
 
     let rerankResult: { ids: string[]; why: Record<string, string> } | null = null;
     let rerankCacheHit = false;
-    if (wantRerank && !cohereRerankUsed) {
+    // Quality-first: always run Gemini rerank when wanted, even after Cohere.
+    // Gemini reorders only the head + adds "why" snippets for UI.
+    if (wantRerank) {
       if (cachedRerank) {
         // Filter to ids actually present in this result-set (DB content may have shifted)
         const present = new Set(ordered.map((e: any) => e.id));

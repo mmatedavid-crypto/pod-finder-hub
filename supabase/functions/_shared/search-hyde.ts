@@ -43,7 +43,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 async function generateHydeText(q: string): Promise<string | null> {
   if (!LOVABLE_API_KEY || !cbAllow()) return null;
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 1500);
+  const t = setTimeout(() => ctrl.abort(), 2500);
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -127,10 +127,10 @@ export async function getHydeExpansion(supa: any, qNorm: string, q: string): Pro
     }
   } catch (e) { console.warn("hyde cache read err", e); }
 
-  // 2) Cold path: generate + embed, with overall budget 2200ms.
-  const hydeText = await withTimeout(generateHydeText(q), 1700, "hyde-gen");
+  // 2) Cold path: generate + embed, with overall budget ~6s.
+  const hydeText = await withTimeout(generateHydeText(q), 3500, "hyde-gen");
   if (!hydeText) return null;
-  const emb = await withTimeout(embedHyde(hydeText), 1500, "hyde-embed");
+  const emb = await withTimeout(embedHyde(hydeText), 2500, "hyde-embed");
   if (!emb) return null;
 
   // 3) Persist (fire-and-forget).
