@@ -701,7 +701,7 @@ Deno.serve(async (req) => {
     let { data: rows, error } = await supa.rpc("search_episodes_hybrid", {
       q: lexQ,
       q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-      limit_n: Math.max(limit, 50),
+      limit_n: Math.max(limit, 100),
       lang,
       required_terms: requiredTerms.length ? requiredTerms : null,
       entity_terms: entityTerms.length ? entityTerms : null,
@@ -736,7 +736,7 @@ Deno.serve(async (req) => {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-          limit_n: Math.max(limit, 50),
+          limit_n: Math.max(limit, 100),
           lang,
           required_terms: noPhraseTerms.length ? noPhraseTerms : null,
           entity_terms: entityTerms.length ? entityTerms : null,
@@ -756,7 +756,7 @@ Deno.serve(async (req) => {
         const retry = await supa.rpc("search_episodes_hybrid", {
           q: lexQ,
           q_embedding: q_embedding ? `[${q_embedding.join(",")}]` : null,
-          limit_n: Math.max(limit, 50),
+          limit_n: Math.max(limit, 100),
           lang,
           required_terms: relaxedTerms,
           entity_terms: entityTerms.length ? entityTerms : null,
@@ -774,7 +774,7 @@ Deno.serve(async (req) => {
       const retry2 = await supa.rpc("search_episodes_hybrid", {
         q: lexQ,
         q_embedding: `[${q_embedding.join(",")}]`,
-        limit_n: Math.max(limit, 50),
+        limit_n: Math.max(limit, 100),
         lang,
         required_terms: null,
         entity_terms: entityTerms.length ? entityTerms : null,
@@ -825,7 +825,7 @@ Deno.serve(async (req) => {
           const retry3 = await supa.rpc("search_episodes_hybrid", {
             q: entityName,
             q_embedding: `[${sectorEmb.join(",")}]`,
-            limit_n: Math.max(limit, 30),
+            limit_n: Math.max(limit, 60),
             lang,
             required_terms: null,
             entity_terms: null,
@@ -898,8 +898,8 @@ Deno.serve(async (req) => {
       try {
         const { data: chunkRows } = await supa.rpc("search_episode_chunks", {
           query_embedding: `[${q_embedding.join(",")}]`,
-          match_count: 30,
-          candidate_pool: 400,
+          match_count: 60,
+          candidate_pool: 800,
         });
         const cr = (chunkRows as any[]) || [];
         for (const c of cr) {
