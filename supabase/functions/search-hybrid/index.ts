@@ -607,7 +607,7 @@ Deno.serve(async (req) => {
     if (!isTickerQ && qNorm.length >= 3 && qNorm.length <= 60) {
       const resolved = await withTimeout(
         supa.rpc("resolve_query_entities", { p_q: q, p_max: 6, p_threshold: 0.45 }).then((r: any) => r.data),
-        400, "resolve_query_entities",
+        1500, "resolve_query_entities",
       );
       if (Array.isArray(resolved)) resolvedEntities = resolved as any;
     }
