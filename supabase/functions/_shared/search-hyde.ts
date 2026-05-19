@@ -127,10 +127,10 @@ export async function getHydeExpansion(supa: any, qNorm: string, q: string): Pro
     }
   } catch (e) { console.warn("hyde cache read err", e); }
 
-  // 2) Cold path: generate + embed, with overall budget 2200ms.
-  const hydeText = await withTimeout(generateHydeText(q), 1700, "hyde-gen");
+  // 2) Cold path: generate + embed, with overall budget ~6s.
+  const hydeText = await withTimeout(generateHydeText(q), 3500, "hyde-gen");
   if (!hydeText) return null;
-  const emb = await withTimeout(embedHyde(hydeText), 1500, "hyde-embed");
+  const emb = await withTimeout(embedHyde(hydeText), 2500, "hyde-embed");
   if (!emb) return null;
 
   // 3) Persist (fire-and-forget).
