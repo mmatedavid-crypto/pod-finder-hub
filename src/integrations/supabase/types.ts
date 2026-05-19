@@ -629,6 +629,9 @@ export type Database = {
           chunks_updated_at: string | null
           companies: string[] | null
           created_at: string
+          desc_chunk_claim_id: string | null
+          desc_chunk_claimed_at: string | null
+          desc_chunk_status: string | null
           description: string | null
           display_title: string | null
           episode_rank: number
@@ -670,6 +673,9 @@ export type Database = {
           chunks_updated_at?: string | null
           companies?: string[] | null
           created_at?: string
+          desc_chunk_claim_id?: string | null
+          desc_chunk_claimed_at?: string | null
+          desc_chunk_status?: string | null
           description?: string | null
           display_title?: string | null
           episode_rank?: number
@@ -711,6 +717,9 @@ export type Database = {
           chunks_updated_at?: string | null
           companies?: string[] | null
           created_at?: string
+          desc_chunk_claim_id?: string | null
+          desc_chunk_claimed_at?: string | null
+          desc_chunk_status?: string | null
           description?: string | null
           display_title?: string | null
           episode_rank?: number
@@ -2283,6 +2292,18 @@ export type Database = {
         Args: { p_kind: string; p_slugs: string[]; p_urls: string[] }
         Returns: number
       }
+      backfill_desc_chunk_status_done: {
+        Args: { _limit?: number }
+        Returns: number
+      }
+      backfill_desc_chunk_status_pending: {
+        Args: { _limit?: number }
+        Returns: number
+      }
+      backfill_desc_chunk_status_skipped: {
+        Args: { _limit?: number }
+        Returns: number
+      }
       chunk_candidate_stats: {
         Args: never
         Returns: {
@@ -2349,6 +2370,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_description_chunk_jobs: {
+        Args: { _limit: number; _worker: string }
+        Returns: {
+          description: string
+          id: string
+          podcast_id: string
+        }[]
+      }
+      complete_description_chunk_job: {
+        Args: { _episode_id: string; _status: string }
+        Returns: undefined
+      }
       cron_revert_title_cleanup: { Args: never; Returns: undefined }
       dedup_episodes_audio_url_batch: {
         Args: { _batch?: number }
@@ -2364,6 +2397,18 @@ export type Database = {
         Returns: {
           done_episodes: number
           pending: number
+          total_desc_chunks: number
+        }[]
+      }
+      description_chunk_drain_stats: {
+        Args: never
+        Returns: {
+          claimed: number
+          done: number
+          failed: number
+          pending: number
+          skipped: number
+          stale_claims: number
           total_desc_chunks: number
         }[]
       }
@@ -2391,6 +2436,9 @@ export type Database = {
           chunks_updated_at: string | null
           companies: string[] | null
           created_at: string
+          desc_chunk_claim_id: string | null
+          desc_chunk_claimed_at: string | null
+          desc_chunk_status: string | null
           description: string | null
           display_title: string | null
           episode_rank: number
@@ -2568,6 +2616,7 @@ export type Database = {
         Args: { _older_than_minutes?: number }
         Returns: number
       }
+      reap_description_chunk_stale_claims: { Args: never; Returns: number }
       refresh_episodes_search_text_batch: {
         Args: { _limit?: number }
         Returns: Json
