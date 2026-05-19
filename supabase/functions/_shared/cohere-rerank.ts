@@ -92,7 +92,7 @@ export async function cohereRerank(
 
   const docs = candidates.map((c) => c.text.slice(0, 600));
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 1500);
+  const t = setTimeout(() => ctrl.abort(), 3500);
   const t0 = Date.now();
   try {
     const r = await fetch("https://api.cohere.com/v2/rerank", {
