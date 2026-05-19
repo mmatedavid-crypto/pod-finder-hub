@@ -282,7 +282,7 @@ async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string
     return { ids, why };
   } catch (e) { console.warn("rerank err", e); return null; }
 }
-const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 7000, "rerank");
+const rerank = (q: string, items: any[]) => withTimeout(rerankWithReasons(q, items), 12000, "rerank");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
