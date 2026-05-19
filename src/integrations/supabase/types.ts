@@ -2296,12 +2296,24 @@ export type Database = {
         Args: { _limit?: number }
         Returns: number
       }
+      backfill_desc_chunk_status_done_batch: {
+        Args: { p_batch?: number }
+        Returns: number
+      }
       backfill_desc_chunk_status_pending: {
         Args: { _limit?: number }
         Returns: number
       }
+      backfill_desc_chunk_status_pending_batch: {
+        Args: { p_batch?: number }
+        Returns: number
+      }
       backfill_desc_chunk_status_skipped: {
         Args: { _limit?: number }
+        Returns: number
+      }
+      backfill_desc_chunk_status_skipped_batch: {
+        Args: { p_batch?: number }
         Returns: number
       }
       chunk_candidate_stats: {
