@@ -36,8 +36,7 @@ const WEEKDAY_SLOTS: Slot[] = [
   { time: "19:30", kind: "discovery", linkPlacement: "main" },
 ];
 const WEEKEND_SLOTS: Slot[] = [
-  { time: "16:00", kind: "flagship",  linkPlacement: "main" },
-  { time: "20:00", kind: "discovery", linkPlacement: "main" },
+  { time: "17:00", kind: "flagship",  linkPlacement: "main" },
 ];
 
 // Tolerance window (minutes) — cron runs every 30m, allow ±10m drift.
