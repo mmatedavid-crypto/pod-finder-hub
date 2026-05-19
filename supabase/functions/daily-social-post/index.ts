@@ -33,8 +33,7 @@ type Slot = { time: string; kind: SlotKind; linkPlacement: "main" | "reply" };
 
 const WEEKDAY_SLOTS: Slot[] = [
   { time: "13:30", kind: "flagship",  linkPlacement: "main" },
-  { time: "17:30", kind: "topic",     linkPlacement: "main" },
-  { time: "21:30", kind: "discovery", linkPlacement: "main" },
+  { time: "19:30", kind: "discovery", linkPlacement: "main" },
 ];
 const WEEKEND_SLOTS: Slot[] = [
   { time: "16:00", kind: "flagship",  linkPlacement: "main" },
