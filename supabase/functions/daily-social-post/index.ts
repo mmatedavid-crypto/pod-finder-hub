@@ -711,7 +711,7 @@ async function main(req: Request) {
   // Daily cap
   const recent = await recentlyPosted(admin);
   const dow = now.getUTCDay();
-  const dailyCap = (dow === 0 || dow === 6) ? 2 : 3;
+  const dailyCap = (dow === 0 || dow === 6) ? 1 : 2;
   if (!dryRun && recent.todayCount >= dailyCap) {
     return jsonRes({ ok: true, skipped: true, reason: "daily_cap_reached", todayCount: recent.todayCount });
   }
