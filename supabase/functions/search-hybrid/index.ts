@@ -851,7 +851,7 @@ Deno.serve(async (req) => {
       const cleanedQ = qNorm.replace(/\b(podcast|podcasts|show|shows|episode|episodes)\b/g, " ").replace(/\s+/g, " ").trim() || qNorm;
       const pmRes = await withTimeout(
         supa.rpc("match_podcast_by_name", { p_q: cleanedQ, p_max: 1, p_threshold: 0.45 }).then((r: any) => r.data),
-        300, "match_podcast_by_name",
+        1200, "match_podcast_by_name",
       );
       const top = Array.isArray(pmRes) && pmRes.length ? (pmRes[0] as any) : null;
       // Only pin if similarity is strong (≥0.6) — weak matches would pollute results.
