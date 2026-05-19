@@ -225,7 +225,7 @@ async function embedRaw(q: string): Promise<number[] | null> {
     return v && v.length === 768 ? v : null;
   } catch (e) { console.warn("embed err", e); return null; }
 }
-const embed = (q: string) => withTimeout(embedRaw(q), 1800, "embed");
+const embed = (q: string) => withTimeout(embedRaw(q), 3000, "embed");
 
 async function rerankWithReasons(q: string, items: any[]): Promise<{ ids: string[]; why: Record<string, string> } | null> {
   if (!LOVABLE_API_KEY || items.length < 5) return null;
