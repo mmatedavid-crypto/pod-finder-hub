@@ -4,6 +4,7 @@
 // auto-tunes its own cron via set_categorize_runner_schedule.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { aiAudit, preflight, estimateCostUsd, detectSkipReason } from "../_shared/ai-audit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -122,6 +123,17 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
+    // Preflight (model + daily cap)
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+        model_used: model, skipped_reason: pf.reason || "preflight_blocked",
+        meta: { spent_today: pf.spent },
+      });
+      return json({ ok: true, skipped: true, reason: pf.reason });
+    }
+
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0, low_conf_count = 0;
     let stop = false;
     let total_claimed = 0, drain_loops = 0;
@@ -133,8 +145,19 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) { stop = true; return; }
       if (spend >= dailyBudget) { stop = true; return; }
       processed++;
+      const prompt = buildPrompt(p);
+      const skip = detectSkipReason(prompt, { minChars: 60 });
+      if (skip) {
+        await aiAudit.logSkipped(admin, {
+          job_type: "categorize_podcast", model_used: model,
+          target_type: "podcast", target_id: p.id, skipped_reason: skip,
+        });
+        return;
+      }
+      const t0 = Date.now();
       try {
-        const ai = await callAI(model, buildPrompt(p));
+        const ai = await callAI(model, prompt);
+        const latency_ms = Date.now() - t0;
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
@@ -159,9 +182,21 @@ Deno.serve(async (req) => {
         }).eq("id", p.id);
         succeeded++;
         spend += cost; calls++;
+        await aiAudit.logOk(admin, {
+          job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+          model_used: model, input_tokens: inTok, output_tokens: outTok,
+          estimated_cost_usd: cost, latency_ms, confidence,
+          target_type: "podcast", target_id: p.id,
+          meta: { slug, alt_slug: altSlug, needs_review: needsReview },
+        });
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
+        await aiAudit.logError(admin, {
+          job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+          model_used: model, latency_ms: Date.now() - t0,
+          target_type: "podcast", target_id: p.id, error_message: msg,
+        });
         if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
         // Mark as needs_review with error so it doesn't get re-picked indefinitely on permanent failures
         // (simple guard: write a 0-confidence stub only on hard schema failures, not transient ones)

@@ -3,6 +3,7 @@
 // hash-cached, $ budget, adaptive cron, drain loop, async-friendly.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { aiAudit, preflight, estimateCostUsd, detectSkipReason } from "../_shared/ai-audit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +105,17 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (descSpend >= dailyBudget) return json({ ok: true, budget_reached: true, spend: descSpend });
 
+    // Preflight (model + daily cap)
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "embed_description", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+        model_used: model, skipped_reason: pf.reason || "preflight_blocked",
+        meta: { spent_today: pf.spent },
+      });
+      return json({ ok: true, skipped: true, reason: pf.reason });
+    }
+
     let episodesProcessed = 0, chunksWritten = 0, errors = 0, drainPasses = 0;
     const errorSamples: any[] = [];
     let stop = false;
@@ -123,31 +135,63 @@ Deno.serve(async (req) => {
         if (stop) return;
         if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
         if (descSpend >= dailyBudget) { stop = true; return; }
+        const sourceText = String(e.description || "");
+        const skip = detectSkipReason(sourceText, { minChars: 200 });
+        if (skip || sourceText.length <= 1600) {
+          await aiAudit.logSkipped(admin, {
+            job_type: "embed_description", model_used: model,
+            target_type: "episode", target_id: e.id,
+            skipped_reason: skip || "below_chunk_threshold",
+          });
+          return;
+        }
         try {
-          const sourceText = String(e.description || "");
-          if (sourceText.length <= 1600) return; // RPC should filter, defensive
           const chunks = chunkText(sourceText, chunkSize, overlap);
-          if (chunks.length === 0) return;
+          if (chunks.length === 0) {
+            await aiAudit.logSkipped(admin, {
+              job_type: "embed_description", model_used: model,
+              target_type: "episode", target_id: e.id, skipped_reason: "no_chunks_produced",
+            });
+            return;
+          }
 
           const rows: any[] = [];
           for (let idx = 0; idx < chunks.length; idx++) {
             if (descSpend >= dailyBudget) { stop = true; break; }
             const text = chunks[idx];
             const hash = await sha256(`description|${idx}|${text}`);
-            const { vec, tokens } = await embed(model, text);
-            const cost = (tokens / 1000) * PRICE_IN_PER_1K;
-            descSpend += cost; totalSpend += cost; calls++;
-            rows.push({
-              episode_id: e.id,
-              podcast_id: e.podcast_id,
-              chunk_idx: idx,
-              source: "description",
-              text: sanitizeForJson(text),
-              embedding: `[${vec.join(",")}]`,
-              content_hash: hash,
-              model,
-              updated_at: new Date().toISOString(),
-            });
+            const t0 = Date.now();
+            try {
+              const { vec, tokens } = await embed(model, text);
+              const latency_ms = Date.now() - t0;
+              const cost = estimateCostUsd(model, tokens, 0);
+              descSpend += cost; totalSpend += cost; calls++;
+              rows.push({
+                episode_id: e.id,
+                podcast_id: e.podcast_id,
+                chunk_idx: idx,
+                source: "description",
+                text: sanitizeForJson(text),
+                embedding: `[${vec.join(",")}]`,
+                content_hash: hash,
+                model,
+                updated_at: new Date().toISOString(),
+              });
+              await aiAudit.logOk(admin, {
+                job_type: "embed_description", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+                model_used: model, input_tokens: tokens, output_tokens: 0,
+                estimated_cost_usd: cost, source_hash: hash, latency_ms,
+                target_type: "episode", target_id: e.id, meta: { chunk_idx: idx },
+              });
+            } catch (chunkErr: any) {
+              await aiAudit.logError(admin, {
+                job_type: "embed_description", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+                model_used: model, source_hash: hash, latency_ms: Date.now() - t0,
+                target_type: "episode", target_id: e.id, error_message: String(chunkErr?.message || chunkErr),
+                meta: { chunk_idx: idx },
+              });
+              throw chunkErr;
+            }
           }
 
           if (rows.length > 0) {

@@ -17,6 +17,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { aiAudit, preflight, estimateCostUsd, estimateTokens } from "../_shared/ai-audit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -401,7 +402,7 @@ type HookSet = {
   reason: string;
 };
 
-async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Promise<{ hooks: HookSet; model: string }> {
+async function generateHooks(picked: Scored, slot: Slot, feedback?: string, admin?: any): Promise<{ hooks: HookSet; model: string }> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
   const ep = picked.ep;
@@ -469,6 +470,18 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
   const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;
 
   const model = "google/gemini-2.5-pro";
+  if (admin) {
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+        model_used: model, target_type: "episode", target_id: picked.ep.id,
+        skipped_reason: pf.reason || "preflight_blocked", meta: { spent_today: pf.spent, slot: slot.kind },
+      });
+      throw new Error(`model_blocked:${pf.reason}`);
+    }
+  }
+  const t0 = Date.now();
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -481,11 +494,33 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string): Pro
       ],
     }),
   });
-  if (!res.ok) throw new Error(`Lovable AI ${res.status}: ${await res.text()}`);
+  const latency_ms = Date.now() - t0;
+  if (!res.ok) {
+    const errText = await res.text();
+    if (admin) await aiAudit.logError(admin, {
+      job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+      model_used: model, latency_ms, target_type: "episode", target_id: picked.ep.id,
+      error_message: `gateway_${res.status}: ${errText.slice(0, 200)}`,
+    });
+    throw new Error(`Lovable AI ${res.status}: ${errText}`);
+  }
   const j = await res.json();
   const raw = j?.choices?.[0]?.message?.content || "{}";
   let parsed: any;
   try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+  if (admin) {
+    const usage = j?.usage || {};
+    const inTok = Number(usage.prompt_tokens || estimateTokens(sys + finalUser));
+    const outTok = Number(usage.completion_tokens || estimateTokens(raw));
+    const cost = estimateCostUsd(model, inTok, outTok);
+    await aiAudit.logOk(admin, {
+      job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+      model_used: model, input_tokens: inTok, output_tokens: outTok,
+      estimated_cost_usd: cost, latency_ms,
+      target_type: "episode", target_id: picked.ep.id,
+      meta: { slot: slot.kind, has_feedback: !!feedback },
+    });
+  }
   const v = (k: string) => {
     const x = parsed?.[k];
     if (x && typeof x === "object") return { text: sanitize(x.text || ""), score: clamp01to10(x.editorial_style_score), rationale: String(x.rationale || "") };
@@ -746,7 +781,7 @@ async function main(req: Request) {
   }
 
   // Generate hooks (with one regen retry if quality gate fails)
-  let { hooks, model } = await generateHooks(picked, slot);
+  let { hooks, model } = await generateHooks(picked, slot, undefined, admin);
   let chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   if (!chosen) {
     const fb: string[] = [];
@@ -755,7 +790,7 @@ async function main(req: Request) {
       const g = qualityGate(txt, picked.ep, hooks.scores[t]);
       fb.push(`- ${t}: ${txt.length} chars, score=${hooks.scores[t]}, gate=${g.ok ? "ok" : g.reason}`);
     }
-    const second = await generateHooks(picked, slot, fb.join("\n"));
+    const second = await generateHooks(picked, slot, fb.join("\n"), admin);
     hooks = second.hooks; model = second.model;
     chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   }
