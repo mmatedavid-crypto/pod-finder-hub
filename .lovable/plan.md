@@ -1,192 +1,156 @@
-# Plan — Stop parallel background work, externalize description chunk drain
 
-## Goal
-- Pause every non-public-critical background job on podiverzum.com.
-- Keep only ONE pipeline active: **description chunk embedding** (190k pending).
-- Move the heavy work off Lovable edge runtime to an **external worker** that calls Gemini API directly.
-- Fix the slow selector so claim takes <1s.
-- Lovable backend exposes only: claim, complete, progress, monitoring.
+# Podiverzum.com — AI/data pipeline audit & safe-restore plan
+
+Mindent felmértem, semmit nem indítottam el. A jelenlegi állapot már nagyrészt a kért „csak inkrementális" profilban van (a nehéz backlog jobok auto-paused, vagy szándékosan le vannak állítva). **Egy darab tényleges produkciós törés van**: az `embed-episode-runner` és `embed-podcast-runner` 2026-05-20-tól „API Key not found"-dal hal el (a `GEMINI_API_KEY` secret eltűnt vagy lejárt a Supabase Edge runtime-on, miközben a sandboxban még megvan). Ezen kívül a teljes `ai_call_audit` rendszer, amit kérsz, **nem létezik** — külön build kell hozzá.
 
 ---
 
-## Part 1 — Snapshot + pause crons
+## A. Jelenlegi pipeline-coverage tábla
 
-### 1a. Snapshot current cron state
-Insert a row into `app_settings` under key `chunk_drain_cron_snapshot_2026_05_19`, containing the full `cron.job` table (jobid, jobname, schedule, active). This is the restore source of truth.
+| Job / runner | Állapot | Backlog | Modell | Provider | Heti tényköltség | Cél |
+|---|---|---|---|---|---|---|
+| `incremental-refresh` (RSS pull) | ✅ aktív, `*/5 *` | due=17 282 | — | — | $0 | kritikus, új epizódok |
+| `queue-drainer` | ✅ aktív, 10p | 0 | — | — | $0 | kritikus |
+| `deep-hydrate-runner` | ✅ aktív, `*/5 *` | pending=11 550 | — | — | $0 | hidratálás |
+| `rss-hunter` | ✅ aktív, `*/30` | due=1 569 | — | — | $0 | feed self-healing |
+| `seo-enrich-runner` (epizód/podcast SEO+entity) | ⛔ **auto-paused 05-17** „daily_budget_reached" | 47 622 pending | `gemini-3.1-flash-lite-preview` (Gateway-only) | Lovable Gateway | $0 most | enrichment |
+| `seo-enrich-enqueue` (jobid 11) | ✅ `*/15` (de runner pause-olva → halmozza a queue-t) | — | — | — | $0 | sorbarakás |
+| `categorize-podcast-runner` | ✅ aktív, adaptív | folyamatos | `gemini-2.5-flash` | Gateway | $0 ma | kategorizálás |
+| `embed-podcast-runner` (jobid 18) | ⚠️ **TÖRVE** 05-20 óta `INVALID_ARGUMENT: API Key not found` | pending=0, de új változások nem futnak le | `gemini-embedding-001` direct | Tier 1 → meghal | $0 ma | embedding |
+| `embed-episode-runner` (jobid 20) | ⚠️ **TÖRVE** 05-20 óta ugyanaz | 219 729 pending (új epizódok!) | `gemini-embedding-001` direct | Tier 1 → meghal | $0.002 ma (569 sikerült) | embedding |
+| `embed-description-runner` (jobid 45) | ✅ aktív, de minden run duplicate-key violation | 0 epizód halad | `gemini-embedding-001` | Tier 1 | $0.05 ma | leíró-chunk |
+| `embed-chunks-runner` | ⛔ szándékos pause `description_backfill_priority` | 0 | — | — | $0 | chunk |
+| `transcript-scout-runner` | ⛔ szándékos pause | 574 failed | — | — | $0 | optional |
+| `yt-backfill-runner` | ⛔ szándékos pause | 1 403 902 pending | — | — | $0 | optional |
+| `tiktok-generate` | ⛔ szándékos pause | — | — | — | $0 | social |
+| `daily-social-post` | ✅ 14:00 UTC | — | `gemini-2.5-flash` | Gateway | ~$0.01/nap | social |
+| `formula-c-runner` (ranking) | ✅ fut | mismatch=0 | — | — | $0 | ranking |
+| `title-cleanup-runner` | ✅ óránként | 1 240 324 | regex (nem AI) | — | $0 | tisztítás |
+| `pi-dump-process` | ✅ adaptív | — | — | — | $0 | felfedezés |
+| `ai-feed-scout` (4h) | ✅ | — | Gemini + Firecrawl | Gateway | kis | felfedezés |
+| `search-suggest` / `search-answer` / `search-chat` / `search-refine` / HyDE | ✅ frontend on-demand | n/a | Gateway gemini-2.5-flash + Tier 1 HyDE | mixed | $0.01/nap | user-facing search |
 
-### 1b. Unschedule non-essential jobs
-Pause via `cron.unschedule(jobid)`:
+**Tegnapi teljes AI-költés: $0.62. Trend: $5/nap → $0.5/nap (backlog ledolgozva).**
 
-| Pause | Job |
+---
+
+## B. Két produkciós tűz, amit AZONNAL javítani kell (csak ezeket szeretném végrehajtani jóváhagyással)
+
+### B1. `GEMINI_API_KEY` újra-kiosztás az Edge runtime-ra
+- Az env-listában még szerepel, de az `embed-episode-runner`/`embed-podcast-runner` 05-20-tól folyamatosan `API Key not found`-dal száll el.
+- Fix: `secrets--update_secret(["GEMINI_API_KEY"])` — te kapod a biztonságos formot, beírod a Tier 1 kulcsot. Semmi kódváltozás. Utána egy `embed-episode-runner` curl tesztrun.
+
+### B2. `embed-description-runner` duplicate-key bug
+- Minden run elhasal `episode_chunks_episode_id_source_chunk_idx_key`-en, mert ugyanazt az epizódot újrafeldolgozza source-hash ellenőrzés nélkül.
+- Fix: az upsert `onConflict: 'episode_id,source,chunk_idx'`-szel kell, vagy a kiválasztásnál ki kell zárni a már feldolgozottakat (`chunks_updated_at IS NULL OR chunks_source_hash != current_hash`). 1 fájl, ~15 sor.
+
+Ez a kettő helyreállítja az új-tartalom embedding flow-t. Több inkrementális javítás nem kell — minden más „incremental-only" sín már fut.
+
+---
+
+## C. Amit a kérésednek megfelelően **NEM** indítok újra
+
+| Job | Miért marad pause-on |
 |---|---|
-| 7 | deep-hydrate |
-| 8 | incremental-refresh |
-| 10 | title-cleanup |
-| 11 | seo-enrich-enqueue |
-| 12 | seo-enrich-runner (broken — Gemini 403) |
-| 13 | rss-self-healing |
-| 16 | rss-hunter |
-| 18 | embed-podcast (~99% drained) |
-| 19 | formula-c-runner |
-| 20 | embed-episode (~99% drained) |
-| 22 | mood-collections weekly |
-| 23 | search-suggestions daily |
-| 24 | category-seo weekly |
-| 25 | daily-social-post |
-| 27 | ai-feed-scout |
-| 28 | pi-dump-process |
-| 30 | search-text-safety |
-| 32 | episode-dedup |
-| 33 | ai-categorize |
-| 34 | x-metrics-fetch |
-| 36 | mood-pool-refresh |
-| 37 | entity-extract-runner |
-| 43 | entity-profile-runner |
-| 44 | entity-profile-company-runner |
-| 45 | embed-description-runner (Lovable runner — replaced by external worker) |
-
-Also set defensive `app_settings.*_controls.enabled = false` flags for paused runners that read them.
-
-### 1c. Keep running (public-critical)
-- 4 queue-drainer
-- 21 homepage-feed-refresh
-- 31 search-cache-cleanup-weekly
-- 38 process-email-queue
-- Public site, /functions/search-*, sitemap, prerender, smart player, admin — untouched.
-
-Smart Player, autocomplete, search-hybrid, /sitemap, /robots, og-image, geo, etc. are pull-based edge functions (no cron), unaffected.
+| `embed-chunks-runner` | kifejezetten tiltottad, plusz a leíró-chunk gate még nem tiszta |
+| `transcript-scout-runner` | nagy backlog, STT költségbecslés nélkül |
+| `yt-backfill-runner` | 1.4M backlog, YouTube kvóta |
+| `tiktok-generate` | egyértelmű pause |
+| `seo-enrich-runner` újra-engedélyezése **régi** epizódokra | csak új epizódokra szabad — lásd D |
+| Bármi „re-process all" SEO/embedding/entity | tiltottad |
+| `growth_autopilot` (utolsó tick 05-08, 500-as hibával) | félbehagyott kísérlet, hagyom |
+| Wikipedia/Wikidata bio runnerek | nem szerepel, nincs cron |
 
 ---
 
-## Part 2 — Fast selector + claim queue (migration)
+## D. Új-tartalom-only enrichment (csak ha B1 után jóváhagyod)
 
-### Problem
-`select_description_chunk_candidates` does:
+`seo-enrich-runner` újraengedélyezése **csak új epizódokra** úgy biztonságos, ha:
+1. `ai_seo_controls.enabled = true`, `daily_budget_usd = 3`, `min_rank = 6`
+2. `seo-enrich-enqueue` szűkítése: csak olyan epizódra, ahol `episodes.published_at > now() - interval '14 days'` és `ai_enriched_at IS NULL`
+3. Modell **változatlan**: `gemini-3.1-flash-lite-preview` — ez **Gateway-only** (a `directModelName()` mappingunk preview-t nem támogat). Ha kötelezően Tier 1 kell, váltani kell `gemini-2.5-flash-lite`-re; ez kódváltás + prompt-regresszió-rizikó.
+
+**Kérdés feléd**: vágjunk `2.5-flash-lite`-re Tier 1-en (olcsóbb, illeszkedik a policy-dhoz, kis minőség-rizikó), vagy maradjon `3.1-flash-lite-preview` Gateway-en (status quo, drágább credit)?
+
+---
+
+## E. `ai_call_audit` — **nem létezik**, kb. fél napos munka
+
+Új tábla + minden AI-érintett edge function instrumentálása:
+
+```sql
+CREATE TABLE public.ai_call_audit (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  job_type text NOT NULL,
+  provider text NOT NULL,           -- 'google_generative_language' | 'lovable_gateway'
+  key_source text NOT NULL,          -- 'tier1' | 'gateway'
+  model_used text NOT NULL,
+  input_tokens int, output_tokens int,
+  estimated_cost_usd numeric(10,6),
+  prompt_version text, source_hash text, confidence numeric,
+  status text NOT NULL,              -- 'ok' | 'error' | 'skipped'
+  skipped_reason text, error_message text,
+  latency_ms int,
+  target_type text, target_id uuid
+);
+CREATE INDEX ON ai_call_audit (created_at DESC);
+CREATE INDEX ON ai_call_audit (job_type, status, created_at DESC);
 ```
-WHERE length(description) > 1600
-  AND NOT EXISTS (SELECT 1 FROM episode_chunks WHERE episode_id = e.id AND source='description')
-ORDER BY published_at DESC NULLS LAST
-LIMIT 80
-```
-Full seqscan on 288k rows + anti-join → 40s.
 
-### Fix — add status column + partial index + claim queue table
-
-**Migration:**
-
-1. Add status column on `episodes`:
-   ```sql
-   ALTER TABLE episodes
-     ADD COLUMN IF NOT EXISTS desc_chunk_status text,
-     ADD COLUMN IF NOT EXISTS desc_chunk_claimed_at timestamptz,
-     ADD COLUMN IF NOT EXISTS desc_chunk_claim_id uuid;
-   ```
-   Values: NULL = unprocessed, `'pending'`, `'claimed'`, `'done'`, `'skipped'`, `'failed'`.
-
-2. Backfill in one shot:
-   ```sql
-   UPDATE episodes e SET desc_chunk_status='done'
-     WHERE EXISTS (SELECT 1 FROM episode_chunks ec
-                   WHERE ec.episode_id=e.id AND ec.source='description');
-   UPDATE episodes e SET desc_chunk_status='pending'
-     WHERE desc_chunk_status IS NULL
-       AND description IS NOT NULL
-       AND length(description) > 1600;
-   ```
-
-3. Partial index for fast claim:
-   ```sql
-   CREATE INDEX CONCURRENTLY idx_episodes_desc_chunk_pending
-     ON episodes (published_at DESC NULLS LAST)
-     WHERE desc_chunk_status='pending';
-   CREATE INDEX CONCURRENTLY idx_episodes_desc_chunk_claimed
-     ON episodes (desc_chunk_claimed_at)
-     WHERE desc_chunk_status='claimed';
-   ```
-
-4. **Atomic claim RPC** with `FOR UPDATE SKIP LOCKED`:
-   ```sql
-   CREATE OR REPLACE FUNCTION claim_description_chunk_jobs(_limit int, _worker uuid)
-   RETURNS TABLE(id uuid, podcast_id uuid, description text) ...
-   -- WITH cte AS (SELECT id FROM episodes WHERE desc_chunk_status='pending'
-   --              ORDER BY published_at DESC NULLS LAST LIMIT _limit
-   --              FOR UPDATE SKIP LOCKED)
-   -- UPDATE episodes SET desc_chunk_status='claimed', desc_chunk_claimed_at=now(),
-   --         desc_chunk_claim_id=_worker
-   --   FROM cte WHERE episodes.id=cte.id
-   --   RETURNING episodes.id, episodes.podcast_id, episodes.description;
-   ```
-
-5. **Complete RPC** (called after chunks inserted):
-   ```sql
-   CREATE OR REPLACE FUNCTION complete_description_chunk_job(_episode_id uuid, _status text)
-     -- sets desc_chunk_status to 'done'/'skipped'/'failed', clears claim
-   ```
-
-6. **Stale reaper** (5-min stale):
-   ```sql
-   CREATE OR REPLACE FUNCTION reap_description_chunk_stale_claims()
-     -- UPDATE episodes SET desc_chunk_status='pending', desc_chunk_claimed_at=NULL
-     --   WHERE desc_chunk_status='claimed' AND desc_chunk_claimed_at < now() - '5 min'::interval;
-   ```
-
-7. **Stats RPC** that returns real numbers (never silently zero):
-   ```sql
-   CREATE OR REPLACE FUNCTION description_chunk_drain_stats()
-     RETURNS TABLE(pending bigint, claimed bigint, done bigint, total_desc_chunks bigint, failed bigint, stale_claims bigint)
-   ```
-
-All under `public`, SECURITY DEFINER, GRANT EXECUTE to `service_role` only for claim/complete/reap; stats public.
-
-Replace `select_description_chunk_candidates` body to read from the new status column (same signature, so the existing Lovable runner still works if re-enabled — but its cron stays unscheduled).
+Plusz egy közös `_shared/ai-audit.ts` helper (logCall / logSkipped) és minden runner update-je (~10 fájl). Ezt **külön kérésre** vállalom — most nem írom, mert a B1+B2 megoldja a tényleges törést, ez pedig nagyobb refaktor és átfutási költsége van.
 
 ---
 
-## Part 3 — External worker
+## F. Input-validation skip-rules (új; szintén E része)
 
-Lovable does NOT run the worker. We provide:
-
-- **Edge function `desc-chunk-claim`** (POST) — calls `claim_description_chunk_jobs(limit, worker_uuid)`, returns rows.
-- **Edge function `desc-chunk-complete`** (POST) — accepts `{episode_id, chunks: [...], status}`, inserts into `episode_chunks`, calls complete RPC.
-- **Edge function `desc-chunk-progress`** (GET) — returns stats from `description_chunk_drain_stats()` + today's spend from `ai_spend_daily`.
-
-All three require a shared secret header `X-Drain-Worker-Key` (new secret `DRAIN_WORKER_KEY`).
-
-Worker (user runs on their own machine / Fly / Render / Cloud Run) — Node/Deno script ~150 lines:
-- Loop: claim 50 → embed each chunk via `generativelanguage.googleapis.com/...:embedContent` (model `gemini-embedding-001`, 768d) → POST complete.
-- Concurrency 8 episodes, rate-gate 18 req/s.
-- Stops when claim returns 0 rows.
-- Logs pending, processed/min, errors, $ to console + optional progress endpoint.
-
-I will provide the worker script as a downloadable artifact in `/mnt/documents/desc-chunk-worker.mjs` plus a README.
+A `_shared/ai-audit.ts`-be kerülne egy `shouldSkip(input, opts)` ami visszaad `{skip, reason}`-t a következőkre: üres/whitespace, < min_chars, csak URL/HTML/emoji/timestamp regex, `undefined`/`null`/`[object Object]` jelenléte a promptban, source_hash változatlan + létezik output, language-gate fail, kötelező mezők hiányoznak, duplikált sikeres job. Minden skip audit row-t ír.
 
 ---
 
-## Part 4 — Admin monitoring
+## G. Költségkorlátok — már nagyrészt megvannak
 
-Add a small section to `AdminAiEnrichmentPage` (or wherever runner panels live) showing `description_chunk_drain_stats()` live: pending / claimed / done / stale / chunks written / today's spend.
-
-(Or skip UI; the user can hit `/desc-chunk-progress` directly. Confirm preference.)
-
----
-
-## Part 5 — Finish + restore
-
-- When pending=0 and claimed=0 → declare done, return final report.
-- DO NOT auto-restore paused crons. The snapshot in `app_settings.chunk_drain_cron_snapshot_2026_05_19` is the canonical restore source; restoration is a separate user-approved step.
+- `daily_budget_usd` minden runner-ben (seo $3, entity $10, embed $0.5/$20/$10/$5, categorize $20)
+- globális kill-switch: `app_settings.background_jobs.incident_mode` (működik)
+- per-run batch+concurrency-cap minden runnerben
+- ami **hiányzik**: globális `daily_total_cap` (most csak per-job), és „stop on Pro/Gemini-3 model in payload" guard. E-vel együtt szállítható.
 
 ---
 
-## Order of operations
-1. Migration (status column + backfill + indexes + RPCs).
-2. Edge functions (claim / complete / progress) + secret.
-3. Snapshot crons → unschedule list above.
-4. Hand worker script to user → they run it → I monitor via stats.
-5. When drained → report → wait for restore approval.
+## H. Search AI — már működik, csak ellenőrzés
 
-## Open questions before I execute
-- **Worker host**: do you want me to (a) hand you a ready-to-run Node script for your local machine / Fly.io, or (b) deploy it as a single long-running Lovable edge invocation despite the 60s cap (NOT recommended), or (c) something else?
-- **Admin UI**: add a small live progress panel, or progress JSON endpoint only?
-- **Secret name**: OK to use `DRAIN_WORKER_KEY` as the shared bearer?
+`search-hybrid` deterministic entity-gate + IDF MUST-token már él (memory note); `search-answer` és `search-chat` csak a kiválasztott találatokra prompt-ol — nincs hallucinációs réteg. Ezeken nem nyúlok.
 
-Once you confirm those three, I'll execute Parts 1–3 in one go.
+---
+
+## I. Cron-cadence — már konzervatív, NEM nyúlok hozzá
+
+A jelenlegi adaptív schedulerek `set_*_schedule` RPC-ken keresztül auto-tune-olnak; a frissen pinned értékek (`incremental-refresh */5`, `deep-hydrate */5`, `embed-episode * * * * *` ami magas, lásd lent) megfelelnek. **Egy javaslat**: `embed-episode-runner` cron `* * * * *` percenkénti — amíg a kulcs törve van, ez 5 000 hibát/run gyárt. Amíg B1 nincs meg, **érdemes `*/10`-re visszavenni** (egy `set_embed_episode_schedule('*/10 * * * *')` RPC hívás). Engedélyezed?
+
+---
+
+## J. Mit fogok ténylegesen csinálni, ha jóváhagyod ezt a tervet
+
+1. `set_embed_episode_schedule('*/10 * * * *')` — azonnali hibaspam-csökkentés.
+2. `secrets--update_secret(["GEMINI_API_KEY"])` — te beírod a Tier 1 kulcsot.
+3. `embed-description-runner` upsert/where fix (1 fájl).
+4. Egy curl-tesz `embed-episode-runner`-en a kulcs után, hogy lássuk visszaáll.
+
+Mindent, amit fent **E/F/G**-ben/D-ben javaslok (audit-tábla, validáció, SEO új-content-only re-enable, modellváltás), **külön kéréssel** indítom — egy menetben túl nagy és túl rizikós batch lenne.
+
+---
+
+## K. Hátralévő backlogok (rangsorolva, **NEM** indítjuk őket)
+
+| Backlog | Közelség 100%-hoz | Megj. |
+|---|---|---|
+| Podcast embedding | ~99% (eligible 30 812 / embedded 30 989) | csak az új változások futnának, ha B1 megvan |
+| Episode embedding | ~88% (1 710 288 / 1 930 017, pending 219k) | rengeteg új epizód halmozódott; B1 után természetesen ledolgozza |
+| Description chunks | ~99% (pending=0, csak duplicate-key zaj) | B2 után tiszta |
+| Episode chunks | nem mérhető (paused) | gate kell |
+| SEO enrichment | ~93% (924k done / 1.05M total job, 47k pending) | csak új epizódokra |
+| YouTube backfill | <1% (53 / 1.4M) | tiltva, drága |
+| Transcript scout | ~52% (620 processed, 574 failed) | tiltva |
+| AI categorize | folyamatos | OK |
+
+**Kérlek hagyd jóvá ezt a tervet** (vagy szólj, melyik részt szűkítsem/bővítsem) — utána végrehajtom a J.1–J.4 lépéseket.
