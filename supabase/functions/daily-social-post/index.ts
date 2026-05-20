@@ -470,6 +470,18 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string, admi
   const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;
 
   const model = "google/gemini-2.5-pro";
+  if (admin) {
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+        model_used: model, target_type: "episode", target_id: picked.ep.id,
+        skipped_reason: pf.reason || "preflight_blocked", meta: { spent_today: pf.spent, slot: slot.kind },
+      });
+      throw new Error(`model_blocked:${pf.reason}`);
+    }
+  }
+  const t0 = Date.now();
   const res = await fetch(LOVABLE_AI, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -482,7 +494,16 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string, admi
       ],
     }),
   });
-  if (!res.ok) throw new Error(`Lovable AI ${res.status}: ${await res.text()}`);
+  const latency_ms = Date.now() - t0;
+  if (!res.ok) {
+    const errText = await res.text();
+    if (admin) await aiAudit.logError(admin, {
+      job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+      model_used: model, latency_ms, target_type: "episode", target_id: picked.ep.id,
+      error_message: `gateway_${res.status}: ${errText.slice(0, 200)}`,
+    });
+    throw new Error(`Lovable AI ${res.status}: ${errText}`);
+  }
   const j = await res.json();
   const raw = j?.choices?.[0]?.message?.content || "{}";
   let parsed: any;
