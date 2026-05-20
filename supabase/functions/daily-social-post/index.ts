@@ -790,7 +790,7 @@ async function main(req: Request) {
       const g = qualityGate(txt, picked.ep, hooks.scores[t]);
       fb.push(`- ${t}: ${txt.length} chars, score=${hooks.scores[t]}, gate=${g.ok ? "ok" : g.reason}`);
     }
-    const second = await generateHooks(picked, slot, fb.join("\n"));
+    const second = await generateHooks(picked, slot, fb.join("\n"), admin);
     hooks = second.hooks; model = second.model;
     chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   }
