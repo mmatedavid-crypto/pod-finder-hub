@@ -469,7 +469,7 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string, admi
 
   const finalUser = feedback ? `${user}\n\nIMPORTANT FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}\nFix all issues. Stay UNDER 255 CHARACTERS per variant.` : user;
 
-  const model = "google/gemini-2.5-pro";
+  const model = "google/gemini-2.5-flash";
   if (admin) {
     const pf = await preflight(admin, model);
     if (pf.blocked) {
