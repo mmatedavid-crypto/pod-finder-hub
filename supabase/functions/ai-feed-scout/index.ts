@@ -354,9 +354,26 @@ async function firecrawlScrape(url: string): Promise<string | null> {
   return data?.data?.markdown || data?.markdown || null;
 }
 
-async function geminiExtract(markdown: string, sourceTag: string, langHint: string, max: number, model: string) {
+async function geminiExtract(markdown: string, sourceTag: string, langHint: string, max: number, model: string, admin: any) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY")!;
   const langName = langHint === "hu" ? "Hungarian" : langHint === "en" ? "English" : langHint;
+  const skip = detectSkipReason(markdown, { minChars: 200 });
+  if (skip) {
+    await aiAudit.logSkipped(admin, {
+      job_type: "ai_feed_scout", model_used: model,
+      target_type: "feed_source", target_id: sourceTag, skipped_reason: skip,
+    });
+    return [];
+  }
+  const pf = await preflight(admin, model);
+  if (pf.blocked) {
+    await aiAudit.logSkipped(admin, {
+      job_type: "ai_feed_scout", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+      model_used: model, target_type: "feed_source", target_id: sourceTag,
+      skipped_reason: pf.reason || "preflight_blocked", meta: { spent_today: pf.spent },
+    });
+    return [];
+  }
   const prompt = `You are an expert podcast curator. Given the markdown of a webpage that lists or recommends podcasts, extract distinct podcasts.
 
 STRICT LANGUAGE FILTER: Only return podcasts whose primary spoken language is ${langName} (${langHint}).
@@ -374,6 +391,7 @@ Source tag: ${sourceTag}
 PAGE MARKDOWN (truncated):
 ${markdown.slice(0, 50000)}`;
 
+  const t0 = Date.now();
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -408,19 +426,38 @@ ${markdown.slice(0, 50000)}`;
       tool_choice: { type: "function", function: { name: "submit_podcasts" } },
     }),
   });
+  const latency_ms = Date.now() - t0;
   if (!res.ok) {
-    console.warn(`gemini extract failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    const errText = (await res.text()).slice(0, 200);
+    console.warn(`gemini extract failed: ${res.status} ${errText}`);
+    await aiAudit.logError(admin, {
+      job_type: "ai_feed_scout", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+      model_used: model, latency_ms, target_type: "feed_source", target_id: sourceTag,
+      error_message: `gateway_${res.status}: ${errText}`,
+    });
     return [];
   }
   const data = await res.json();
+  const usage = data?.usage || {};
+  const inTok = Number(usage.prompt_tokens || estimateTokens(prompt));
+  const outTok = Number(usage.completion_tokens || 0);
+  const cost = estimateCostUsd(model, inTok, outTok);
   const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!args) return [];
-  try {
-    const parsed = typeof args === "string" ? JSON.parse(args) : args;
-    return Array.isArray(parsed.podcasts) ? parsed.podcasts : [];
-  } catch {
-    return [];
+  let podcasts: any[] = [];
+  if (args) {
+    try {
+      const parsed = typeof args === "string" ? JSON.parse(args) : args;
+      podcasts = Array.isArray(parsed.podcasts) ? parsed.podcasts : [];
+    } catch { /* */ }
   }
+  await aiAudit.logOk(admin, {
+    job_type: "ai_feed_scout", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+    model_used: model, input_tokens: inTok, output_tokens: outTok,
+    estimated_cost_usd: cost, latency_ms,
+    target_type: "feed_source", target_id: sourceTag,
+    meta: { extracted_count: podcasts.length, lang_hint: langHint },
+  });
+  return podcasts;
 }
 
 Deno.serve(async (req) => {
