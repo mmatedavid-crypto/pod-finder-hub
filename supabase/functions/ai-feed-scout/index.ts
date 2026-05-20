@@ -483,7 +483,7 @@ Deno.serve(async (req) => {
     for (const src of sources) {
       const md = await firecrawlScrape(src.url);
       if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
-      const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model);
+      const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model, supabase);
       sourceStats[src.tag] = { scraped: true, extracted: extracted.length, lang_hint: src.lang_hint };
       for (const p of extracted) {
         if (p?.title) candidates.push({
