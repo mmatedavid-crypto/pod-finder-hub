@@ -148,6 +148,17 @@ Deno.serve(async (req) => {
     let embedded = 0, cacheHits = 0, errors = 0, processed = 0;
     const errorSamples: any[] = [];
 
+    // Preflight (model + daily cap)
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "embed_podcast", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+        model_used: model, skipped_reason: pf.reason || "preflight_blocked",
+        meta: { spent_today: pf.spent },
+      });
+      return json({ ok: true, skipped: true, reason: pf.reason });
+    }
+
     for (const p of candidates) {
       if (processed >= batch) break;
       if (Date.now() - startedAt > TIME_BUDGET_MS) break;
@@ -157,12 +168,27 @@ Deno.serve(async (req) => {
       const prev = haveHash.get(p.id);
       if (prev && prev.content_hash === hash && prev.model === model) {
         cacheHits++;
+        await aiAudit.logSkipped(admin, {
+          job_type: "embed_podcast", model_used: model, source_hash: hash,
+          target_type: "podcast", target_id: p.id,
+          skipped_reason: "unchanged_source_hash",
+        });
+        continue;
+      }
+      const skip = detectSkipReason(content, { minChars: 40 });
+      if (skip) {
+        await aiAudit.logSkipped(admin, {
+          job_type: "embed_podcast", model_used: model, source_hash: hash,
+          target_type: "podcast", target_id: p.id, skipped_reason: skip,
+        });
         continue;
       }
       processed++;
+      const t0 = Date.now();
       try {
         const { vec, tokens } = await embed(model, content);
-        const cost = (tokens / 1000) * PRICE_IN_PER_1K;
+        const latency_ms = Date.now() - t0;
+        const cost = estimateCostUsd(model, tokens, 0);
         const vecStr = `[${vec.join(",")}]`;
         const { error: upErr } = await admin.from("podcast_embeddings").upsert({
           podcast_id: p.id,
@@ -176,8 +202,21 @@ Deno.serve(async (req) => {
         embedSpend += cost;
         totalSpend += cost;
         calls++;
+        await aiAudit.logOk(admin, {
+          job_type: "embed_podcast", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+          model_used: model, input_tokens: tokens, output_tokens: 0,
+          estimated_cost_usd: cost, source_hash: hash, latency_ms,
+          target_type: "podcast", target_id: p.id,
+        });
       } catch (e: any) {
         errors++;
+        const latency_ms = Date.now() - t0;
+        await aiAudit.logError(admin, {
+          job_type: "embed_podcast", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+          model_used: model, source_hash: hash, latency_ms,
+          target_type: "podcast", target_id: p.id,
+          error_message: String(e?.message || e),
+        });
         if (errorSamples.length < 5) errorSamples.push({ id: p.id, title: p.display_title || p.title, error: String(e?.message || e) });
       }
     }
