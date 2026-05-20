@@ -508,6 +508,19 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string, admi
   const raw = j?.choices?.[0]?.message?.content || "{}";
   let parsed: any;
   try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+  if (admin) {
+    const usage = j?.usage || {};
+    const inTok = Number(usage.prompt_tokens || estimateTokens(sys + finalUser));
+    const outTok = Number(usage.completion_tokens || estimateTokens(raw));
+    const cost = estimateCostUsd(model, inTok, outTok);
+    await aiAudit.logOk(admin, {
+      job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+      model_used: model, input_tokens: inTok, output_tokens: outTok,
+      estimated_cost_usd: cost, latency_ms,
+      target_type: "episode", target_id: picked.ep.id,
+      meta: { slot: slot.kind, has_feedback: !!feedback },
+    });
+  }
   const v = (k: string) => {
     const x = parsed?.[k];
     if (x && typeof x === "object") return { text: sanitize(x.text || ""), score: clamp01to10(x.editorial_style_score), rationale: String(x.rationale || "") };
