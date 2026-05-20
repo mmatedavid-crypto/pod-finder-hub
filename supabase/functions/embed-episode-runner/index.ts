@@ -88,6 +88,17 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (embedSpend >= dailyBudget) return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
 
+    // Preflight (model + daily cap)
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "embed_episode", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+        model_used: model, skipped_reason: pf.reason || "preflight_blocked",
+        meta: { spent_today: pf.spent },
+      });
+      return json({ ok: true, skipped: true, reason: pf.reason });
+    }
+
     let embedded = 0, errors = 0;
     const errorSamples: any[] = [];
     let stop = false;
@@ -111,11 +122,22 @@ Deno.serve(async (req) => {
         if (stop) return;
         if (Date.now() - startedAt > TIME_BUDGET_MS - TIME_RESERVE_MS) { stop = true; return; }
         if (embedSpend >= dailyBudget) { stop = true; return; }
+        const content = buildContent(e, model);
+        const skip = detectSkipReason(content, { minChars: 40 });
+        if (skip) {
+          await aiAudit.logSkipped(admin, {
+            job_type: "embed_episode", model_used: model,
+            target_type: "episode", target_id: e.id,
+            skipped_reason: skip,
+          });
+          return;
+        }
+        const t0 = Date.now();
         try {
-          const content = buildContent(e, model);
           const hash = await sha256(content);
           const { vec, tokens } = await embed(model, content);
-          const cost = (tokens / 1000) * PRICE_IN_PER_1K;
+          const latency_ms = Date.now() - t0;
+          const cost = estimateCostUsd(model, tokens, 0);
           const vecStr = `[${vec.join(",")}]`;
           const { error: upErr } = await admin.from("episode_embeddings").upsert({
             episode_id: e.id, podcast_id: e.podcast_id,
@@ -124,12 +146,20 @@ Deno.serve(async (req) => {
           }, { onConflict: "episode_id" });
           if (upErr) throw upErr;
           embedded++; embedSpend += cost; totalSpend += cost; calls++;
+          await aiAudit.logOk(admin, {
+            job_type: "embed_episode", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+            model_used: model, input_tokens: tokens, output_tokens: 0,
+            estimated_cost_usd: cost, source_hash: hash, latency_ms,
+            target_type: "episode", target_id: e.id,
+          });
         } catch (err: any) {
           errors++;
           const msg = String(err?.message || err);
-          // Don't kill the whole run on a single 429/503 — the candidate will simply
-          // be picked up again next tick (we never wrote to episode_embeddings).
-          // Only stop if rate-limit errors dominate, to avoid hammering the API.
+          await aiAudit.logError(admin, {
+            job_type: "embed_episode", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
+            model_used: model, latency_ms: Date.now() - t0,
+            target_type: "episode", target_id: e.id, error_message: msg,
+          });
           if (errorSamples.length < 5) errorSamples.push({ id: e.id, error: msg });
         }
       };
