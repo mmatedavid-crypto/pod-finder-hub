@@ -151,7 +151,10 @@ Deno.serve(async (req) => {
           }
 
           if (rows.length > 0) {
-            const { error: insErr } = await admin.from("episode_chunks").insert(rows);
+            // Idempotent upsert — defensive against RPC re-returning already-chunked episodes.
+            const { error: insErr } = await admin
+              .from("episode_chunks")
+              .upsert(rows, { onConflict: "episode_id,source,chunk_idx" });
             if (insErr) throw insErr;
             chunksWritten += rows.length;
             episodesProcessed++;
