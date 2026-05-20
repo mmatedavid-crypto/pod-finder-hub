@@ -2920,6 +2920,14 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      sitemap_episode_month_counts: {
+        Args: never
+        Returns: {
+          max_updated_at: string
+          n: number
+          ym: string
+        }[]
+      }
       suggest_token_corrections: {
         Args: { p_tokens: string[] }
         Returns: {

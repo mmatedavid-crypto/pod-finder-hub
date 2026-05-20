@@ -37,7 +37,11 @@ const maxDate = (a?: string | null, b?: string | null) => {
 function wrapUrlset(urls: string[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
 }
-function monthBounds(ym: string, part?: string | null): { start: string; end: string } | null {
+// Episodes per sub-sitemap chunk. Google's hard limit is 50k URLs;
+// 15k keeps us well under and lets crawlers process each chunk fast.
+const EP_PER_PART = 15000;
+
+function monthBounds(ym: string, part?: string | null, partsTotal?: number | null): { start: string; end: string } | null {
   const m = /^(\d{4})-(\d{2})$/.exec(ym);
   if (!m) return null;
   const y = parseInt(m[1], 10), mo = parseInt(m[2], 10);
@@ -45,53 +49,51 @@ function monthBounds(ym: string, part?: string | null): { start: string; end: st
   const pad = (n: number) => String(n).padStart(2, "0");
   const ny = mo === 12 ? y + 1 : y;
   const nm = mo === 12 ? 1 : mo + 1;
-  const monthStart = `${m[1]}-${m[2]}-01T00:00:00Z`;
-  const monthEnd = `${ny}-${pad(nm)}-01T00:00:00Z`;
-  // Quarter-month splits to keep each sub-sitemap under Google's 50k URL cap.
-  // part=1 → 01-08, part=2 → 09-16, part=3 → 17-24, part=4 → 25-end. Legacy 1/2 → halves.
-  if (part === "1") return { start: monthStart, end: `${m[1]}-${m[2]}-09T00:00:00Z` };
-  if (part === "2") return { start: `${m[1]}-${m[2]}-09T00:00:00Z`, end: `${m[1]}-${m[2]}-17T00:00:00Z` };
-  if (part === "3") return { start: `${m[1]}-${m[2]}-17T00:00:00Z`, end: `${m[1]}-${m[2]}-25T00:00:00Z` };
-  if (part === "4") return { start: `${m[1]}-${m[2]}-25T00:00:00Z`, end: monthEnd };
-  return { start: monthStart, end: monthEnd };
+  const monthStartMs = Date.UTC(y, mo - 1, 1);
+  const monthEndMs = Date.UTC(ny, nm - 1, 1);
+  if (!part) return { start: new Date(monthStartMs).toISOString(), end: new Date(monthEndMs).toISOString() };
+  const pIdx = parseInt(part, 10);
+  const pTot = partsTotal && partsTotal > 0 ? partsTotal : 4;
+  if (!Number.isFinite(pIdx) || pIdx < 1 || pIdx > pTot) return null;
+  // Even time-slice across the month; works for any parts count (1..N).
+  const sliceMs = (monthEndMs - monthStartMs) / pTot;
+  const s = monthStartMs + sliceMs * (pIdx - 1);
+  const e = pIdx === pTot ? monthEndMs : monthStartMs + sliceMs * pIdx;
+  return { start: new Date(s).toISOString(), end: new Date(e).toISOString() };
 }
 
+interface MonthInfo { ym: string; n: number; lastmod?: string | null }
 
-async function listMonths(supabase: ReturnType<typeof createClient>): Promise<string[]> {
-  // Use a bounded query to find the range, then enumerate months (cheap, no scan).
-  const [{ data: minRow }, { data: maxRow }] = await Promise.all([
-    supabase.from("episodes").select("published_at").not("published_at", "is", null).order("published_at", { ascending: true }).limit(1),
-    supabase.from("episodes").select("published_at").not("published_at", "is", null).order("published_at", { ascending: false }).limit(1),
-  ]);
-  const minD = minRow?.[0]?.published_at ? new Date(minRow[0].published_at) : new Date("2014-01-01");
-  const maxD = maxRow?.[0]?.published_at ? new Date(maxRow[0].published_at) : new Date();
-  // Clamp ridiculous lower bound (we have a 1970 outlier — start from 2014)
-  const startY = Math.max(2014, minD.getUTCFullYear());
-  const endY = maxD.getUTCFullYear();
-  const endM = maxD.getUTCMonth() + 1;
-  const months: string[] = [];
-  for (let y = startY; y <= endY; y++) {
-    const mEnd = y === endY ? endM : 12;
-    for (let m = 1; m <= mEnd; m++) months.push(`${y}-${String(m).padStart(2, "0")}`);
-  }
-  return months;
+async function listMonths(supabase: ReturnType<typeof createClient>): Promise<MonthInfo[]> {
+  // RPC returns (ym, n, max_updated_at) for months >= 2024-01 that contain at
+  // least one episode from a healthy EN podcast. Empty/bogus months are excluded
+  // entirely — no more 2014→present cartesian explosion.
+  const { data, error } = await (supabase as any).rpc("sitemap_episode_month_counts");
+  if (error) throw error;
+  return ((data || []) as any[])
+    .map((r) => ({ ym: r.ym as string, n: Number(r.n) || 0, lastmod: r.max_updated_at as string | null }))
+    .filter((r) => r.n > 0);
 }
 
 async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
   const months = await listMonths(supabase);
-  const lastmod = new Date().toISOString();
+  const fallbackLastmod = new Date().toISOString();
   const entries: string[] = [
-    `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${lastmod}</lastmod></sitemap>`,
-    `<sitemap><loc>${FN_BASE}?type=podcasts</loc><lastmod>${lastmod}</lastmod></sitemap>`,
+    `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${fallbackLastmod}</lastmod></sitemap>`,
+    `<sitemap><loc>${FN_BASE}?type=podcasts</loc><lastmod>${fallbackLastmod}</lastmod></sitemap>`,
   ];
-  // Entity sub-sitemaps: one per month (≥3 eps in that month surfaces).
-  // Episode sub-sitemaps split into halves (1-15, 16-end) so neither exceeds
-  // Google's 50k URL limit (peak month was ~87k whole, ~44k per half).
-  for (const ym of months) {
-    for (const p of ["1","2","3","4"]) {
-      entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${ym}&amp;part=${p}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+  for (const m of months) {
+    const lm = m.lastmod || fallbackLastmod;
+    const parts = Math.max(1, Math.ceil(m.n / EP_PER_PART));
+    if (parts === 1) {
+      entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${m.ym}</loc><lastmod>${lm}</lastmod></sitemap>`);
+    } else {
+      for (let p = 1; p <= parts; p++) {
+        entries.push(`<sitemap><loc>${FN_BASE}?type=episodes&amp;ym=${m.ym}&amp;part=${p}&amp;pt=${parts}</loc><lastmod>${lm}</lastmod></sitemap>`);
+      }
     }
-    entries.push(`<sitemap><loc>${FN_BASE}?type=entities&amp;ym=${ym}</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+    // Entity hub sub-sitemap per month (surfaces topic/person/company pages).
+    entries.push(`<sitemap><loc>${FN_BASE}?type=entities&amp;ym=${m.ym}</loc><lastmod>${lm}</lastmod></sitemap>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</sitemapindex>`;
 }
@@ -141,8 +143,8 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   return wrapUrlset(urls);
 }
 
-async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, ym: string, part?: string | null) {
-  const b = monthBounds(ym, part);
+async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, ym: string, part?: string | null, partsTotal?: number | null) {
+  const b = monthBounds(ym, part, partsTotal);
   if (!b) throw new Error(`bad ym: ${ym}`);
   const urls: string[] = [];
   let from = 0;
@@ -225,12 +227,14 @@ Deno.serve(async (req) => {
     const type = u.searchParams.get("type");
     const ym = u.searchParams.get("ym") || "";
     const part = u.searchParams.get("part");
+    const pt = u.searchParams.get("pt");
+    const ptNum = pt ? parseInt(pt, 10) : null;
 
     let body: string;
     if (!type) body = await buildSitemapIndex(supabase);
     else if (type === "core") body = await buildCore(supabase);
     else if (type === "podcasts") body = await buildPodcasts(supabase);
-    else if (type === "episodes") body = await buildEpisodesByMonth(supabase, ym, part);
+    else if (type === "episodes") body = await buildEpisodesByMonth(supabase, ym, part, ptNum);
     else if (type === "entities") body = await buildEntitiesByMonth(supabase, ym);
     else return new Response(`<!-- unknown type: ${type} -->`, { status: 400, headers: xmlHeaders });
 
