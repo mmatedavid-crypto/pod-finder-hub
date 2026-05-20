@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_call_audit: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          error_message: string | null
+          estimated_cost_usd: number | null
+          id: string
+          input_tokens: number | null
+          job_type: string
+          key_source: string | null
+          latency_ms: number | null
+          meta: Json
+          model_used: string | null
+          output_tokens: number | null
+          prompt_version: string | null
+          provider: string | null
+          skipped_reason: string | null
+          source_hash: string | null
+          status: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          input_tokens?: number | null
+          job_type: string
+          key_source?: string | null
+          latency_ms?: number | null
+          meta?: Json
+          model_used?: string | null
+          output_tokens?: number | null
+          prompt_version?: string | null
+          provider?: string | null
+          skipped_reason?: string | null
+          source_hash?: string | null
+          status: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          input_tokens?: number | null
+          job_type?: string
+          key_source?: string | null
+          latency_ms?: number | null
+          meta?: Json
+          model_used?: string | null
+          output_tokens?: number | null
+          prompt_version?: string | null
+          provider?: string | null
+          skipped_reason?: string | null
+          source_hash?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
       ai_enrichment_jobs: {
         Row: {
           attempts: number
