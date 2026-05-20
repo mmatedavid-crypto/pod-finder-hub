@@ -1,6 +1,7 @@
 // AI podcast scout: Firecrawl scrape → Gemini extract → PodcastIndex validate → pi_feed_staging.
 // Body: { sources?: string[], lang?: 'en'|'hu'|'all', model?: string, max_per_source?: number, dry_run?: boolean }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { aiAudit, preflight, estimateCostUsd, estimateTokens, detectSkipReason } from "../_shared/ai-audit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
