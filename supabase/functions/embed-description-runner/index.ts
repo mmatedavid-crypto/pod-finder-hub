@@ -3,6 +3,7 @@
 // hash-cached, $ budget, adaptive cron, drain loop, async-friendly.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkBackgroundJobsAllowed } from "../_shared/incident-guard.ts";
+import { aiAudit, preflight, estimateCostUsd, detectSkipReason } from "../_shared/ai-audit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
