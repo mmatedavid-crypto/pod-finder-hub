@@ -145,8 +145,19 @@ Deno.serve(async (req) => {
       if (Date.now() - startedAt > TIME_BUDGET_MS - TAIL_RESERVE_MS) { stop = true; return; }
       if (spend >= dailyBudget) { stop = true; return; }
       processed++;
+      const prompt = buildPrompt(p);
+      const skip = detectSkipReason(prompt, { minChars: 60 });
+      if (skip) {
+        await aiAudit.logSkipped(admin, {
+          job_type: "categorize_podcast", model_used: model,
+          target_type: "podcast", target_id: p.id, skipped_reason: skip,
+        });
+        return;
+      }
+      const t0 = Date.now();
       try {
-        const ai = await callAI(model, buildPrompt(p));
+        const ai = await callAI(model, prompt);
+        const latency_ms = Date.now() - t0;
         const usage = ai.usage || {};
         const inTok = Number(usage.prompt_tokens || 0);
         const outTok = Number(usage.completion_tokens || 0);
@@ -171,9 +182,21 @@ Deno.serve(async (req) => {
         }).eq("id", p.id);
         succeeded++;
         spend += cost; calls++;
+        await aiAudit.logOk(admin, {
+          job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+          model_used: model, input_tokens: inTok, output_tokens: outTok,
+          estimated_cost_usd: cost, latency_ms, confidence,
+          target_type: "podcast", target_id: p.id,
+          meta: { slug, alt_slug: altSlug, needs_review: needsReview },
+        });
       } catch (err: any) {
         failed++;
         const msg = err?.message || "error";
+        await aiAudit.logError(admin, {
+          job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+          model_used: model, latency_ms: Date.now() - t0,
+          target_type: "podcast", target_id: p.id, error_message: msg,
+        });
         if (msg === "rate_limited" || msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
         // Mark as needs_review with error so it doesn't get re-picked indefinitely on permanent failures
         // (simple guard: write a 0-confidence stub only on hard schema failures, not transient ones)
