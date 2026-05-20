@@ -781,7 +781,7 @@ async function main(req: Request) {
   }
 
   // Generate hooks (with one regen retry if quality gate fails)
-  let { hooks, model } = await generateHooks(picked, slot);
+  let { hooks, model } = await generateHooks(picked, slot, undefined, admin);
   let chosen = pickHookWithGate(hooks, picked.ep, recent.lastTwoHookTypes);
   if (!chosen) {
     const fb: string[] = [];
