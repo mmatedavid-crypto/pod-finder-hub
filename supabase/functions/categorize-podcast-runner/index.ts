@@ -123,6 +123,17 @@ Deno.serve(async (req) => {
     let calls = Number(spendRow?.calls || 0);
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
+    // Preflight (model + daily cap)
+    const pf = await preflight(admin, model);
+    if (pf.blocked) {
+      await aiAudit.logSkipped(admin, {
+        job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
+        model_used: model, skipped_reason: pf.reason || "preflight_blocked",
+        meta: { spent_today: pf.spent },
+      });
+      return json({ ok: true, skipped: true, reason: pf.reason });
+    }
+
     let processed = 0, succeeded = 0, failed = 0, rate_limited = 0, low_conf_count = 0;
     let stop = false;
     let total_claimed = 0, drain_loops = 0;
