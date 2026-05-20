@@ -143,8 +143,8 @@ async function buildPodcasts(supabase: ReturnType<typeof createClient>) {
   return wrapUrlset(urls);
 }
 
-async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, ym: string, part?: string | null) {
-  const b = monthBounds(ym, part);
+async function buildEpisodesByMonth(supabase: ReturnType<typeof createClient>, ym: string, part?: string | null, partsTotal?: number | null) {
+  const b = monthBounds(ym, part, partsTotal);
   if (!b) throw new Error(`bad ym: ${ym}`);
   const urls: string[] = [];
   let from = 0;
