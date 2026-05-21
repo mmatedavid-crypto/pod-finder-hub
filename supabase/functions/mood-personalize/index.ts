@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
       await admin.from("dynamic_mood_cache").upsert({
         country, hour_bucket, dow, payload,
         created_at: now.toISOString(),
-        expires_at: new Date(now.getTime() + 6 * 3600_000).toISOString(),
+        expires_at: new Date(now.getTime() + 24 * 3600_000).toISOString(),
         hits: 1,
       }, { onConflict: "country,hour_bucket,dow" });
     }
