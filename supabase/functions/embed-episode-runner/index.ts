@@ -55,9 +55,11 @@ async function sha256(s: string) {
 
 function buildContent(e: any, model: string): string {
   const arr = (a: any) => (Array.isArray(a) ? a.slice(0, 10).join(", ") : "");
+  // Note: CLEANER_VERSION is intentionally NOT included in the hash input.
+  // Hash should track meaningful content change only, so cleaner upgrades
+  // that produce identical output do NOT trigger costly re-embeds.
   const parts = [
     `MODEL: ${model}`,
-    `CLEAN: ${CLEANER_VERSION}`,
     `PODCAST: ${e.podcast_display_title || e.podcast_title || ""}`,
     `CATEGORY: ${e.podcast_category || ""}`,
     `EPISODE: ${e.display_title || e.title || ""}`,
