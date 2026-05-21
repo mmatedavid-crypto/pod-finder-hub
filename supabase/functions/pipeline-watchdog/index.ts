@@ -253,6 +253,8 @@ Deno.serve(async (req) => {
       budget_overshoot_ratio: Number(stateRaw.budget_overshoot_ratio ?? 1.2),
       error_rate_window_minutes: Number(stateRaw.error_rate_window_minutes ?? 30),
       min_calls_for_error_rate: Number(stateRaw.min_calls_for_error_rate ?? 10),
+      env_label: String(stateRaw.env_label ?? "podiverzum.com"),
+      skip_intentionally_disabled: stateRaw.skip_intentionally_disabled !== false,
       runners: Array.isArray(stateRaw.runners) ? stateRaw.runners : [],
     };
 
