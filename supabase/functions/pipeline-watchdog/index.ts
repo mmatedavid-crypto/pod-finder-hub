@@ -103,9 +103,21 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
   const byKind: Record<string, any> = (spendRow?.by_kind || {}) as any;
 
   const sinceErrWin = new Date(Date.now() - state.error_rate_window_minutes * 60_000).toISOString();
-  const staleCutoff = new Date(Date.now() - state.stale_lock_minutes * 60_000).toISOString();
+
+  // Pre-fetch all controls to determine intentionally-disabled runners
+  const controlsKeys = runners.map((r) => r.controls_key).filter(Boolean) as string[];
+  const { data: ctrlRows } = controlsKeys.length
+    ? await admin.from("app_settings").select("key,value").in("key", controlsKeys)
+    : { data: [] as any[] };
+  const ctrlMap = new Map<string, any>((ctrlRows || []).map((r: any) => [r.key, r.value || {}]));
 
   for (const r of runners) {
+    // Skip intentionally-disabled runners (controls.enabled === false) unless explicitly told not to
+    if (state.skip_intentionally_disabled !== false && r.controls_key) {
+      const ctrl = ctrlMap.get(r.controls_key);
+      if (ctrl && ctrl.enabled === false) continue;
+    }
+
     const spend = Math.max(Number(byKind[`${r.spend_key}_usd`] || 0), Number(byKind[r.spend_key] || 0));
     const cap = Number(perJobCaps[r.spend_key] || 0);
 
