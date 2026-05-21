@@ -2061,6 +2061,45 @@ export type Database = {
         }
         Relationships: []
       }
+      watchdog_events: {
+        Row: {
+          alert_sent: boolean
+          auto_paused: boolean
+          created_at: string
+          dedup_key: string
+          id: string
+          message: string
+          payload: Json
+          rule: string
+          runner: string
+          severity: string
+        }
+        Insert: {
+          alert_sent?: boolean
+          auto_paused?: boolean
+          created_at?: string
+          dedup_key: string
+          id?: string
+          message: string
+          payload?: Json
+          rule: string
+          runner: string
+          severity: string
+        }
+        Update: {
+          alert_sent?: boolean
+          auto_paused?: boolean
+          created_at?: string
+          dedup_key?: string
+          id?: string
+          message?: string
+          payload?: Json
+          rule?: string
+          runner?: string
+          severity?: string
+        }
+        Relationships: []
+      }
       x_reply_audit_log: {
         Row: {
           action: string

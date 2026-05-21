@@ -135,3 +135,9 @@ verify_jwt = false
 
 [functions.embed-description-runner]
 verify_jwt = false
+
+[functions.pipeline-watchdog]
+verify_jwt = false
+
+[functions.pipeline-watchdog-admin]
+verify_jwt = true
