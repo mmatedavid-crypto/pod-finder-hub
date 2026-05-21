@@ -62,9 +62,9 @@ async function callAIDirect(model: string, systemPrompt: string, userPrompt: str
     toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: [toolName] } },
   };
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (res.status === 429) throw new Error("rate_limited");
-  if (res.status >= 500) throw new Error(`ai_${res.status}`);
-  if (!res.ok) throw new Error(`ai_${res.status}`);
+  if (res.status === 429) { await res.text(); throw new Error("rate_limited"); }
+  if (res.status >= 500) { const t = await res.text(); throw new Error(`ai_${res.status}: ${t.slice(0,300)}`); }
+  if (!res.ok) { const t = await res.text(); console.error("gemini_400_body", t.slice(0,800)); throw new Error(`ai_${res.status}: ${t.slice(0,300)}`); }
   const j = await res.json();
   const fc = j.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)?.functionCall;
   if (!fc) throw new Error("no_tool_call");
