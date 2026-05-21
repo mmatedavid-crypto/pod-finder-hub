@@ -123,23 +123,44 @@ Deno.serve(async (req) => {
     const podPriById = new Map(epPods.map((p) => [p.id, podPriority(p)]));
     const podNameById = new Map(epPods.map((p) => [p.id, (p as any).display_title || (p as any).title || ""]));
 
+    // Tier-aware episode age cap (cost optimization):
+    // S = all episodes, A = last 90 days, B = last 30 days, C = NONE (podcast-level SEO only)
+    const tierById = new Map(epPods.map((p) => [p.id, String((p as any).rank_label || "").toUpperCase()]));
+    const tieredIds: Record<string, string[]> = { S: [], A: [], B: [] };
+    for (const id of epPods.map((p) => p.id)) {
+      const t = tierById.get(id) || "";
+      if (t === "S" || t === "A" || t === "B") tieredIds[t].push(id);
+      // C tier intentionally skipped
+    }
+    const tierAgeDays: Record<string, number | null> = { S: null, A: 90, B: 30 };
+
     let epJobs = 0;
     let collectedCount = 0;
     let upsertErr: string | null = null;
-    if (epPodIds.length) {
+    if (epPods.length) {
       const CHUNK = 150;
       const collected: any[] = [];
-      for (let i = 0; i < epPodIds.length && collected.length < maxEps; i += CHUNK) {
-        const slice = epPodIds.slice(i, i + CHUNK);
-        const remaining = maxEps - collected.length;
-        const { data: eps, error: eErr } = await admin.from("episodes")
-          .select("id, podcast_id, title, display_title, description")
-          .in("podcast_id", slice)
-          .is("ai_summary", null)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(remaining);
-        if (eErr) throw eErr;
-        for (const e of eps || []) collected.push(e);
+      const now = Date.now();
+      for (const tier of ["S", "A", "B"] as const) {
+        if (collected.length >= maxEps) break;
+        const ids = tieredIds[tier];
+        if (!ids.length) continue;
+        const ageDays = tierAgeDays[tier];
+        const sinceIso = ageDays != null ? new Date(now - ageDays * 86400_000).toISOString() : null;
+        for (let i = 0; i < ids.length && collected.length < maxEps; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          const remaining = maxEps - collected.length;
+          let q = admin.from("episodes")
+            .select("id, podcast_id, title, display_title, description")
+            .in("podcast_id", slice)
+            .is("ai_summary", null)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(remaining);
+          if (sinceIso) q = q.gte("published_at", sinceIso);
+          const { data: eps, error: eErr } = await q;
+          if (eErr) throw eErr;
+          for (const e of eps || []) collected.push(e);
+        }
       }
       collectedCount = collected.length;
 
