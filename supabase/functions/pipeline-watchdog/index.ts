@@ -193,7 +193,12 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
       }
     }
 
-    // stale runner: derive last_run_at from progress_key or last audit row
+    // stale runner: threshold = max(global_stale, cadence * 2), so daily jobs don't false-alarm hourly
+    const staleThresholdMin = Math.max(
+      state.stale_lock_minutes,
+      Math.round(Number(r.cadence_minutes || 0) * 2),
+    );
+    const staleCutoff = new Date(Date.now() - staleThresholdMin * 60_000).toISOString();
     let lastRun: string | null = null;
     if (r.progress_key) {
       const { data: prog } = await admin
@@ -202,6 +207,26 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
         .eq("key", r.progress_key)
         .maybeSingle();
       lastRun = prog?.value?.last_run_at || prog?.updated_at || null;
+    }
+    if (!lastRun) {
+      const { data: latest } = await admin
+        .from("ai_call_audit")
+        .select("created_at")
+        .eq("job_type", r.spend_key)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      lastRun = latest?.created_at || null;
+    }
+    if (lastRun && lastRun < staleCutoff) {
+      const ageMin = Math.round((Date.now() - new Date(lastRun).getTime()) / 60_000);
+      incidents.push({
+        runner: r.name,
+        rule: "stale_runner",
+        severity: "warn",
+        message: `No activity for ${ageMin}m (threshold ${staleThresholdMin}m).`,
+        payload: { last_run_at: lastRun, age_minutes: ageMin, threshold_minutes: staleThresholdMin },
+      });
     }
     if (!lastRun) {
       const { data: latest } = await admin
