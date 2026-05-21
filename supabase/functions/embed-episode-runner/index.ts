@@ -13,6 +13,41 @@ const json = (b: any, s = 200) =>
 
 const PRICE_IN_PER_1K = 0.000025;
 
+// Cleaner version — appears in hash input so cleaner upgrades naturally invalidate
+// old vectors when we choose to reembed (does not auto-reembed everything).
+const CLEANER_VERSION = "v1";
+
+const SPONSOR_PATTERNS = [
+  /free\s+subscription[^.\n]*/gi,
+  /subscribe\s+(?:to|on|now|here|today)[^.\n]*/gi,
+  /follow\s+us\s+on[^.\n]*/gi,
+  /listen\s+on\s+(?:apple|spotify|google|amazon|youtube)[^.\n]*/gi,
+  /available\s+on\s+(?:apple|spotify|google|amazon|youtube)[^.\n]*/gi,
+  /(?:apple\s+podcasts?|spotify|patreon|youtube|instagram|facebook|twitter|tiktok|linkedin)\s*[:\-➟→»►▶]+[^\n]*/gi,
+  /(?:bit\.ly|linktr\.ee|t\.co|tinyurl|buff\.ly)\/\S+/gi,
+  /#[A-Za-z0-9_]{2,40}/g,
+  /\bfbclid=\S+/gi,
+  /\butm_\w+=\S+/gi,
+];
+const URL_RE = /\bhttps?:\/\/\S+|\bwww\.\S+/gi;
+const EMAIL_RE = /\b[\w.+-]+@[\w-]+\.[\w.-]+/gi;
+const HANDLE_RE = /(?:^|\s)@[\w.]{2,}/g;
+const HTML_TAG_RE = /<[^>]+>/g;
+const HTML_ENTITY_RE = /&(?:nbsp|amp|lt|gt|quot|#\d+|#x[0-9a-f]+);/gi;
+const EMOJI_RUN_RE = /(?:\p{Extended_Pictographic}|\p{Emoji_Component}){2,}/gu;
+
+function cleanText(raw: string): string {
+  if (!raw) return "";
+  let s = String(raw);
+  s = s.replace(HTML_TAG_RE, " ").replace(HTML_ENTITY_RE, " ");
+  s = s.replace(URL_RE, " ").replace(EMAIL_RE, " ").replace(HANDLE_RE, " ");
+  for (const re of SPONSOR_PATTERNS) s = s.replace(re, " ");
+  s = s.replace(EMOJI_RUN_RE, " ");
+  s = s.replace(/[\u2022\u25CF\u25A0\u25B6\u2192\u27A4\u279C\u279E]+/g, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
 async function sha256(s: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -22,13 +57,17 @@ function buildContent(e: any, model: string): string {
   const arr = (a: any) => (Array.isArray(a) ? a.slice(0, 10).join(", ") : "");
   const parts = [
     `MODEL: ${model}`,
+    `CLEAN: ${CLEANER_VERSION}`,
     `PODCAST: ${e.podcast_display_title || e.podcast_title || ""}`,
     `CATEGORY: ${e.podcast_category || ""}`,
     `EPISODE: ${e.display_title || e.title || ""}`,
   ];
-  if (e.ai_summary) parts.push(`AI_SUMMARY: ${String(e.ai_summary).slice(0, 600)}`);
-  if (e.seo_description) parts.push(`SEO: ${String(e.seo_description).slice(0, 400)}`);
-  if (e.description) parts.push(`DESCRIPTION: ${String(e.description).slice(0, 1600)}`);
+  if (e.ai_summary) parts.push(`AI_SUMMARY: ${cleanText(String(e.ai_summary)).slice(0, 600)}`);
+  if (e.seo_description) parts.push(`SEO: ${cleanText(String(e.seo_description)).slice(0, 400)}`);
+  if (e.description) {
+    const cleaned = cleanText(String(e.description));
+    if (cleaned.length >= 60) parts.push(`DESCRIPTION: ${cleaned.slice(0, 1600)}`);
+  }
   const topics = arr(e.topics); if (topics) parts.push(`TOPICS: ${topics}`);
   const people = arr(e.people); if (people) parts.push(`PEOPLE: ${people}`);
   const companies = arr(e.companies); if (companies) parts.push(`COMPANIES: ${companies}`);
