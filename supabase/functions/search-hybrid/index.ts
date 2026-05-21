@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
         .select("understanding, embedding, updated_at, rerank, rerank_updated_at")
         .eq("q_norm", qNorm)
         .maybeSingle();
-      if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 7 * 24 * 3600 * 1000) {
+      if (cached && cached.updated_at && Date.now() - new Date(cached.updated_at).getTime() < 30 * 24 * 3600 * 1000) {
         understanding = cached.understanding as Understanding;
         if (typeof cached.embedding === "string") {
           try {
