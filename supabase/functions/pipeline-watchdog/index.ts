@@ -73,12 +73,13 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(3)}`;
 }
 
-function buildAlertText(inc: Incident, dryRun: boolean): string {
+function buildAlertText(inc: Incident, dryRun: boolean, envLabel: string): string {
   const sevTag = inc.severity === "critical" ? "🚨 CRITICAL" : inc.severity === "warn" ? "⚠️ WARN" : "ℹ️ INFO";
   const autoPause = inc.payload.auto_paused ? "\n<b>⛔ AUTO-PAUSED</b>" : "";
   const dryTag = dryRun ? " <i>(dry-run)</i>" : "";
+  const envTag = envLabel ? `<b>[${envLabel}]</b> ` : "";
   const lines = [
-    `${sevTag} <b>${inc.runner}</b> — ${inc.rule}${dryTag}`,
+    `${envTag}${sevTag} <b>${inc.runner}</b> — ${inc.rule}${dryTag}`,
     inc.message,
   ];
   const meta = { ...inc.payload };
