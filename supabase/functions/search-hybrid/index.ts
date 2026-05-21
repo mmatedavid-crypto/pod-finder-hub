@@ -391,7 +391,8 @@ Deno.serve(async (req) => {
     // the lex side handles bare keywords fine, and the cache covers repeats.
     // Tickers still go through AI for company-name resolution.
     const tokensQ = qNorm.split(/\s+/).filter(Boolean);
-    const isShortNoAi = !understanding && tokensQ.length <= 1 && !isTickerQ;
+    // Bots skip AI understanding entirely (heuristic fallback).
+    const isShortNoAi = !understanding && (bot || (tokensQ.length <= 1 && !isTickerQ));
     const heuristicUnderstanding: Understanding = {
       entities: tokensQ.length === 1 ? [tokensQ[0]] : [],
       expanded_terms: [],
