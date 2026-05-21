@@ -235,17 +235,23 @@ Deno.serve(async (req) => {
         spend += cost; entitySpend += cost; calls++;
       } catch (err: any) {
         failed++;
-        const msg = err?.message || "error";
+        let msg = err?.message || "error";
+        // Sanitize: never persist the API key if it slips into an error message.
+        msg = msg.replace(/key=[A-Za-z0-9_\-]+/g, "key=REDACTED").slice(0, 300);
         if (msg === "budget_exhausted_provider") { rate_limited++; stop = true; }
         else if (msg === "rate_limited") {
           rate_limited++;
           if (rate_limited > concurrency * 3) stop = true;
         }
-        const giveUp = (job.attempts || 0) >= maxAttempts;
+        // Treat transient upstream errors (400/500/503/timeout/network) as RETRYABLE.
+        // Only true permanent errors (401/403, no_tool_call, target_missing) consume attempts.
+        const permanent = /^ai_(401|403)/.test(msg) || msg === "no_tool_call" || msg === "target_missing";
+        const giveUp = permanent && (job.attempts || 0) >= maxAttempts;
         await admin.from("ai_enrichment_jobs").update({
           status: giveUp ? "failed" : "pending",
           locked_until: null,
           last_error: msg,
+          ...(permanent ? {} : { attempts: Math.max(0, (job.attempts || 1) - 1) }),
         }).eq("id", job.id);
       }
     };
