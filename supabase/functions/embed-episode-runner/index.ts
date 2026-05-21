@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
     if (embedSpend >= dailyBudget) return json({ ok: true, budget_reached: true, embed_spend: embedSpend });
 
     // Preflight (model + daily cap)
-    const pf = await preflight(admin, model);
+    const pf = await preflight(admin, model, "embed_episode");
     if (pf.blocked) {
       await aiAudit.logSkipped(admin, {
         job_type: "embed_episode", provider: "gemini_direct", key_source: "GEMINI_API_KEY",
