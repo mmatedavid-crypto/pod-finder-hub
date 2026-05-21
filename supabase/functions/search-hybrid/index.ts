@@ -303,6 +303,9 @@ Deno.serve(async (req) => {
     //   v12 = + freshness decay + bigram MUST + HyDE + Cohere rerank
     const engineRaw = String(body.engine || "v13").toLowerCase();
     const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
+    // Bot gate: crawlers get the cheap path — no HyDE, no AI understanding,
+    // no Cohere rerank. Keeps SERP-indexable pages functional at near-zero AI cost.
+    const bot = isBot(req);
     const FF = {
       threePassMust: engN >= 9,
       mmrDiversity: engN >= 9,
@@ -311,8 +314,8 @@ Deno.serve(async (req) => {
       spell: engN >= 11,
       decay: engN >= 12,
       bigramMust: engN >= 12,
-      hyde: engN >= 12,
-      cohere: engN >= 12,
+      hyde: engN >= 12 && !bot,
+      cohere: engN >= 12 && !bot,
       chunkAugment: engN >= 13, // v13: passage-level chunk vector recall
     };
 
