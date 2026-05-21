@@ -24,6 +24,8 @@ interface WatchdogState {
   budget_overshoot_ratio: number;
   error_rate_window_minutes: number;
   min_calls_for_error_rate: number;
+  env_label: string;
+  skip_intentionally_disabled: boolean;
   runners: RunnerCfg[];
 }
 
@@ -71,12 +73,13 @@ function fmtUsd(n: number): string {
   return `$${n.toFixed(3)}`;
 }
 
-function buildAlertText(inc: Incident, dryRun: boolean): string {
+function buildAlertText(inc: Incident, dryRun: boolean, envLabel: string): string {
   const sevTag = inc.severity === "critical" ? "🚨 CRITICAL" : inc.severity === "warn" ? "⚠️ WARN" : "ℹ️ INFO";
   const autoPause = inc.payload.auto_paused ? "\n<b>⛔ AUTO-PAUSED</b>" : "";
   const dryTag = dryRun ? " <i>(dry-run)</i>" : "";
+  const envTag = envLabel ? `<b>[${envLabel}]</b> ` : "";
   const lines = [
-    `${sevTag} <b>${inc.runner}</b> — ${inc.rule}${dryTag}`,
+    `${envTag}${sevTag} <b>${inc.runner}</b> — ${inc.rule}${dryTag}`,
     inc.message,
   ];
   const meta = { ...inc.payload };
@@ -100,9 +103,23 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
   const byKind: Record<string, any> = (spendRow?.by_kind || {}) as any;
 
   const sinceErrWin = new Date(Date.now() - state.error_rate_window_minutes * 60_000).toISOString();
-  const staleCutoff = new Date(Date.now() - state.stale_lock_minutes * 60_000).toISOString();
+
+  // Pre-fetch all controls to determine intentionally-disabled runners
+  const controlsKeys = runners.map((r) => r.controls_key).filter(Boolean) as string[];
+  const { data: ctrlRows } = controlsKeys.length
+    ? await admin.from("app_settings").select("key,value").in("key", controlsKeys)
+    : { data: [] as any[] };
+  const ctrlMap = new Map<string, any>((ctrlRows || []).map((r: any) => [r.key, r.value || {}]));
 
   for (const r of runners) {
+    // Skip if explicitly flagged in config
+    if ((r as any).skip === true) continue;
+    // Skip intentionally-disabled runners (controls.enabled === false) unless explicitly told not to
+    if (state.skip_intentionally_disabled !== false && r.controls_key) {
+      const ctrl = ctrlMap.get(r.controls_key);
+      if (ctrl && ctrl.enabled === false) continue;
+    }
+
     const spend = Math.max(Number(byKind[`${r.spend_key}_usd`] || 0), Number(byKind[r.spend_key] || 0));
     const cap = Number(perJobCaps[r.spend_key] || 0);
 
@@ -178,7 +195,12 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
       }
     }
 
-    // stale runner: derive last_run_at from progress_key or last audit row
+    // stale runner: threshold = max(global_stale, cadence * 2), so daily jobs don't false-alarm hourly
+    const staleThresholdMin = Math.max(
+      state.stale_lock_minutes,
+      Math.round(Number(r.cadence_minutes || 0) * 2),
+    );
+    const staleCutoff = new Date(Date.now() - staleThresholdMin * 60_000).toISOString();
     let lastRun: string | null = null;
     if (r.progress_key) {
       const { data: prog } = await admin
@@ -204,8 +226,8 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
         runner: r.name,
         rule: "stale_runner",
         severity: "warn",
-        message: `No activity for ${ageMin}m (threshold ${state.stale_lock_minutes}m).`,
-        payload: { last_run_at: lastRun, age_minutes: ageMin },
+        message: `No activity for ${ageMin}m (threshold ${staleThresholdMin}m).`,
+        payload: { last_run_at: lastRun, age_minutes: ageMin, threshold_minutes: staleThresholdMin },
       });
     }
   }
@@ -233,6 +255,8 @@ Deno.serve(async (req) => {
       budget_overshoot_ratio: Number(stateRaw.budget_overshoot_ratio ?? 1.2),
       error_rate_window_minutes: Number(stateRaw.error_rate_window_minutes ?? 30),
       min_calls_for_error_rate: Number(stateRaw.min_calls_for_error_rate ?? 10),
+      env_label: String(stateRaw.env_label ?? "podiverzum.com"),
+      skip_intentionally_disabled: stateRaw.skip_intentionally_disabled !== false,
       runners: Array.isArray(stateRaw.runners) ? stateRaw.runners : [],
     };
 
@@ -279,7 +303,7 @@ Deno.serve(async (req) => {
 
       let alertResult: any = { sent: false };
       if (shouldAlert) {
-        const text = buildAlertText(inc, state.dry_run);
+        const text = buildAlertText(inc, state.dry_run, state.env_label);
         alertResult = await sendTelegram(text);
       }
 
