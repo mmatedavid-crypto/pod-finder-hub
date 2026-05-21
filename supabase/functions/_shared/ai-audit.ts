@@ -181,19 +181,51 @@ export async function timed<T>(fn: () => Promise<T>): Promise<{ result: T; laten
   return { result, latency_ms: Date.now() - t0 };
 }
 
+// ---------- per-job daily spend ----------
+
+// Reads today's per-job spent USD from ai_spend_daily.by_kind. We accept both
+// `<job>_usd` and `<job>` key formats since historical runners use either.
+export async function getJobSpendUsd(admin: SupabaseClient, jobType: string): Promise<number> {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const { data } = await admin.from("ai_spend_daily").select("by_kind").eq("day", dayKey).maybeSingle();
+  const bk = (data?.by_kind || {}) as Record<string, any>;
+  const a = Number(bk[`${jobType}_usd`] || 0);
+  const b = Number(bk[jobType] || 0);
+  // Use whichever is set (newer runners write `_usd`).
+  return Math.max(a, b);
+}
+
 // ---------- preflight ----------
 
-// One-call check: model allowed AND under daily cap. Returns null if OK,
-// or a { reason } that the caller should logSkipped with.
+// One-call check: model allowed AND under daily cap (total + optional per-job).
+// Returns null if OK, or a { reason } that the caller should logSkipped with.
 export async function preflight(
   admin: SupabaseClient,
   model: string,
-  budget?: BudgetSettings,
+  budgetOrJobType?: BudgetSettings | string,
+  jobTypeArg?: string,
 ): Promise<{ blocked: boolean; reason?: string; budget: BudgetSettings; spent: number }> {
+  // Back-compat: preflight(admin, model) or preflight(admin, model, budget) or preflight(admin, model, jobType)
+  let budget: BudgetSettings | undefined;
+  let jobType: string | undefined;
+  if (typeof budgetOrJobType === "string") jobType = budgetOrJobType;
+  else if (budgetOrJobType) budget = budgetOrJobType;
+  if (jobTypeArg) jobType = jobTypeArg;
+
   const b = budget || (await loadBudget(admin));
   const cap = await isWithinDailyCap(admin, b);
   if (!cap.ok) return { blocked: true, reason: "daily_cap_reached", budget: b, spent: cap.spent };
   const m = isModelAllowed(model, b);
   if (!m.ok) return { blocked: true, reason: m.reason, budget: b, spent: cap.spent };
+  // Per-job soft cap
+  if (jobType && b.per_job_caps_usd && b.per_job_caps_usd[jobType] != null) {
+    const jobCap = Number(b.per_job_caps_usd[jobType]);
+    if (jobCap > 0) {
+      const jobSpent = await getJobSpendUsd(admin, jobType);
+      if (jobSpent >= jobCap) {
+        return { blocked: true, reason: `job_cap_reached:${jobType}`, budget: b, spent: cap.spent };
+      }
+    }
+  }
   return { blocked: false, budget: b, spent: cap.spent };
 }
