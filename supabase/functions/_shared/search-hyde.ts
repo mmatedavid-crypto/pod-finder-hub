@@ -114,7 +114,7 @@ export async function getHydeExpansion(supa: any, qNorm: string, q: string): Pro
       .select("hyde_text, embedding, created_at")
       .eq("q_norm", qNorm)
       .maybeSingle();
-    if (cached && cached.created_at && Date.now() - new Date(cached.created_at).getTime() < 7 * 24 * 3600 * 1000) {
+    if (cached && cached.created_at && Date.now() - new Date(cached.created_at).getTime() < 30 * 24 * 3600 * 1000) {
       let emb: number[] | null = null;
       if (typeof cached.embedding === "string") {
         try { const arr = JSON.parse(cached.embedding); if (Array.isArray(arr) && arr.length === 768) emb = arr; } catch { /* ignore */ }

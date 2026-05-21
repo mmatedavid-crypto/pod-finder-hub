@@ -101,6 +101,14 @@ async function hydrateEpisodes(admin: any, episode_ids: string[]) {
   }));
 }
 
+// Bot detection — never spend AI on crawlers. Static curated pool only.
+const BOT_UA_RE = /(bot|crawl|spider|slurp|bing|google|yandex|baidu|duckduck|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|discord|preview|prerender|headless|chrome-lighthouse|pagespeed|gtmetrix|ahrefs|semrush|mj12|dotbot|petalbot|applebot|amazonbot|gptbot|claudebot|perplexitybot|ccbot|anthropic-ai)/i;
+function isBot(req: Request): boolean {
+  const ua = req.headers.get("user-agent") || "";
+  if (!ua || ua.length < 8) return true; // missing/very short UA → treat as bot
+  return BOT_UA_RE.test(ua);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -113,6 +121,26 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const wantSlug = url.searchParams.get("slug");
     const force = url.searchParams.get("force") === "1";
+
+    // Bot path: never trigger AI generation. Return top static moods from pool.
+    // Cheap DB-only path keeps SEO/crawlers happy without spending tokens.
+    if (isBot(req) && !force) {
+      const { data: poolPicks } = await admin
+        .from("mood_pool")
+        .select("slug,title,mood,description,accent_hsl,query,episode_ids")
+        .eq("status", "active")
+        .order("impressions", { ascending: false })
+        .limit(6);
+      const moods = await Promise.all((poolPicks || []).map(async (p: any) => ({
+        slug: p.slug, title: p.title, mood: p.mood, description: p.description,
+        accent_hsl: p.accent_hsl, query: p.query,
+        episode_ids: p.episode_ids || [],
+        episodes: await hydrateEpisodes(admin, (p.episode_ids || []).slice(0, 12)),
+        generated_at: now.toISOString(),
+      })));
+      return json({ moods, country, hour, dow, cache_hit: false, bot: true });
+    }
+
 
     // Cache
     let cached: any = null;
@@ -180,7 +208,7 @@ Deno.serve(async (req) => {
       await admin.from("dynamic_mood_cache").upsert({
         country, hour_bucket, dow, payload,
         created_at: now.toISOString(),
-        expires_at: new Date(now.getTime() + 6 * 3600_000).toISOString(),
+        expires_at: new Date(now.getTime() + 24 * 3600_000).toISOString(),
         hits: 1,
       }, { onConflict: "country,hour_bucket,dow" });
     }

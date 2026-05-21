@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     if (spend >= dailyBudget) return json({ ok: true, budget_reached: true, spend });
 
     // Preflight (model + daily cap)
-    const pf = await preflight(admin, model);
+    const pf = await preflight(admin, model, "categorize");
     if (pf.blocked) {
       await aiAudit.logSkipped(admin, {
         job_type: "categorize_podcast", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",

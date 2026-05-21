@@ -471,7 +471,7 @@ async function generateHooks(picked: Scored, slot: Slot, feedback?: string, admi
 
   const model = "google/gemini-2.5-flash";
   if (admin) {
-    const pf = await preflight(admin, model);
+    const pf = await preflight(admin, model, "daily_social");
     if (pf.blocked) {
       await aiAudit.logSkipped(admin, {
         job_type: "daily_social_post", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",

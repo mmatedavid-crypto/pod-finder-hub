@@ -2456,6 +2456,7 @@ export type Database = {
           podcast_id: string
         }[]
       }
+      cleanup_ai_call_audit: { Args: never; Returns: number }
       complete_description_chunk_job: {
         Args: { _episode_id: string; _status: string }
         Returns: undefined

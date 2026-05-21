@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     const errorSamples: any[] = [];
 
     // Preflight (model + daily cap)
-    const pf = await preflight(admin, model);
+    const pf = await preflight(admin, model, "embed_podcast");
     if (pf.blocked) {
       await aiAudit.logSkipped(admin, {
         job_type: "embed_podcast", provider: "gemini_direct", key_source: "GEMINI_API_KEY",

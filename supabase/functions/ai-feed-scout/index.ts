@@ -365,7 +365,7 @@ async function geminiExtract(markdown: string, sourceTag: string, langHint: stri
     });
     return [];
   }
-  const pf = await preflight(admin, model);
+  const pf = await preflight(admin, model, "ai_feed_scout");
   if (pf.blocked) {
     await aiAudit.logSkipped(admin, {
       job_type: "ai_feed_scout", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
