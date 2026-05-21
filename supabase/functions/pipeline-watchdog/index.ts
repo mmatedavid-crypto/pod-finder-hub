@@ -112,6 +112,8 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
   const ctrlMap = new Map<string, any>((ctrlRows || []).map((r: any) => [r.key, r.value || {}]));
 
   for (const r of runners) {
+    // Skip if explicitly flagged in config
+    if ((r as any).skip === true) continue;
     // Skip intentionally-disabled runners (controls.enabled === false) unless explicitly told not to
     if (state.skip_intentionally_disabled !== false && r.controls_key) {
       const ctrl = ctrlMap.get(r.controls_key);
