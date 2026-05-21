@@ -383,8 +383,20 @@ Deno.serve(async (req) => {
     }
 
     // 2) Parallel: understanding (if missing) + embedding (if missing) + curated synonyms (always cheap)
+    // Cost-saver: single-token NON-ticker queries don't need AI understanding —
+    // the lex side handles bare keywords fine, and the cache covers repeats.
+    // Tickers still go through AI for company-name resolution.
+    const tokensQ = qNorm.split(/\s+/).filter(Boolean);
+    const isShortNoAi = !understanding && tokensQ.length <= 1 && !isTickerQ;
+    const heuristicUnderstanding: Understanding = {
+      entities: tokensQ.length === 1 ? [tokensQ[0]] : [],
+      expanded_terms: [],
+      synonyms: [],
+      intent: "topic",
+      language: "en",
+    };
     const [u, embVal, curated] = await Promise.all([
-      understanding ? Promise.resolve(understanding) : understandQuery(q, 700),
+      understanding ? Promise.resolve(understanding) : (isShortNoAi ? Promise.resolve(heuristicUnderstanding) : understandQuery(q, 700)),
       q_embedding ? Promise.resolve(q_embedding) : embed(q),
       loadCuratedSynonyms(supa, qNorm),
     ]);
