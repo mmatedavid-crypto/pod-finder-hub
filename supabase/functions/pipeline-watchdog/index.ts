@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
 
       let alertResult: any = { sent: false };
       if (shouldAlert) {
-        const text = buildAlertText(inc, state.dry_run);
+        const text = buildAlertText(inc, state.dry_run, state.env_label);
         alertResult = await sendTelegram(text);
       }
 
