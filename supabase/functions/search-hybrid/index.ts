@@ -6,6 +6,7 @@ import { understandQuery, buildExpandedQuery, type Understanding } from "../_sha
 import { loadCuratedSynonyms } from "../_shared/search-synonyms.ts";
 import { getHydeExpansion, blendEmbeddings } from "../_shared/search-hyde.ts";
 import { cohereRerank, type CohereRerankInput } from "../_shared/cohere-rerank.ts";
+import { isBot } from "../_shared/is-bot.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -302,6 +303,9 @@ Deno.serve(async (req) => {
     //   v12 = + freshness decay + bigram MUST + HyDE + Cohere rerank
     const engineRaw = String(body.engine || "v13").toLowerCase();
     const engN = (() => { const m = engineRaw.match(/v?(\d+)/); return m ? parseInt(m[1], 10) : 13; })();
+    // Bot gate: crawlers get the cheap path — no HyDE, no AI understanding,
+    // no Cohere rerank. Keeps SERP-indexable pages functional at near-zero AI cost.
+    const bot = isBot(req);
     const FF = {
       threePassMust: engN >= 9,
       mmrDiversity: engN >= 9,
@@ -310,8 +314,8 @@ Deno.serve(async (req) => {
       spell: engN >= 11,
       decay: engN >= 12,
       bigramMust: engN >= 12,
-      hyde: engN >= 12,
-      cohere: engN >= 12,
+      hyde: engN >= 12 && !bot,
+      cohere: engN >= 12 && !bot,
       chunkAugment: engN >= 13, // v13: passage-level chunk vector recall
     };
 
@@ -387,7 +391,8 @@ Deno.serve(async (req) => {
     // the lex side handles bare keywords fine, and the cache covers repeats.
     // Tickers still go through AI for company-name resolution.
     const tokensQ = qNorm.split(/\s+/).filter(Boolean);
-    const isShortNoAi = !understanding && tokensQ.length <= 1 && !isTickerQ;
+    // Bots skip AI understanding entirely (heuristic fallback).
+    const isShortNoAi = !understanding && (bot || (tokensQ.length <= 1 && !isTickerQ));
     const heuristicUnderstanding: Understanding = {
       entities: tokensQ.length === 1 ? [tokensQ[0]] : [],
       expanded_terms: [],

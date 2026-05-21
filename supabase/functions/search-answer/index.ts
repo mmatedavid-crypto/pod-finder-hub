@@ -7,10 +7,17 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+import { isBot } from "../_shared/is-bot.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    // Bots never get an AI-generated summary — zero AI spend on crawler traffic.
+    if (isBot(req)) {
+      return new Response(JSON.stringify({ skipped: "bot" }), {
+        status: 204, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const body = await req.json().catch(() => ({}));
     const q = String(body.q || "").trim();
     const episodes = Array.isArray(body.episodes) ? body.episodes.slice(0, 6) : [];

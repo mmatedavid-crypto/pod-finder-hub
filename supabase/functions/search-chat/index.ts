@@ -11,12 +11,19 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+import { isBot } from "../_shared/is-bot.ts";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    // Skip AI for crawlers — Neo is a real-user UX, not an SEO surface.
+    if (isBot(req)) {
+      return new Response(JSON.stringify({ reply: "", done: true, skipped: "bot" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const body = await req.json().catch(() => ({}));
     const messages: Msg[] = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
     const q = String(body.q || "").trim();
