@@ -24,6 +24,8 @@ interface WatchdogState {
   budget_overshoot_ratio: number;
   error_rate_window_minutes: number;
   min_calls_for_error_rate: number;
+  env_label: string;
+  skip_intentionally_disabled: boolean;
   runners: RunnerCfg[];
 }
 
