@@ -228,26 +228,6 @@ async function runChecks(admin: any, state: WatchdogState, runners: RunnerCfg[])
         payload: { last_run_at: lastRun, age_minutes: ageMin, threshold_minutes: staleThresholdMin },
       });
     }
-    if (!lastRun) {
-      const { data: latest } = await admin
-        .from("ai_call_audit")
-        .select("created_at")
-        .eq("job_type", r.spend_key)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      lastRun = latest?.created_at || null;
-    }
-    if (lastRun && lastRun < staleCutoff) {
-      const ageMin = Math.round((Date.now() - new Date(lastRun).getTime()) / 60_000);
-      incidents.push({
-        runner: r.name,
-        rule: "stale_runner",
-        severity: "warn",
-        message: `No activity for ${ageMin}m (threshold ${state.stale_lock_minutes}m).`,
-        payload: { last_run_at: lastRun, age_minutes: ageMin },
-      });
-    }
   }
 
   return incidents;
