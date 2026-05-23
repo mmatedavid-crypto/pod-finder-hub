@@ -21,14 +21,26 @@ type Runner = {
   stall_runs?: number;
 };
 
+type RunnerHistory = {
+  // Pending samples newest-first: pending[0] = most recent, pending[1] = prev, ...
+  pending?: number[];
+  last_check_at?: string;
+  last_action?: string;
+};
+
 type State = {
   enabled: boolean;
   dry_run: boolean;
   runners: Runner[];
-  history: Record<string, { p1?: number; p2?: number; last_check_at?: string; last_action?: string }>;
+  history: Record<string, RunnerHistory>;
   last_check_at?: string;
   last_results?: unknown;
 };
+
+// Keep up to 6 samples (~12 min @ */2 cron) → enough for stall_runs up to 5.
+const HISTORY_KEEP = 6;
+// Require N consecutive empty observations before pause_empty (grace period).
+const EMPTY_GRACE_RUNS = 2;
 
 const PENDING_KINDS = new Set<string>([
   "description_cleanup_pending",
@@ -54,13 +66,22 @@ async function countPending(sb: ReturnType<typeof createClient>, kind: string): 
       return (a.count ?? 0) + (b.count ?? 0);
     }
     case "embed_episode_missing": {
-      const { data, error } = await sb.rpc("embed_episode_candidate_stats");
-      if (!error && data && typeof (data as any).pending === "number") return (data as any).pending;
-      // Fallback: approximate via episodes without embeddings is expensive; use 0 if RPC missing.
-      return 0;
+      // RPC requires _model arg and returns { eligible_total, already_embedded, ... }.
+      const model = "google/gemini-embedding-001";
+      const { data, error } = await sb.rpc("embed_episode_candidate_stats", { _model: model });
+      if (error) throw new Error(`rpc_embed_episode_candidate_stats: ${error.message}`);
+      const d = data as any;
+      const eligible = Number(d?.eligible_total ?? 0);
+      const embedded = Number(d?.already_embedded ?? 0);
+      return Math.max(0, eligible - embedded);
     }
     case "embed_podcast_missing": {
-      const all = await sb.from("podcasts").select("id", { count: "exact", head: true });
+      // Align with runner: only S/A/B/C tier + healthy RSS + EN-only.
+      const all = await sb.from("podcasts").select("id", { count: "exact", head: true })
+        .in("rank_label", ["S", "A", "B", "C"])
+        .or("language.is.null,language.ilike.en%")
+        .not("shadow_rank_components->>health_state", "in",
+          "(\"rss_url_not_found\",\"needs_manual_rss_review\",\"confirmed_dead\",\"quarantined_spam\")");
       const have = await sb.from("podcast_embeddings").select("podcast_id", { count: "exact", head: true });
       return Math.max(0, (all.count ?? 0) - (have.count ?? 0));
     }
@@ -85,13 +106,18 @@ async function countPending(sb: ReturnType<typeof createClient>, kind: string): 
       return r.count ?? 0;
     }
     case "podcasts_ai_category_pending": {
+      // Align with categorize-podcast-runner: EN-only + S/A/B/C tier.
       const r = await sb.from("podcasts").select("id", { count: "exact", head: true })
-        .is("ai_category_at", null);
+        .is("ai_category_at", null)
+        .in("rank_label", ["S", "A", "B", "C"])
+        .or("language.is.null,language.ilike.en%");
       return r.count ?? 0;
     }
     case "rss_hunter_pending": {
+      // Align with rss-hunter: S/A/B tier only.
       const r = await sb.from("podcasts").select("id", { count: "exact", head: true })
-        .in("rss_status", ["not_checked", "error"]);
+        .in("rss_status", ["not_checked", "error"])
+        .in("rank_label", ["S", "A", "B"]);
       return r.count ?? 0;
     }
   }
@@ -150,12 +176,19 @@ Deno.serve(async (req) => {
 
     for (const r of state.runners) {
       if (onlyRunner && r.name !== onlyRunner) continue;
-      const wake = Number(r.wake_threshold ?? 5);
-      const stallRuns = Number(r.stall_runs ?? 2);
+      const wake = Math.max(1, Number(r.wake_threshold ?? 5));
+      const stallRuns = Math.max(2, Math.min(HISTORY_KEEP, Number(r.stall_runs ?? 3)));
 
       const hist = newHistory[r.name] || {};
-      const pendingPrev = typeof hist.p1 === "number" ? hist.p1 : null;
-      const pendingPrevPrev = typeof hist.p2 === "number" ? hist.p2 : null;
+      // Backward-compat with old {p1,p2} shape.
+      const legacy = hist as any;
+      const prevSamples: number[] = Array.isArray(hist.pending)
+        ? hist.pending.slice(0, HISTORY_KEEP)
+        : (typeof legacy.p1 === "number" || typeof legacy.p2 === "number"
+            ? [legacy.p1, legacy.p2].filter((x: any) => typeof x === "number")
+            : []);
+      const pendingPrev = prevSamples[0] ?? null;
+      const pendingPrevPrev = prevSamples[1] ?? null;
 
       let pendingNow = 0;
       let countErr: string | null = null;
@@ -165,6 +198,7 @@ Deno.serve(async (req) => {
         countErr = String((e as Error)?.message || e);
       }
 
+      // Re-read controls right before action to minimize race with admin toggles.
       const { data: ctrlRow } = await sb.from("app_settings")
         .select("value").eq("key", r.controls_key).maybeSingle();
       const ctrl = (ctrlRow?.value || {}) as any;
@@ -172,15 +206,37 @@ Deno.serve(async (req) => {
       const autoPausedBy = ctrl.auto_paused_by as string | undefined;
       const autoPausedReason = ctrl.auto_paused_reason as string | undefined;
 
+      // Build full series (newest-first) including current sample.
+      const series: number[] = countErr === null
+        ? [pendingNow, ...prevSamples].slice(0, HISTORY_KEEP)
+        : prevSamples;
+
+      // Empty grace: require EMPTY_GRACE_RUNS consecutive zeros (including now).
+      const consecutiveZeros = (() => {
+        let n = 0;
+        for (const v of series) { if (v === 0) n++; else break; }
+        return n;
+      })();
+      // Stall window: stallRuns consecutive equal positive samples.
+      const stallConfirmed = (() => {
+        if (series.length < stallRuns) return false;
+        const head = series[0];
+        if (!head || head <= 0) return false;
+        for (let i = 1; i < stallRuns; i++) {
+          if (series[i] !== head) return false;
+        }
+        return true;
+      })();
+
       let action: "noop" | "pause_empty" | "resume" | "pause_stall" = "noop";
       let reason = "";
 
       if (countErr) {
         action = "noop";
         reason = `count_error: ${countErr}`;
-      } else if (pendingNow === 0 && isEnabled) {
+      } else if (isEnabled && consecutiveZeros >= EMPTY_GRACE_RUNS) {
         action = "pause_empty";
-        reason = "queue_empty";
+        reason = `queue_empty_x${consecutiveZeros}`;
       } else if (
         !isEnabled
         && autoPausedBy === "queue-health-controller"
@@ -189,15 +245,9 @@ Deno.serve(async (req) => {
       ) {
         action = "resume";
         reason = `pending_${pendingNow}_ge_wake_${wake}`;
-      } else if (
-        isEnabled
-        && pendingNow > 0
-        && pendingPrev === pendingNow
-        && pendingPrevPrev === pendingNow
-        && stallRuns >= 2
-      ) {
+      } else if (isEnabled && stallConfirmed) {
         action = "pause_stall";
-        reason = `stall_detected_${pendingNow}`;
+        reason = `stall_${pendingNow}_x${stallRuns}`;
       }
 
       const detail: Record<string, unknown> = {
@@ -206,6 +256,8 @@ Deno.serve(async (req) => {
         auto_paused_reason_before: autoPausedReason ?? null,
         wake_threshold: wake,
         stall_runs: stallRuns,
+        empty_grace_runs: EMPTY_GRACE_RUNS,
+        series,
         dry_run: dryRun,
       };
       if (countErr) detail.count_error = countErr;
@@ -213,7 +265,7 @@ Deno.serve(async (req) => {
       // Apply action (unless dry_run)
       if (!dryRun && action !== "noop") {
         const now = new Date().toISOString();
-        let nextCtrl = { ...ctrl };
+        const nextCtrl = { ...ctrl };
         if (action === "pause_empty" || action === "pause_stall") {
           nextCtrl.enabled = false;
           nextCtrl.auto_paused_by = "queue-health-controller";
@@ -248,17 +300,16 @@ Deno.serve(async (req) => {
 
         if (!dryRun && (action === "pause_stall" || action === "resume")) {
           const emoji = action === "pause_stall" ? "🛑" : "▶️";
-          alerts.push(`${emoji} <b>${r.name}</b> → ${action}\nreason: ${reason}\npending: ${pendingPrevPrev ?? "?"} → ${pendingPrev ?? "?"} → ${pendingNow}`);
+          alerts.push(`${emoji} <b>${r.name}</b> → ${action}\nreason: ${reason}\nseries: ${series.slice(0, 5).reverse().join(" → ")}`);
         }
       }
 
-      // Shift history window: p2 <- p1, p1 <- now
       newHistory[r.name] = {
-        p1: pendingNow,
-        p2: pendingPrev ?? undefined,
+        pending: series,
         last_check_at: new Date().toISOString(),
         last_action: action,
       };
+
 
       results.push({
         runner: r.name,
