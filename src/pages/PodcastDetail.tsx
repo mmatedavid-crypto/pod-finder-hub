@@ -48,7 +48,7 @@ export default function PodcastDetail() {
   const lastFresh = p.last_fetched_at ? relativeTime(p.last_fetched_at) : null;
 
   const cleanSummary = stripHtml(p.summary);
-  const cleanDesc = stripHtml(p.description);
+  const cleanDesc = (p.display_description as string | null) ?? stripHtml(p.description);
   const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
   const catSlug = p.category ? (p.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-") : null;
 
