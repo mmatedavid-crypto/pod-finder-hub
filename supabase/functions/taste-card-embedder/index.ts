@@ -24,7 +24,7 @@ async function embed(text: string): Promise<number[]> {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ model: EMBED_MODEL, input: text }),
+    body: JSON.stringify({ model: EMBED_MODEL, input: text, dimensions: 768 }),
   });
   if (!r.ok) {
     const t = await r.text();
