@@ -77,7 +77,7 @@ export default function AdminQueueHealthPage() {
     if (stateRes.error) toast.error("State load: " + stateRes.error.message);
     if (ctrlRes.error) toast.error("Controls load: " + ctrlRes.error.message);
     if (evRes.error) toast.error("Events load: " + evRes.error.message);
-    setState((stateRes.data?.value as HealthState) || null);
+    setState((stateRes.data?.value as unknown as HealthState) || null);
     const ctrlMap: Record<string, any> = {};
     (ctrlRes.data || []).forEach((r: any) => { ctrlMap[r.key] = r.value; });
     setControls(ctrlMap);

@@ -38,6 +38,7 @@ import AdminXReplyAssistantPage from "./pages/AdminXReplyAssistantPage.tsx";
 import AdminTikTokPage from "./pages/AdminTikTokPage.tsx";
 import AdminTranscriptROIPage from "./pages/AdminTranscriptROIPage.tsx";
 import AdminPipelineWatchdogPage from "./pages/AdminPipelineWatchdogPage.tsx";
+import AdminQueueHealthPage from "./pages/AdminQueueHealthPage.tsx";
 import UnsubscribePage from "./pages/UnsubscribePage.tsx";
 import { SearchHotkey } from "./components/SearchHotkey.tsx";
 import { SmartPlayerProvider } from "./components/smart-player/SmartPlayerProvider";
@@ -92,6 +93,7 @@ const App = () => (
           <Route path="/admin/tiktok" element={<AdminTikTokPage />} />
           <Route path="/admin/transcript-roi" element={<AdminTranscriptROIPage />} />
           <Route path="/admin/pipeline-watchdog" element={<AdminPipelineWatchdogPage />} />
+          <Route path="/admin/queue-health" element={<AdminQueueHealthPage />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
           <Route path="*" element={<NotFound />} />
           </Routes>
