@@ -146,7 +146,7 @@ export default function EpisodeDetail() {
 
   const aiSum = stripHtml(e.ai_summary);
   const cleanSummary = stripHtml(e.summary);
-  const cleanDesc = stripHtml(e.description);
+  const cleanDesc = (e.display_description as string | null) ?? stripHtml(e.description);
   const fallbackDesc = `Listen to this episode of ${p.display_title || p.title} on Podiverzum — the smart podcast index.`;
   const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || fallbackDesc).slice(0, 160);
   const epUrl = `${siteOrigin()}/podcast/${p.slug}/${e.slug}`;
