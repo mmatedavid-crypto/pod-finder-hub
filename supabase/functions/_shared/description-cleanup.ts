@@ -6,8 +6,7 @@
 // Returns { display, changed, removedPct, needsAi, reasons } so the runner can
 // decide whether to escalate to AI fallback (S/A tier only).
 
-import { stripHtml } from "./../../../src/lib/text.ts";
-// Note: edge functions can't import from src. Inline minimal stripHtml below.
+// Inline minimal stripHtml (edge functions can't import from src).
 
 function _stripHtml(s: string): string {
   if (!s) return "";
