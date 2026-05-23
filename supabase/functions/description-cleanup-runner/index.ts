@@ -132,8 +132,15 @@ Deno.serve(async (req) => {
               }
             }
 
+            // Compute real removed_pct against final display (post-AI if used).
+            const origLen = String(c.description || "").length;
+            const finalRemovedPct = origLen > 0
+              ? Math.max(0, Math.round((1 - display.length / origLen) * 100))
+              : 0;
+
             const meta = {
-              removed_pct: result.removedPct,
+              removed_pct: finalRemovedPct,
+              rules_removed_pct: result.removedPct,
               reasons: result.reasons,
               needs_ai: result.needsAi,
               used_ai: usedAi,
