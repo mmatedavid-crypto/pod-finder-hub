@@ -1625,6 +1625,42 @@ export type Database = {
         }
         Relationships: []
       }
+      queue_health_events: {
+        Row: {
+          action: string
+          created_at: string
+          detail: Json
+          id: string
+          pending_now: number | null
+          pending_prev: number | null
+          pending_prev_prev: number | null
+          reason: string | null
+          runner: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          pending_now?: number | null
+          pending_prev?: number | null
+          pending_prev_prev?: number | null
+          reason?: string | null
+          runner: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          pending_now?: number | null
+          pending_prev?: number | null
+          pending_prev_prev?: number | null
+          reason?: string | null
+          runner?: string
+        }
+        Relationships: []
+      }
       rss_url_history: {
         Row: {
           changed_at: string
