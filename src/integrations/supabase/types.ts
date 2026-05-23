@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _purge_non_en_eps: {
+        Row: {
+          id: string
+        }
+        Insert: {
+          id: string
+        }
+        Update: {
+          id?: string
+        }
+        Relationships: []
+      }
+      _purge_non_en_pods: {
+        Row: {
+          id: string
+        }
+        Insert: {
+          id: string
+        }
+        Update: {
+          id?: string
+        }
+        Relationships: []
+      }
       ai_call_audit: {
         Row: {
           confidence: number | null
@@ -2996,6 +3020,10 @@ export type Database = {
       }
       normalize_rss_url: { Args: { _url: string }; Returns: string }
       person_slugify: { Args: { p: string }; Returns: string }
+      purge_non_en_step: {
+        Args: { _batch?: number; _budget_ms?: number }
+        Returns: Json
+      }
       purge_search_query_cache: {
         Args: { older_than_days?: number }
         Returns: number
