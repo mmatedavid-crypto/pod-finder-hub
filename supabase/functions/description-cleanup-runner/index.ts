@@ -199,19 +199,26 @@ Deno.serve(async (req) => {
     else recommended = "*/30 * * * *";
     try { await admin.rpc("set_description_cleanup_schedule" as any, { _schedule: recommended }); } catch { /* */ }
 
-    // Pause on AI lifetime cap
-    if (aiSpendLifetime >= AI_BACKFILL_TOTAL_CAP) {
+    // Pause on AI lifetime cap — re-read controls to avoid clobbering concurrent writes.
+    if (aiSpendLifetime >= AI_BACKFILL_TOTAL_CAP || aiRefined > 0) {
+      const { data: freshCtrlRow } = await admin.from("app_settings")
+        .select("value").eq("key", "description_cleanup_controls").maybeSingle();
+      const freshCtrl = (freshCtrlRow?.value || {}) as any;
+      const freshLifetime = Number(freshCtrl.ai_spend_lifetime_usd || 0);
+      // Merge: add only our delta (this run's AI cost) onto the freshest value.
+      const myDelta = aiSpendLifetime - Number(ctrl.ai_spend_lifetime_usd || 0);
+      const mergedLifetime = Math.max(freshLifetime, freshLifetime + myDelta);
+      const nextCtrl: any = { ...freshCtrl, ai_spend_lifetime_usd: mergedLifetime };
+      if (mergedLifetime >= AI_BACKFILL_TOTAL_CAP) {
+        nextCtrl.ai_tiers = [];
+        nextCtrl.ai_paused_at = new Date().toISOString();
+      }
       await admin.from("app_settings").upsert({
         key: "description_cleanup_controls",
-        value: { ...ctrl, ai_tiers: [], ai_spend_lifetime_usd: aiSpendLifetime, ai_paused_at: new Date().toISOString() },
+        value: nextCtrl,
         updated_at: new Date().toISOString(),
       }, { onConflict: "key" });
-    } else if (aiRefined > 0) {
-      await admin.from("app_settings").upsert({
-        key: "description_cleanup_controls",
-        value: { ...ctrl, ai_spend_lifetime_usd: aiSpendLifetime },
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "key" });
+      aiSpendLifetime = mergedLifetime;
     }
 
     const progress = {
