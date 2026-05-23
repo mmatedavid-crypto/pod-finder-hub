@@ -31,7 +31,7 @@ export default function PodcastDetail() {
       if (data) {
         const { data: e } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,people,companies,tickers,ingredients")
+          .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,people,companies,tickers,ingredients")
           .eq("podcast_id", data.id)
           .order("published_at", { ascending: false, nullsFirst: false })
           .limit(60);
@@ -48,7 +48,7 @@ export default function PodcastDetail() {
   const lastFresh = p.last_fetched_at ? relativeTime(p.last_fetched_at) : null;
 
   const cleanSummary = stripHtml(p.summary);
-  const cleanDesc = stripHtml(p.description);
+  const cleanDesc = (p.display_description as string | null) ?? stripHtml(p.description);
   const podUrl = `${siteOrigin()}/podcast/${p.slug}`;
   const catSlug = p.category ? (p.category as string).toLowerCase().replace(/[^a-z0-9]+/g, "-") : null;
 
@@ -116,8 +116,8 @@ export default function PodcastDetail() {
             </div>
 
             {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
-            {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
-              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{stripHtml(p.description)}</p>
+            {(p.display_description || p.description) && (p.display_description ?? stripHtml(p.description)) !== stripHtml(p.summary) && (
+              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{p.display_description ?? stripHtml(p.description)}</p>
             )}
             <div className="flex flex-wrap gap-3 mt-4 items-center text-muted-foreground">
               {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Apple className="h-4 w-4" /> Apple</a>}

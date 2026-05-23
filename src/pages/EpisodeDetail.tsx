@@ -71,7 +71,7 @@ export default function EpisodeDetail() {
           const col = ENTITY_COLUMN[kind];
           const { data: rs } = await supabase
             .from("episodes")
-            .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
+            .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
             .neq("id", e.id)
             .contains(col, [v])
             .order("published_at", { ascending: false, nullsFirst: false })
@@ -86,7 +86,7 @@ export default function EpisodeDetail() {
       if (candidates.size < 6 && p.category) {
         const { data: rs } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
+          .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
           .neq("id", e.id).neq("podcast_id", p.id)
           .eq("podcasts.category", p.category)
           .order("published_at", { ascending: false, nullsFirst: false })
@@ -100,7 +100,7 @@ export default function EpisodeDetail() {
 
       const { data: mp } = await supabase
         .from("episodes")
-        .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+        .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
         .eq("podcast_id", p.id).neq("id", e.id)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(6);
@@ -109,15 +109,15 @@ export default function EpisodeDetail() {
   }, [podcastSlug, episodeSlug]);
 
   const moments = useMemo(
-    () => extractKeyMoments(stripHtml(data?.e?.description) || stripHtml(data?.e?.summary)),
-    [data?.e?.description, data?.e?.summary],
+    () => extractKeyMoments((data?.e?.display_description ?? stripHtml(data?.e?.description)) || stripHtml(data?.e?.summary)),
+    [data?.e?.display_description, data?.e?.description, data?.e?.summary],
   );
 
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
   const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
-  const description = stripHtml(e.description);
+  const description = (e.display_description as string | null) ?? stripHtml(e.description);
   const handleSeek = (sec: number) => {
     const a = audioRef.current;
     if (!a) return;
@@ -146,7 +146,7 @@ export default function EpisodeDetail() {
 
   const aiSum = stripHtml(e.ai_summary);
   const cleanSummary = stripHtml(e.summary);
-  const cleanDesc = stripHtml(e.description);
+  const cleanDesc = (e.display_description as string | null) ?? stripHtml(e.description);
   const fallbackDesc = `Listen to this episode of ${p.display_title || p.title} on Podiverzum — the smart podcast index.`;
   const metaDesc = (e.seo_description || aiSum || cleanSummary || cleanDesc || fallbackDesc).slice(0, 160);
   const epUrl = `${siteOrigin()}/podcast/${p.slug}/${e.slug}`;
