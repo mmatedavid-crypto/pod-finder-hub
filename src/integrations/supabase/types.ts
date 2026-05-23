@@ -699,6 +699,10 @@ export type Database = {
           desc_chunk_claimed_at: string | null
           desc_chunk_status: string | null
           description: string | null
+          description_cleaned_at: string | null
+          description_cleanup_meta: Json
+          description_cleanup_status: string | null
+          display_description: string | null
           display_title: string | null
           episode_rank: number
           episode_rank_label: string | null
@@ -743,6 +747,10 @@ export type Database = {
           desc_chunk_claimed_at?: string | null
           desc_chunk_status?: string | null
           description?: string | null
+          description_cleaned_at?: string | null
+          description_cleanup_meta?: Json
+          description_cleanup_status?: string | null
+          display_description?: string | null
           display_title?: string | null
           episode_rank?: number
           episode_rank_label?: string | null
@@ -787,6 +795,10 @@ export type Database = {
           desc_chunk_claimed_at?: string | null
           desc_chunk_status?: string | null
           description?: string | null
+          description_cleaned_at?: string | null
+          description_cleanup_meta?: Json
+          description_cleanup_status?: string | null
+          display_description?: string | null
           display_title?: string | null
           episode_rank?: number
           episode_rank_label?: string | null
@@ -2716,6 +2728,10 @@ export type Database = {
           desc_chunk_claimed_at: string | null
           desc_chunk_status: string | null
           description: string | null
+          description_cleaned_at: string | null
+          description_cleanup_meta: Json
+          description_cleanup_status: string | null
+          display_description: string | null
           display_title: string | null
           episode_rank: number
           episode_rank_label: string | null
