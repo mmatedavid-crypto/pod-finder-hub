@@ -109,15 +109,15 @@ export default function EpisodeDetail() {
   }, [podcastSlug, episodeSlug]);
 
   const moments = useMemo(
-    () => extractKeyMoments(stripHtml(data?.e?.description) || stripHtml(data?.e?.summary)),
-    [data?.e?.description, data?.e?.summary],
+    () => extractKeyMoments((data?.e?.display_description ?? stripHtml(data?.e?.description)) || stripHtml(data?.e?.summary)),
+    [data?.e?.display_description, data?.e?.description, data?.e?.summary],
   );
 
   if (loading) return <Layout><EpisodeDetailSkeleton /></Layout>;
   if (!data?.e) return <NotFoundState title="Episode not found" message="That episode doesn't exist or has been removed." />;
   const { p, e } = data;
   const summary = stripHtml(e.ai_summary) || stripHtml(e.summary);
-  const description = stripHtml(e.description);
+  const description = (e.display_description as string | null) ?? stripHtml(e.description);
   const handleSeek = (sec: number) => {
     const a = audioRef.current;
     if (!a) return;
