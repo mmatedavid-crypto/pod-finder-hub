@@ -21,14 +21,26 @@ type Runner = {
   stall_runs?: number;
 };
 
+type RunnerHistory = {
+  // Pending samples newest-first: pending[0] = most recent, pending[1] = prev, ...
+  pending?: number[];
+  last_check_at?: string;
+  last_action?: string;
+};
+
 type State = {
   enabled: boolean;
   dry_run: boolean;
   runners: Runner[];
-  history: Record<string, { p1?: number; p2?: number; last_check_at?: string; last_action?: string }>;
+  history: Record<string, RunnerHistory>;
   last_check_at?: string;
   last_results?: unknown;
 };
+
+// Keep up to 6 samples (~12 min @ */2 cron) → enough for stall_runs up to 5.
+const HISTORY_KEEP = 6;
+// Require N consecutive empty observations before pause_empty (grace period).
+const EMPTY_GRACE_RUNS = 2;
 
 const PENDING_KINDS = new Set<string>([
   "description_cleanup_pending",
