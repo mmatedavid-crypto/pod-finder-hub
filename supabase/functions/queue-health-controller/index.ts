@@ -66,13 +66,22 @@ async function countPending(sb: ReturnType<typeof createClient>, kind: string): 
       return (a.count ?? 0) + (b.count ?? 0);
     }
     case "embed_episode_missing": {
-      const { data, error } = await sb.rpc("embed_episode_candidate_stats");
-      if (!error && data && typeof (data as any).pending === "number") return (data as any).pending;
-      // Fallback: approximate via episodes without embeddings is expensive; use 0 if RPC missing.
-      return 0;
+      // RPC requires _model arg and returns { eligible_total, already_embedded, ... }.
+      const model = "google/gemini-embedding-001";
+      const { data, error } = await sb.rpc("embed_episode_candidate_stats", { _model: model });
+      if (error) throw new Error(`rpc_embed_episode_candidate_stats: ${error.message}`);
+      const d = data as any;
+      const eligible = Number(d?.eligible_total ?? 0);
+      const embedded = Number(d?.already_embedded ?? 0);
+      return Math.max(0, eligible - embedded);
     }
     case "embed_podcast_missing": {
-      const all = await sb.from("podcasts").select("id", { count: "exact", head: true });
+      // Align with runner: only S/A/B/C tier + healthy RSS + EN-only.
+      const all = await sb.from("podcasts").select("id", { count: "exact", head: true })
+        .in("rank_label", ["S", "A", "B", "C"])
+        .or("language.is.null,language.ilike.en%")
+        .not("shadow_rank_components->>health_state", "in",
+          "(\"rss_url_not_found\",\"needs_manual_rss_review\",\"confirmed_dead\",\"quarantined_spam\")");
       const have = await sb.from("podcast_embeddings").select("podcast_id", { count: "exact", head: true });
       return Math.max(0, (all.count ?? 0) - (have.count ?? 0));
     }
@@ -97,13 +106,18 @@ async function countPending(sb: ReturnType<typeof createClient>, kind: string): 
       return r.count ?? 0;
     }
     case "podcasts_ai_category_pending": {
+      // Align with categorize-podcast-runner: EN-only + S/A/B/C tier.
       const r = await sb.from("podcasts").select("id", { count: "exact", head: true })
-        .is("ai_category_at", null);
+        .is("ai_category_at", null)
+        .in("rank_label", ["S", "A", "B", "C"])
+        .or("language.is.null,language.ilike.en%");
       return r.count ?? 0;
     }
     case "rss_hunter_pending": {
+      // Align with rss-hunter: S/A/B tier only.
       const r = await sb.from("podcasts").select("id", { count: "exact", head: true })
-        .in("rss_status", ["not_checked", "error"]);
+        .in("rss_status", ["not_checked", "error"])
+        .in("rank_label", ["S", "A", "B"]);
       return r.count ?? 0;
     }
   }
