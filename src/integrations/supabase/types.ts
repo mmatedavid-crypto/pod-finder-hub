@@ -870,6 +870,57 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_events: {
+        Row: {
+          anonymous_session_id: string
+          created_at: string
+          device_type: string | null
+          event_name: string
+          id: string
+          landing_variant: string | null
+          meta: Json
+          path: string | null
+          referrer_domain: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          anonymous_session_id: string
+          created_at?: string
+          device_type?: string | null
+          event_name: string
+          id?: string
+          landing_variant?: string | null
+          meta?: Json
+          path?: string | null
+          referrer_domain?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          anonymous_session_id?: string
+          created_at?: string
+          device_type?: string | null
+          event_name?: string
+          id?: string
+          landing_variant?: string | null
+          meta?: Json
+          path?: string | null
+          referrer_domain?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
       mood_collections: {
         Row: {
           accent_hsl: string | null
@@ -1841,6 +1892,113 @@ export type Database = {
         }
         Relationships: []
       }
+      taste_cards: {
+        Row: {
+          active: boolean
+          archetype_tags: string[]
+          card_embedding: string | null
+          catalog_fit_score: number | null
+          created_at: string
+          format_tags: string[]
+          id: string
+          image_url: string | null
+          mood_tags: string[]
+          priority: number
+          psych_tags: string[]
+          sensitivity_level: string
+          stage: string
+          subtitle: string | null
+          text_for_embedding: string | null
+          title: string
+          top_episode_similarity: number | null
+          topic_tags: string[]
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          active?: boolean
+          archetype_tags?: string[]
+          card_embedding?: string | null
+          catalog_fit_score?: number | null
+          created_at?: string
+          format_tags?: string[]
+          id?: string
+          image_url?: string | null
+          mood_tags?: string[]
+          priority?: number
+          psych_tags?: string[]
+          sensitivity_level?: string
+          stage?: string
+          subtitle?: string | null
+          text_for_embedding?: string | null
+          title: string
+          top_episode_similarity?: number | null
+          topic_tags?: string[]
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          active?: boolean
+          archetype_tags?: string[]
+          card_embedding?: string | null
+          catalog_fit_score?: number | null
+          created_at?: string
+          format_tags?: string[]
+          id?: string
+          image_url?: string | null
+          mood_tags?: string[]
+          priority?: number
+          psych_tags?: string[]
+          sensitivity_level?: string
+          stage?: string
+          subtitle?: string | null
+          text_for_embedding?: string | null
+          title?: string
+          top_episode_similarity?: number | null
+          topic_tags?: string[]
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: []
+      }
+      taste_interactions: {
+        Row: {
+          action: string
+          anonymous_session_id: string
+          card_id: string
+          created_at: string
+          id: string
+          swipe_index: number
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          anonymous_session_id: string
+          card_id: string
+          created_at?: string
+          id?: string
+          swipe_index?: number
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          anonymous_session_id?: string
+          card_id?: string
+          created_at?: string
+          id?: string
+          swipe_index?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "taste_interactions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "taste_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tiktok_videos: {
         Row: {
           broll_cost_usd: number | null
@@ -2601,6 +2759,26 @@ export type Database = {
         }[]
       }
       formula_c_status: { Args: never; Returns: Json }
+      get_active_taste_cards: {
+        Args: { p_limit?: number }
+        Returns: {
+          archetype_tags: string[]
+          card_embedding: string
+          catalog_fit_score: number
+          format_tags: string[]
+          id: string
+          image_url: string
+          mood_tags: string[]
+          priority: number
+          psych_tags: string[]
+          sensitivity_level: string
+          stage: string
+          subtitle: string
+          title: string
+          top_episode_similarity: number
+          topic_tags: string[]
+        }[]
+      }
       get_cron_health: { Args: never; Returns: Json }
       get_ops_dashboard_status: { Args: never; Returns: Json }
       has_role: {
@@ -2632,6 +2810,31 @@ export type Database = {
           rank_label: string
           similarity: number
           title: string
+        }[]
+      }
+      match_episodes_by_taste_vector: {
+        Args: {
+          p_exclude_episode_ids?: string[]
+          p_limit?: number
+          p_negative_vector?: string
+          p_user_vector: string
+        }
+        Returns: {
+          ai_summary: string
+          category: string
+          display_title: string
+          episode_id: string
+          final_score: number
+          image_url: string
+          podcast_id: string
+          podcast_image_url: string
+          podcast_slug: string
+          podcast_title: string
+          published_at: string
+          similarity: number
+          slug: string
+          title: string
+          topics: string[]
         }[]
       }
       match_podcast_by_name: {
