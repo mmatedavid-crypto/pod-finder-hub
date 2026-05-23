@@ -23,6 +23,9 @@ import PrivacyPage from "./pages/PrivacyPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import MoodCollectionPage from "./pages/MoodCollectionPage.tsx";
 import MoodsPage from "./pages/MoodsPage.tsx";
+import StartLandingPage from "./pages/StartLandingPage.tsx";
+import StartSwipePage from "./pages/StartSwipePage.tsx";
+import MyPodiverzumPage from "./pages/MyPodiverzumPage.tsx";
 
 import AboutPage from "./pages/AboutPage.tsx";
 import ContactPage from "./pages/ContactPage.tsx";
@@ -59,6 +62,9 @@ const App = () => (
           <Route path="/podcast/:podcastSlug/:episodeSlug" element={<EpisodeDetail />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/start" element={<StartLandingPage />} />
+          <Route path="/start/swipe" element={<StartSwipePage />} />
+          <Route path="/my-podiverzum" element={<MyPodiverzumPage />} />
           
 
           <Route path="/growth-status" element={<GrowthStatusPage />} />
