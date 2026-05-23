@@ -71,7 +71,7 @@ export default function EpisodeDetail() {
           const col = ENTITY_COLUMN[kind];
           const { data: rs } = await supabase
             .from("episodes")
-            .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
+            .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
             .neq("id", e.id)
             .contains(col, [v])
             .order("published_at", { ascending: false, nullsFirst: false })
@@ -86,7 +86,7 @@ export default function EpisodeDetail() {
       if (candidates.size < 6 && p.category) {
         const { data: rs } = await supabase
           .from("episodes")
-          .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
+          .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status)")
           .neq("id", e.id).neq("podcast_id", p.id)
           .eq("podcasts.category", p.category)
           .order("published_at", { ascending: false, nullsFirst: false })
@@ -100,7 +100,7 @@ export default function EpisodeDetail() {
 
       const { data: mp } = await supabase
         .from("episodes")
-        .select("id,title,display_title,slug,published_at,summary,description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
+        .select("id,title,display_title,slug,published_at,summary,description,display_description,audio_url,topics,podcasts!inner(slug,title,display_title,image_url,category,podiverzum_rank,rank_label)")
         .eq("podcast_id", p.id).neq("id", e.id)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(6);
