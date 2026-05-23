@@ -116,8 +116,8 @@ export default function PodcastDetail() {
             </div>
 
             {p.summary && <p className="mt-3 text-foreground/90 max-w-2xl">{stripHtml(p.summary)}</p>}
-            {p.description && stripHtml(p.description) !== stripHtml(p.summary) && (
-              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{stripHtml(p.description)}</p>
+            {(p.display_description || p.description) && (p.display_description ?? stripHtml(p.description)) !== stripHtml(p.summary) && (
+              <p className="mt-2 text-sm text-muted-foreground max-w-2xl line-clamp-4">{p.display_description ?? stripHtml(p.description)}</p>
             )}
             <div className="flex flex-wrap gap-3 mt-4 items-center text-muted-foreground">
               {p.apple_url && <a href={p.apple_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-accent text-sm"><Apple className="h-4 w-4" /> Apple</a>}
