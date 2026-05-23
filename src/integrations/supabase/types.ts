@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _purge_non_en_eps: {
+        Row: {
+          id: string
+        }
+        Insert: {
+          id: string
+        }
+        Update: {
+          id?: string
+        }
+        Relationships: []
+      }
+      _purge_non_en_pods: {
+        Row: {
+          id: string
+        }
+        Insert: {
+          id: string
+        }
+        Update: {
+          id?: string
+        }
+        Relationships: []
+      }
       ai_call_audit: {
         Row: {
           confidence: number | null
