@@ -1378,6 +1378,10 @@ export type Database = {
           deep_hydration_status: string
           deep_hydration_target: number | null
           description: string | null
+          description_cleaned_at: string | null
+          description_cleanup_meta: Json
+          description_cleanup_status: string | null
+          display_description: string | null
           display_title: string | null
           featured: boolean
           featured_rank: number | null
@@ -1451,6 +1455,10 @@ export type Database = {
           deep_hydration_status?: string
           deep_hydration_target?: number | null
           description?: string | null
+          description_cleaned_at?: string | null
+          description_cleanup_meta?: Json
+          description_cleanup_status?: string | null
+          display_description?: string | null
           display_title?: string | null
           featured?: boolean
           featured_rank?: number | null
@@ -1524,6 +1532,10 @@ export type Database = {
           deep_hydration_status?: string
           deep_hydration_target?: number | null
           description?: string | null
+          description_cleaned_at?: string | null
+          description_cleanup_meta?: Json
+          description_cleanup_status?: string | null
+          display_description?: string | null
           display_title?: string | null
           featured?: boolean
           featured_rank?: number | null
@@ -2700,6 +2712,21 @@ export type Database = {
           total_desc_chunks: number
         }[]
       }
+      description_cleanup_stats: {
+        Args: never
+        Returns: {
+          ep_ai_refined: number
+          ep_pending: number
+          ep_reverted: number
+          ep_rules_ok: number
+          ep_skipped: number
+          pod_ai_refined: number
+          pod_pending: number
+          pod_reverted: number
+          pod_rules_ok: number
+          pod_skipped: number
+        }[]
+      }
       embed_candidate_stats: {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
@@ -3057,6 +3084,16 @@ export type Database = {
           podcast_id: string
         }[]
       }
+      select_description_cleanup_candidates: {
+        Args: { _kind?: string; _limit?: number }
+        Returns: {
+          description: string
+          id: string
+          podcast_id: string
+          tier: string
+          title: string
+        }[]
+      }
       select_embed_candidates: {
         Args: { _limit: number; _model: string; _tiers: string[] }
         Returns: {
@@ -3137,6 +3174,10 @@ export type Database = {
         Returns: string
       }
       set_deep_hydration_schedule: {
+        Args: { _schedule: string }
+        Returns: undefined
+      }
+      set_description_cleanup_schedule: {
         Args: { _schedule: string }
         Returns: undefined
       }
