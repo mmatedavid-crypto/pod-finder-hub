@@ -63,9 +63,6 @@ function shell(opts: {
   const ld = opts.jsonLd
     .map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
     .join("\n");
-  let hreflangPath = "/";
-  try { hreflangPath = new URL(opts.canonical).pathname || "/"; } catch { /* noop */ }
-  const hreflang = opts.noindex ? "" : hreflangTags(hreflangPath);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -75,7 +72,6 @@ function shell(opts: {
 <meta name="description" content="${esc(opts.description)}" />
 ${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
 <link rel="canonical" href="${esc(opts.canonical)}" />
-${hreflang}
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
