@@ -49,6 +49,20 @@ function htmlResponse(body: string, status = 200) {
   return new Response(body, { status, headers: h });
 }
 
+// hreflang alternates: declare podiverzum.hu (HU) as the language counterpart
+// of every .com URL. Without this, Google treats the two domains as duplicates
+// and deindexes one side as "alternate page with proper canonical tag".
+// The .hu deploy must mirror these tags pointing back at .com.
+const HU_HOST = "https://podiverzum.hu";
+function hreflangTags(pathWithSlash: string): string {
+  const p = pathWithSlash || "/";
+  return [
+    `<link rel="alternate" hreflang="en" href="${SITE}${p}" />`,
+    `<link rel="alternate" hreflang="hu" href="${HU_HOST}${p}" />`,
+    `<link rel="alternate" hreflang="x-default" href="${SITE}${p}" />`,
+  ].join("\n");
+}
+
 function shell(opts: {
   title: string;
   description: string;
@@ -62,6 +76,9 @@ function shell(opts: {
   const ld = opts.jsonLd
     .map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`)
     .join("\n");
+  let hreflangPath = "/";
+  try { hreflangPath = new URL(opts.canonical).pathname || "/"; } catch { /* noop */ }
+  const hreflang = opts.noindex ? "" : hreflangTags(hreflangPath);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -71,6 +88,7 @@ function shell(opts: {
 <meta name="description" content="${esc(opts.description)}" />
 ${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
 <link rel="canonical" href="${esc(opts.canonical)}" />
+${hreflang}
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
