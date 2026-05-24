@@ -238,10 +238,6 @@ const Index = () => {
         title="Podiverzum — Find it. Hear it."
         description="Search podcast episodes by what they actually discuss. People, companies, markets, technologies and ideas — and the conversations worth hearing."
         canonical="https://podiverzum.com/"
-        hreflang={[
-          { lang: "en", href: "https://podiverzum.com/" },
-          { lang: "x-default", href: "https://podiverzum.com/" },
-        ]}
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "WebSite",
