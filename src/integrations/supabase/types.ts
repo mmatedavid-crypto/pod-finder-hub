@@ -2625,6 +2625,82 @@ export type Database = {
         }
         Relationships: []
       }
+      tiktok_videos_public: {
+        Row: {
+          created_at: string | null
+          episode_id: string | null
+          generated_at: string | null
+          id: string | null
+          podcast_id: string | null
+          status: string | null
+          video_duration_s: number | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          episode_id?: string | null
+          generated_at?: string | null
+          id?: string | null
+          podcast_id?: string | null
+          status?: string | null
+          video_duration_s?: number | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          episode_id?: string | null
+          generated_at?: string | null
+          id?: string | null
+          podcast_id?: string | null
+          status?: string | null
+          video_duration_s?: number | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tiktok_videos_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_evergreen"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "mv_homepage_feed"
+            referencedColumns: ["podcast_id"]
+          },
+          {
+            foreignKeyName: "tiktok_videos_podcast_id_fkey"
+            columns: ["podcast_id"]
+            isOneToOne: false
+            referencedRelation: "podcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _mood_time_tags: {
