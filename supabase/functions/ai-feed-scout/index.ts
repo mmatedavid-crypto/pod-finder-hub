@@ -494,7 +494,9 @@ Deno.serve(async (req) => {
     const candidates: { title: string; author?: string; reason?: string; sourceTag: string; langHint: string }[] = [];
     const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
-    for (const src of sources) {
+    for (let i = 0; i < sources.length; i++) {
+      const src = sources[i];
+      if (i > 0) await new Promise((r) => setTimeout(r, 1500)); // pace to avoid gateway 429
       const md = await firecrawlScrape(src.url);
       if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
       const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model, supabase);
@@ -506,6 +508,7 @@ Deno.serve(async (req) => {
         });
       }
     }
+
 
     // Dedupe candidates by title+author
     const seen = new Set<string>();
