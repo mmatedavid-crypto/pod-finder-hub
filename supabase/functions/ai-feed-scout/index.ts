@@ -392,51 +392,65 @@ PAGE MARKDOWN (truncated):
 ${markdown.slice(0, 50000)}`;
 
   const t0 = Date.now();
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{
-        type: "function",
-        function: {
-          name: "submit_podcasts",
-          description: "Submit the extracted podcast list",
-          parameters: {
-            type: "object",
-            properties: {
-              podcasts: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    title: { type: "string" },
-                    author: { type: "string" },
-                    reason: { type: "string" },
-                  },
-                  required: ["title"],
+  const requestBody = JSON.stringify({
+    model,
+    messages: [{ role: "user", content: prompt }],
+    tools: [{
+      type: "function",
+      function: {
+        name: "submit_podcasts",
+        description: "Submit the extracted podcast list",
+        parameters: {
+          type: "object",
+          properties: {
+            podcasts: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  author: { type: "string" },
+                  reason: { type: "string" },
                 },
+                required: ["title"],
               },
             },
-            required: ["podcasts"],
           },
+          required: ["podcasts"],
         },
-      }],
-      tool_choice: { type: "function", function: { name: "submit_podcasts" } },
-    }),
+      },
+    }],
+    tool_choice: { type: "function", function: { name: "submit_podcasts" } },
   });
+  // Retry with backoff on 429 (rate limit) and 5xx
+  let res: Response | null = null;
+  let lastErrText = "";
+  const maxAttempts = 4;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: requestBody,
+    });
+    if (res.ok) break;
+    if (res.status !== 429 && res.status < 500) break;
+    lastErrText = (await res.text()).slice(0, 200);
+    if (attempt === maxAttempts) break;
+    const backoffMs = Math.min(20000, 2000 * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 500);
+    await new Promise((r) => setTimeout(r, backoffMs));
+  }
   const latency_ms = Date.now() - t0;
-  if (!res.ok) {
-    const errText = (await res.text()).slice(0, 200);
-    console.warn(`gemini extract failed: ${res.status} ${errText}`);
+  if (!res || !res.ok) {
+    const errText = lastErrText || (res ? (await res.text()).slice(0, 200) : "no_response");
+    console.warn(`gemini extract failed: ${res?.status} ${errText}`);
     await aiAudit.logError(admin, {
       job_type: "ai_feed_scout", provider: "lovable_gateway", key_source: "LOVABLE_API_KEY",
       model_used: model, latency_ms, target_type: "feed_source", target_id: sourceTag,
-      error_message: `gateway_${res.status}: ${errText}`,
+      error_message: `gateway_${res?.status}: ${errText}`,
     });
     return [];
   }
+
   const data = await res.json();
   const usage = data?.usage || {};
   const inTok = Number(usage.prompt_tokens || estimateTokens(prompt));
@@ -480,7 +494,9 @@ Deno.serve(async (req) => {
     const candidates: { title: string; author?: string; reason?: string; sourceTag: string; langHint: string }[] = [];
     const sourceStats: Record<string, { scraped: boolean; extracted: number; lang_hint: string }> = {};
 
-    for (const src of sources) {
+    for (let i = 0; i < sources.length; i++) {
+      const src = sources[i];
+      if (i > 0) await new Promise((r) => setTimeout(r, 1500)); // pace to avoid gateway 429
       const md = await firecrawlScrape(src.url);
       if (!md) { sourceStats[src.tag] = { scraped: false, extracted: 0, lang_hint: src.lang_hint }; continue; }
       const extracted = await geminiExtract(md, src.tag, src.lang_hint, maxPerSource, model, supabase);
@@ -492,6 +508,7 @@ Deno.serve(async (req) => {
         });
       }
     }
+
 
     // Dedupe candidates by title+author
     const seen = new Set<string>();
