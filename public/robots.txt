@@ -64,7 +64,7 @@ Disallow: /growth-status
 # which is what was causing the "Blocked by robots.txt" category in GSC.
 
 Sitemap: https://podiverzum.com/sitemap.xml
+LLMs: https://podiverzum.com/llms.txt
 
 # RSS feed of recent episodes
 # https://podiverzum.com/feed.xml
-

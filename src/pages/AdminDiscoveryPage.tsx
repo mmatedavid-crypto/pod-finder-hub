@@ -33,7 +33,7 @@ export default function AdminDiscoveryPage() {
   const [ready, setReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [query, setQuery] = useState(params.get("title") || "");
-  const [language, setLanguage] = useState("");
+  const [language, setLanguage] = useState("en");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +66,7 @@ export default function AdminDiscoveryPage() {
     setLoading(true); setResults([]); setSelected(new Set()); setCredsMissing(false);
     try {
       const { data, error } = await supabase.functions.invoke("podcast-index-search", {
-        body: { query: query.trim(), language: language || undefined },
+        body: { query: query.trim(), language },
       });
       if (error) throw error;
       if ((data as any)?.missing_credentials) { setCredsMissing(true); return; }
@@ -99,7 +99,7 @@ export default function AdminDiscoveryPage() {
       rss_url: r.rss_url,
       image_url: r.image_url ?? null,
       website_url: r.website_url ?? null,
-      language: (r.language || "en").slice(0, 8),
+      language: (r.language && r.language.toLowerCase().startsWith("en") ? r.language : "en").slice(0, 8),
       category: category || null,
       rss_status: "not_checked",
     }).select("id").single();
@@ -200,14 +200,7 @@ export default function AdminDiscoveryPage() {
             />
             <select value={language} onChange={(e) => setLanguage(e.target.value)}
               className="px-3 py-2 rounded-md border border-border bg-background text-sm">
-              <option value="">Any language</option>
               <option value="en">English</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="pt">Portuguese</option>
-              <option value="it">Italian</option>
-              <option value="hu">Hungarian</option>
             </select>
             {!replaceMode && (
               <select value={category} onChange={(e) => setCategory(e.target.value)}

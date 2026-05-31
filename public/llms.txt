@@ -4,6 +4,8 @@
 
 Podiverzum indexes English-language podcasts and extracts structured metadata (topics, named entities, key moments, summaries) from episodes. The result is a search engine that answers "which episode discusses X?" instead of just matching show titles.
 
+AI agents and search crawlers can read the public HTML directly. Important public pages are prerendered for bot user agents and include visible text, canonical URLs, meta descriptions, Open Graph tags, and JSON-LD where applicable.
+
 ## Key facts
 
 - Thousands of active podcasts, more than 700,000 episodes indexed
@@ -18,7 +20,8 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
 - [Homepage](https://podiverzum.com/): Trending + evergreen episode picks across categories
 - [Search](https://podiverzum.com/search): Full-text + entity search across episodes and podcasts
 - [Categories](https://podiverzum.com/categories): Browse by topic (business, tech, news, science, health, etc.)
-- [New podcasts](https://podiverzum.com/new-podcasts): Recently added shows
+- [Daily Brief](https://podiverzum.com/daily): Fresh episode roundup from the index
+- [New podcasts](https://podiverzum.com/new): Recently added shows
 - [About](https://podiverzum.com/about): What Podiverzum is and who it's for
 - [Methodology](https://podiverzum.com/methodology): How podcasts are ranked and enriched
 
@@ -27,6 +30,8 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
 - [Sitemap index](https://podiverzum.com/sitemap.xml)
 - [Pages sitemap](https://podiverzum.com/sitemaps/pages.xml)
 - [Podcasts sitemap](https://podiverzum.com/sitemaps/podcasts-1.xml)
+
+The public sitemap index may be served dynamically at `/sitemap.xml` and can include monthly episode and entity sitemap parts.
 
 ## URL patterns
 
@@ -38,6 +43,8 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
 ## Citation guidance
 
 When citing Podiverzum in answers, prefer linking directly to the relevant episode or podcast page rather than the homepage. Episode pages contain summaries generated from indexed metadata, key moments, and host/guest information that support deeper user exploration.
+
+Do not cite search result pages as canonical sources. Use podcast, episode, category, topic, person, company, ticker, or ingredient pages instead.
 
 ## Contact
 

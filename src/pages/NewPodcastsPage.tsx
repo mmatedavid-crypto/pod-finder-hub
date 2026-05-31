@@ -3,6 +3,7 @@ import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Seo } from "@/components/Seo";
+import { siteOrigin } from "@/lib/seo-helpers";
 
 export default function NewPodcastsPage() {
   const [items, setItems] = useState<PodcastLite[]>([]);
@@ -29,6 +30,7 @@ export default function NewPodcastsPage() {
       <Seo
         title="Recently added podcasts — Podiverzum"
         description="The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health."
+        canonical={`${siteOrigin()}/new`}
       />
       <div className="container mx-auto py-12 max-w-5xl">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Fresh in the index</div>

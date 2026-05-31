@@ -57,17 +57,30 @@ const BOT_UAS = [
   "embedly",
   "pinterest",
   "redditbot",
+  "instagram",
+  "iframely",
+  "skypeuripreview",
+  "viber",
+  "snapchat",
+  "tumblr",
+  "vkshare",
+  "applebot",
+  "google-pagerenderer",
 ];
+
+const GENERIC_BOT_RE =
+  /(bot|crawler|spider|crawl|preview|fetch|httpclient|http-client|python-requests|libwww|wget|curl|go-http|java\/|okhttp|axios|node-fetch|undici|ruby|httpie|scrapy|headlesschrome|phantomjs|puppeteer|playwright)/i;
 
 function isBot(ua) {
   if (!ua) return false;
   const s = ua.toLowerCase();
-  return BOT_UAS.some((b) => s.includes(b));
+  return BOT_UAS.some((b) => s.includes(b)) || GENERIC_BOT_RE.test(s);
 }
 
 // Routes we know how to prerender. Anything else falls back to origin.
 function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
+  if (/^\/(categories|topics|people|companies|daily|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname)) return true;
   // /podcast/:slug  or  /podcast/:slug/:episode
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/category\/[^/]+\/?$/.test(pathname)) return true;
@@ -93,11 +106,13 @@ export default {
 
     // Block requests with no/empty User-Agent — real browsers and legit bots
     // always send one. Empty UA = scraper / direct API hit. Allow /sitemap.xml
-    // and robots.txt because some fetchers omit UA on those.
+    // robots.txt, llms.txt, and feed.xml because some fetchers omit UA on those.
     if (
       !ua.trim() &&
       url.pathname !== "/sitemap.xml" &&
-      url.pathname !== "/robots.txt"
+      url.pathname !== "/robots.txt" &&
+      url.pathname !== "/llms.txt" &&
+      url.pathname !== "/feed.xml"
     ) {
       return new Response("Forbidden", {
         status: 403,
@@ -136,6 +151,7 @@ export default {
           "Cache-Control": "public, max-age=3600",
           "X-Robots-Tag": "noindex, follow",
           "X-Noindex": "search-bot-stub",
+          "X-AI-Agent-Friendly": "1",
         },
       });
     }
@@ -157,6 +173,7 @@ export default {
               "Content-Type": "application/xml; charset=utf-8",
               "Cache-Control": "public, max-age=3600",
               "X-Sitemap-Source": "edge-fn",
+              "X-AI-Agent-Friendly": "1",
             },
           });
         }
@@ -216,6 +233,8 @@ export default {
       "Cache-Control": "public, max-age=86400",
       "X-Prerender-Cache": "MISS",
       "X-Prerender-UA": ua.slice(0, 80),
+      "X-AI-Agent-Friendly": "1",
+      "Link": `<https://podiverzum.com/llms.txt>; rel="alternate"; type="text/plain"`,
     });
     resp = new Response(body, { status: upstream.status, headers });
 

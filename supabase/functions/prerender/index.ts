@@ -5,6 +5,8 @@
 //
 // Routes handled:
 //   /                              → home (top S/A podcasts)
+//   /categories, /topics, /people, /companies, /daily, /new
+//   /about, /methodology, /contact, /privacy, /terms
 //   /podcast/:slug                 → PodcastSeries + episode list
 //   /podcast/:slug/:episode        → PodcastEpisode
 //   /category/:slug                → CollectionPage + podcast list
@@ -21,6 +23,8 @@ const baseHeaders: Record<string, string> = {
   "Cache-Control": "public, max-age=600, s-maxage=86400",
   "Access-Control-Allow-Origin": "*",
   "X-Prerendered": "1",
+  "X-AI-Agent-Friendly": "1",
+  "Link": `<${SITE}/llms.txt>; rel="alternate"; type="text/plain"`,
   "Vary": "User-Agent",
 };
 
@@ -45,6 +49,8 @@ function htmlResponse(body: string, status = 200) {
   h.set("Cache-Control", "public, max-age=600, s-maxage=86400");
   h.set("Access-Control-Allow-Origin", "*");
   h.set("X-Prerendered", "1");
+  h.set("X-AI-Agent-Friendly", "1");
+  h.set("Link", `<${SITE}/llms.txt>; rel="alternate"; type="text/plain"`);
   h.set("Vary", "User-Agent");
   return new Response(body, { status, headers: h });
 }
@@ -70,8 +76,11 @@ function shell(opts: {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(opts.title)}</title>
 <meta name="description" content="${esc(opts.description)}" />
-${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
+<meta name="robots" content="${opts.noindex ? "noindex, follow" : "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"}" />
 <link rel="canonical" href="${esc(opts.canonical)}" />
+<link rel="sitemap" type="application/xml" href="${SITE}/sitemap.xml" />
+<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="LLMs.txt" />
+<link rel="alternate" type="application/rss+xml" href="${SITE}/feed.xml" title="Podiverzum recent episodes" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
@@ -159,6 +168,184 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     })),
     { headers: new Headers(baseHeaders) },
   );
+}
+
+async function buildCorePage(supabase: ReturnType<typeof createClient>, path: string) {
+  const canonical = `${SITE}${path}`;
+
+  if (path === "/categories") {
+    const { data } = await supabase.from("categories").select("name,slug,description").order("sort_order");
+    const cats = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = cats
+      .map((c) => `<li><a href="${SITE}/category/${esc(c.slug)}"><strong>${esc(c.name)}</strong></a>${c.description ? `<p>${esc(stripHtml(c.description))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Podcast categories — Podiverzum",
+      description: "Browse podcast episodes by category, ranked by relevance, freshness and source quality.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Podcast categories",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Podcast categories</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/topics") {
+    const { data } = await supabase
+      .from("topic_hubs")
+      .select("slug,title,description,category")
+      .eq("active", true)
+      .order("sort_order")
+      .limit(200);
+    const hubs = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = hubs
+      .map((h) => `<li><a href="${SITE}/topic/${esc(h.slug)}"><strong>${esc(h.title)}</strong></a>${h.description ? `<p>${esc(stripHtml(h.description))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Topic hubs — Podiverzum",
+      description: "Curated podcast topic hubs covering the conversations shaping the world.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Topic hubs on Podiverzum",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Topic hubs</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/people" || path === "/companies") {
+    const kind = path === "/people" ? "person" : "company";
+    const route = path === "/people" ? "person" : "company";
+    const label = path === "/people" ? "People" : "Companies";
+    const { data } = await supabase
+      .from("entity_profiles")
+      .select("slug,display_name,bio,appearance_stats")
+      .eq("kind", kind)
+      .order("display_name")
+      .limit(300);
+    const rows = ((data ?? []) as Array<Record<string, any>>)
+      .sort((a, b) => Number(b.appearance_stats?.total || 0) - Number(a.appearance_stats?.total || 0));
+    const itemsHtml = rows
+      .slice(0, 200)
+      .map((r) => `<li><a href="${SITE}/${route}/${esc(r.slug)}"><strong>${esc(r.display_name)}</strong></a>${r.bio ? `<p>${esc(truncate(stripHtml(r.bio), 180))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: `${label} — Podiverzum`,
+      description: `Browse ${label.toLowerCase()} indexed across thousands of podcast episodes.`,
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: `${label} on Podiverzum`,
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>${label}</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/new") {
+    const { data } = await supabase
+      .from("podcasts")
+      .select("title,display_title,slug,summary,description,created_at,language,rss_status,rank_label")
+      .not("rss_status", "in", "(failed,inactive)")
+      .not("rank_label", "eq", "E")
+      .or("language.is.null,language.ilike.en%")
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(80);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = rows
+      .map((p) => `<li><a href="${SITE}/podcast/${esc(p.slug)}"><strong>${esc(p.display_title || p.title)}</strong></a>${p.summary || p.description ? `<p>${esc(truncate(stripHtml(p.summary || p.description), 180))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Recently added podcasts — Podiverzum",
+      description: "The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Recently added podcasts",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Recently added podcasts</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/daily") {
+    const since = new Date(Date.now() - 72 * 3600_000).toISOString();
+    const { data } = await supabase
+      .from("episodes")
+      .select("title,display_title,slug,ai_summary,summary,published_at,podcasts!inner(slug,title,display_title,language,rss_status,rank_label)")
+      .gte("published_at", since)
+      .in("podcasts.rank_label", ["S", "A", "B"])
+      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
+      .not("podcasts.rss_status", "in", "(failed,inactive)")
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(80);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = rows
+      .map((e) => `<li><a href="${SITE}/podcast/${esc(e.podcasts.slug)}/${esc(e.slug)}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcasts.display_title || e.podcasts.title)}</em>${e.ai_summary || e.summary ? `<p>${esc(truncate(stripHtml(e.ai_summary || e.summary), 180))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Daily brief — fresh podcast episodes | Podiverzum",
+      description: "A short daily roundup of notable episodes across the index.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Daily podcast brief",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Daily brief</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  const staticPages: Record<string, { title: string; description: string; body: string; noindex?: boolean }> = {
+    "/about": {
+      title: "About — Podiverzum",
+      description: "Podiverzum is a podcast discovery platform built around what episodes actually discuss.",
+      body: "<main><h1>About Podiverzum</h1><p>Podiverzum helps listeners find podcast episodes by topic, person, company, ticker, or idea.</p></main>",
+    },
+    "/methodology": {
+      title: "Methodology — Podiverzum",
+      description: "How Podiverzum ranks, enriches, and organizes podcast episodes.",
+      body: "<main><h1>Methodology</h1><p>Podiverzum ranks episodes using relevance, freshness, feed health, source quality, and structured metadata.</p></main>",
+    },
+    "/contact": {
+      title: "Contact — Podiverzum",
+      description: "Contact Podiverzum.",
+      body: "<main><h1>Contact</h1><p>Use the in-app feedback button to reach Podiverzum.</p></main>",
+    },
+    "/privacy": {
+      title: "Privacy — Podiverzum",
+      description: "Podiverzum privacy information.",
+      body: "<main><h1>Privacy</h1><p>Privacy information for Podiverzum.</p></main>",
+    },
+    "/terms": {
+      title: "Terms — Podiverzum",
+      description: "Podiverzum terms of use.",
+      body: "<main><h1>Terms</h1><p>Terms of use for Podiverzum.</p></main>",
+    },
+  };
+  const page = staticPages[path];
+  if (!page) return null;
+  return htmlResponse(shell({
+    title: page.title,
+    description: page.description,
+    canonical,
+    jsonLd: [{
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: page.title,
+      url: canonical,
+    }],
+    bodyHtml: page.body,
+    noindex: page.noindex,
+  }));
 }
 
 async function buildPodcast(
@@ -541,6 +728,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
     if (path === "/") return await buildHome(supabase);
+    const core = await buildCorePage(supabase, path);
+    if (core) return core;
 
     const parts = path.split("/").filter(Boolean);
 
