@@ -5,7 +5,7 @@
 //
 // Routes handled:
 //   /                              → home (top S/A podcasts)
-//   /categories, /topics, /people, /companies, /daily, /new
+//   /categories, /topics, /people, /companies, /daily, /toplist, /new
 //   /about, /methodology, /contact, /privacy, /terms
 //   /podcast/:slug                 → PodcastSeries + episode list
 //   /podcast/:slug/:episode        → PodcastEpisode
@@ -301,6 +301,41 @@ async function buildCorePage(supabase: ReturnType<typeof createClient>, path: st
         url: canonical,
       }],
       bodyHtml: `<main><h1>Daily brief</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/toplist" || path === "/rankings") {
+    const { data } = await (supabase as any).rpc("get_trending_podcasts", { p_limit: 100, p_country: "us" });
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = rows
+      .map((p, i) => {
+        const sources = Array.isArray(p.sources)
+          ? p.sources.map((s: any) => `${s.source} #${s.rank}`).join(", ")
+          : "";
+        return `<li><a href="${SITE}/podcast/${esc(p.slug)}"><strong>${i + 1}. ${esc(p.display_title || p.title)}</strong></a><p>Score ${Number(p.trending_score || 0).toFixed(3)}${sources ? `; ${esc(sources)}` : ""}</p></li>`;
+      })
+      .join("");
+    return htmlResponse(shell({
+      title: "Podcast toplist - reciprocal-rank fusion | Podiverzum",
+      description: "A cross-platform podcast toplist built from Apple, Spotify and YouTube chart signals using reciprocal-rank fusion.",
+      canonical: `${SITE}/toplist`,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Podiverzum podcast toplist",
+        url: `${SITE}/toplist`,
+        description: "Cross-platform podcast ranking using reciprocal-rank fusion.",
+      }, {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        itemListElement: rows.slice(0, 50).map((p, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${SITE}/podcast/${p.slug}`,
+          name: p.display_title || p.title,
+        })),
+      }],
+      bodyHtml: `<main><h1>Podcast toplist</h1><p>score = sum(1 / rank) across Apple, Spotify and YouTube chart signals.</p><ol>${itemsHtml}</ol></main>`,
     }));
   }
 

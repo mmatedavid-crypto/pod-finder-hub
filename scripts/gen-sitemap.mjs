@@ -24,6 +24,7 @@ const pages = [
   tag(`${SITE}/people`, now, 'daily', '0.8'),
   tag(`${SITE}/companies`, now, 'daily', '0.8'),
   tag(`${SITE}/daily`, now, 'daily', '0.7'),
+  tag(`${SITE}/toplist`, now, 'daily', '0.7'),
   tag(`${SITE}/new`, now, 'daily', '0.6'),
   tag(`${SITE}/about`, now, 'monthly', '0.4'),
   tag(`${SITE}/methodology`, now, 'monthly', '0.4'),

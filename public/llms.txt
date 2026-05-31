@@ -21,6 +21,7 @@ AI agents and search crawlers can read the public HTML directly. Important publi
 - [Search](https://podiverzum.com/search): Full-text + entity search across episodes and podcasts
 - [Categories](https://podiverzum.com/categories): Browse by topic (business, tech, news, science, health, etc.)
 - [Daily Brief](https://podiverzum.com/daily): Fresh episode roundup from the index
+- [Podcast Toplist](https://podiverzum.com/toplist): Cross-platform chart using reciprocal-rank fusion from Apple, Spotify and YouTube signals
 - [New podcasts](https://podiverzum.com/new): Recently added shows
 - [About](https://podiverzum.com/about): What Podiverzum is and who it's for
 - [Methodology](https://podiverzum.com/methodology): How podcasts are ranked and enriched
@@ -38,6 +39,7 @@ The public sitemap index may be served dynamically at `/sitemap.xml` and can inc
 - Podcast page: `https://podiverzum.com/podcast/{slug}`
 - Episode page: `https://podiverzum.com/podcast/{podcast-slug}/{episode-slug}`
 - Category: `https://podiverzum.com/category/{slug}`
+- Toplist: `https://podiverzum.com/toplist`
 - Entity hub: `https://podiverzum.com/{topic|person|company|ticker|ingredient}/{slug}`
 
 ## Citation guidance

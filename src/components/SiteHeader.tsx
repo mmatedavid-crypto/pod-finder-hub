@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder, Building2 } from "lucide-react";
+import { Search, Menu, Mic, User, Hash, Folder, Building2, BarChart3 } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,6 +75,8 @@ export function SiteHeader() {
         <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
           <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
+          <NavLink to="/toplist" className={linkCls}>Toplist</NavLink>
+          <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/topics" className={linkCls}>Topics</NavLink>
           <span aria-hidden className="h-4 w-px bg-border/50" />
           <NavLink to="/people" className={linkCls}>People</NavLink>
@@ -86,11 +88,11 @@ export function SiteHeader() {
 
         {isHome && (
           <NavLink
-            to="/categories"
+            to="/toplist"
             className="ml-auto hidden lg:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <LayoutGrid className="h-4 w-4" />
-            Categories
+            <BarChart3 className="h-4 w-4" />
+            Toplist
           </NavLink>
         )}
 
@@ -206,6 +208,7 @@ export function SiteHeader() {
               <nav className="flex flex-col gap-0.5">
                 {[
                   { to: "/daily", label: "Daily Brief" },
+                  { to: "/toplist", label: "Toplist" },
                   { to: "/categories", label: "Categories" },
                   { to: "/topics", label: "Topics" },
                   { to: "/people", label: "People" },

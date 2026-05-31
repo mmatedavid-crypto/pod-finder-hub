@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
 import { HomeTopicsSection } from "@/components/HomeTopicsSection";
+import { ToplistPreview } from "@/components/ToplistPreview";
 import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
 const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
@@ -408,6 +409,13 @@ const Index = () => {
               700,000+ indexed episodes
             </span>
             <Link
+              to="/toplist"
+              className="group inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cross-platform toplist
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <Link
               to="/topics"
               className="group inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
             >
@@ -423,6 +431,7 @@ const Index = () => {
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <ContinueListening />
+        <ToplistPreview />
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />

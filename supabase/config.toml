@@ -106,6 +106,9 @@ verify_jwt = false
 [functions.categorize-podcast-runner]
 verify_jwt = false
 
+[functions.chart-fetcher]
+verify_jwt = false
+
 [functions.x-metrics-fetch]
 verify_jwt = false
 

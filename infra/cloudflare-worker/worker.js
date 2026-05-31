@@ -80,7 +80,7 @@ function isBot(ua) {
 // Routes we know how to prerender. Anything else falls back to origin.
 function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
-  if (/^\/(categories|topics|people|companies|daily|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname)) return true;
+  if (/^\/(categories|topics|people|companies|daily|toplist|rankings|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname)) return true;
   // /podcast/:slug  or  /podcast/:slug/:episode
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/category\/[^/]+\/?$/.test(pathname)) return true;
