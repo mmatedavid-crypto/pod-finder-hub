@@ -1,0 +1,2669 @@
+From 7e445daba5da0c81b2b0aa766e8f798a20257440 Mon Sep 17 00:00:00 2001
+From: mmatedavid-crypto <m.mate.david@gmail.com>
+Date: Sun, 31 May 2026 22:02:13 +0200
+Subject: [PATCH] Polish com SEO, HTML, and discovery UI
+
+---
+ README.md                                     |  56 ++--
+ index.html                                    |  19 +-
+ infra/cloudflare-worker/worker.js             |  25 +-
+ public/llms.txt                               |   9 +-
+ public/robots.txt                             |   2 +-
+ public/sitemaps/pages.xml                     |  11 +-
+ scripts/gen-sitemap.mjs                       |  60 ++++-
+ src/components/Brand.tsx                      |  19 +-
+ src/components/EpisodeCard.tsx                |  44 +++-
+ src/components/HomeTopicsSection.tsx          |  84 ++++++
+ src/components/Seo.tsx                        |   2 +-
+ src/components/SiteHeader.tsx                 | 238 ++++++++++++++---
+ .../smart-player/EpisodeAudioPlayer.tsx       |  23 +-
+ .../smart-player/ShareMomentCard.tsx          |  62 +++++
+ .../smart-player/SmartDiscoveryPanel.tsx      | 173 ++++++++++++
+ .../smart-player/SmartPlayerBar.tsx           |  53 +++-
+ src/lib/playerLocale.ts                       |  32 +--
+ src/lib/useSearchGhost.ts                     |  65 +++++
+ src/pages/AdminDiscoveryPage.tsx              |  13 +-
+ src/pages/CategoriesPage.tsx                  |  34 ++-
+ src/pages/CategoryDetail.tsx                  | 173 ++++++------
+ src/pages/DailyBriefPage.tsx                  |   2 +
+ src/pages/Index.tsx                           | 246 ++++++++++++------
+ src/pages/NewPodcastsPage.tsx                 |   2 +
+ src/pages/SearchPage.tsx                      |   4 +-
+ supabase/functions/cf-worker-deploy/index.ts  |   2 +-
+ supabase/functions/prerender/index.ts         | 191 +++++++++++++-
+ .../functions/search-autocomplete/index.ts    | 173 ++++++++++++
+ supabase/functions/sitemap/index.ts           |  12 +-
+ 29 files changed, 1531 insertions(+), 298 deletions(-)
+ create mode 100644 src/components/HomeTopicsSection.tsx
+ create mode 100644 src/components/smart-player/ShareMomentCard.tsx
+ create mode 100644 src/components/smart-player/SmartDiscoveryPanel.tsx
+ create mode 100644 src/lib/useSearchGhost.ts
+ create mode 100644 supabase/functions/search-autocomplete/index.ts
+
+diff --git a/README.md b/README.md
+index d6ac663..b961c45 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+-# Podiox
++# Podiverzum.com
+ 
+-Minimal English-language podcast discovery and search.
++English-language podcast discovery and episode search for Podiverzum.com.
+ 
+ ## Stack
+ - **Frontend:** React 18 + Vite + Tailwind + React Router
+@@ -9,39 +9,53 @@ Minimal English-language podcast discovery and search.
+ - **RSS:** parsed server-side in the `fetch-rss` edge function
+ 
+ ## Features
+-- Homepage with category sections, top 7–10 podcasts each
+-- Categories index + per-category page (top podcasts, latest episodes, popular topics)
+-- Podcast detail (links to Apple / Spotify / YouTube / Website + AI summary + episodes)
+-- Episode detail (AI summary + extracted topics, people, companies, tickers, ingredients)
+-- Search bar with `+` syntax: `cooking + asparagus`, `stocks + Occidental`, `AI + healthcare`
+-- Admin page: add podcast, fetch RSS, generate AI summary, mark featured
++- English-only public experience on `podiverzum.com`
++- Homepage with recent, evergreen, category, mood, and source-quality sections
++- Hybrid search across episodes and podcasts by topic, person, company, ticker, or idea
++- Podcast detail pages with platform links, feed health, summaries, entities, and episodes
++- Episode detail pages with summaries, extracted entities, key moments, audio, and related episodes
++- Topic, person, company, ticker, and ingredient hubs
++- SEO infrastructure: canonical URLs, sitemap generation, robots.txt, llms.txt, OG images
++- Admin and pipeline tools for growth, indexing, enrichment, analytics, and queue health
+ 
+ ## Setup
+ 
+ ### 1. Backend (already provisioned)
+-Lovable Cloud is already enabled. The schema (categories, podcasts, episodes, search_synonyms, user_roles) is migrated and seeded with 12 categories and 12 popular podcasts.
++Lovable Cloud is already enabled. The schema is managed by the migrations under `supabase/migrations`, and server-side work runs through Supabase Edge Functions under `supabase/functions`.
+ 
+ ### 2. Make yourself admin
+ 1. Go to `/auth` in the app, sign up with email + password.
+ 2. Open Lovable Cloud → Users, copy your User ID.
+-3. Run this SQL in Cloud → SQL editor (the `/admin` page also shows the snippet):
++3. Run this SQL in Cloud → SQL editor:
+    ```sql
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES ('<your-user-id>', 'admin');
+    ```
+-4. Refresh `/admin`.
++4. Refresh the relevant admin page.
+ 
+-### 3. Populate episodes
+-For each seeded podcast in `/admin`:
+-- Click **Fetch RSS** → pulls latest 25 episodes.
+-- Click **AI summary** → generates podcast summary.
+-- Click **AI enrich eps** → generates per-episode summaries + topics/people/companies/tickers.
++### 3. Local development
++Install dependencies and start Vite:
++
++```bash
++npm install
++npm run dev
++```
++
++Run checks:
++
++```bash
++npm run lint
++npm run test
++npm run build
++```
+ 
+ ### 4. Deploy
+ Click **Publish** in the top-right of the Lovable editor — your app goes live at a `.lovable.app` URL.
+-You can then attach `podiox.com` via Project Settings → Domains.
++Attach `podiverzum.com` via Project Settings → Domains.
++
++## Product Boundary
++This branch is the `.com` product and should remain English-first:
+ 
+-## Roadmap (not in MVP)
+-- Audio transcription
+-- Spotify audio download
+-- User accounts / comments / payments
++- UI copy, SEO metadata, search examples, and public-facing generated text should be English.
++- Search calls from the public app should use the English language pool (`lang: "en"` or equivalent filters).
++- Hungarian UI/copy belongs in the `.hu` product and should not be copied here without adapting it to English.
+diff --git a/index.html b/index.html
+index 0e1df65..0a94945 100644
+--- a/index.html
++++ b/index.html
+@@ -5,11 +5,15 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Podiverzum — Find it. Hear it.</title>
+     <meta name="description" content="Search podcast episodes by what they actually discuss. People, companies, markets, technologies and ideas — and the conversations worth hearing." />
++    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+     <meta name="author" content="Podiverzum" />
+     <meta name="msvalidate.01" content="F326C7A656BA08CDB600E7DDF280E128" />
+     <meta name="google-site-verification" content="Ef-OFwqPFRGCiJ2riaIrhCIzI6kHafDcPBiL3XmPwZM" />
+ 
+     <link rel="canonical" href="https://podiverzum.com/" />
++    <link rel="sitemap" type="application/xml" href="https://podiverzum.com/sitemap.xml" />
++    <link rel="alternate" type="text/plain" href="https://podiverzum.com/llms.txt" title="LLMs.txt" />
++    <link rel="alternate" type="application/rss+xml" href="https://podiverzum.com/feed.xml" title="Podiverzum recent episodes" />
+ 
+ 
+     <link rel="icon" href="/favicon.ico" sizes="any" />
+@@ -67,7 +71,20 @@
+   </head>
+ 
+   <body>
+-    <div id="root"></div>
++    <div id="root">
++      <main>
++        <h1>Podiverzum</h1>
++        <p>Search podcast episodes by what they actually discuss: topics, people, companies, tickers, technologies and ideas.</p>
++        <nav aria-label="Primary">
++          <a href="/search">Search</a>
++          <a href="/categories">Categories</a>
++          <a href="/topics">Topics</a>
++          <a href="/daily">Daily Brief</a>
++          <a href="/new">New podcasts</a>
++          <a href="/about">About</a>
++        </nav>
++      </main>
++    </div>
+     <script type="module" src="/src/main.tsx"></script>
+   </body>
+ </html>
+diff --git a/infra/cloudflare-worker/worker.js b/infra/cloudflare-worker/worker.js
+index d0a3d53..a1ef7fb 100644
+--- a/infra/cloudflare-worker/worker.js
++++ b/infra/cloudflare-worker/worker.js
+@@ -57,17 +57,30 @@ const BOT_UAS = [
+   "embedly",
+   "pinterest",
+   "redditbot",
++  "instagram",
++  "iframely",
++  "skypeuripreview",
++  "viber",
++  "snapchat",
++  "tumblr",
++  "vkshare",
++  "applebot",
++  "google-pagerenderer",
+ ];
+ 
++const GENERIC_BOT_RE =
++  /(bot|crawler|spider|crawl|preview|fetch|httpclient|http-client|python-requests|libwww|wget|curl|go-http|java\/|okhttp|axios|node-fetch|undici|ruby|httpie|scrapy|headlesschrome|phantomjs|puppeteer|playwright)/i;
++
+ function isBot(ua) {
+   if (!ua) return false;
+   const s = ua.toLowerCase();
+-  return BOT_UAS.some((b) => s.includes(b));
++  return BOT_UAS.some((b) => s.includes(b)) || GENERIC_BOT_RE.test(s);
+ }
+ 
+ // Routes we know how to prerender. Anything else falls back to origin.
+ function shouldPrerender(pathname) {
+   if (pathname === "/" || pathname === "") return true;
++  if (/^\/(categories|topics|people|companies|daily|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname)) return true;
+   // /podcast/:slug  or  /podcast/:slug/:episode
+   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
+   if (/^\/category\/[^/]+\/?$/.test(pathname)) return true;
+@@ -93,11 +106,13 @@ export default {
+ 
+     // Block requests with no/empty User-Agent — real browsers and legit bots
+     // always send one. Empty UA = scraper / direct API hit. Allow /sitemap.xml
+-    // and robots.txt because some fetchers omit UA on those.
++    // robots.txt, llms.txt, and feed.xml because some fetchers omit UA on those.
+     if (
+       !ua.trim() &&
+       url.pathname !== "/sitemap.xml" &&
+-      url.pathname !== "/robots.txt"
++      url.pathname !== "/robots.txt" &&
++      url.pathname !== "/llms.txt" &&
++      url.pathname !== "/feed.xml"
+     ) {
+       return new Response("Forbidden", {
+         status: 403,
+@@ -136,6 +151,7 @@ export default {
+           "Cache-Control": "public, max-age=3600",
+           "X-Robots-Tag": "noindex, follow",
+           "X-Noindex": "search-bot-stub",
++          "X-AI-Agent-Friendly": "1",
+         },
+       });
+     }
+@@ -157,6 +173,7 @@ export default {
+               "Content-Type": "application/xml; charset=utf-8",
+               "Cache-Control": "public, max-age=3600",
+               "X-Sitemap-Source": "edge-fn",
++              "X-AI-Agent-Friendly": "1",
+             },
+           });
+         }
+@@ -216,6 +233,8 @@ export default {
+       "Cache-Control": "public, max-age=86400",
+       "X-Prerender-Cache": "MISS",
+       "X-Prerender-UA": ua.slice(0, 80),
++      "X-AI-Agent-Friendly": "1",
++      "Link": `<https://podiverzum.com/llms.txt>; rel="alternate"; type="text/plain"`,
+     });
+     resp = new Response(body, { status: upstream.status, headers });
+ 
+diff --git a/public/llms.txt b/public/llms.txt
+index f001d85..442bd51 100644
+--- a/public/llms.txt
++++ b/public/llms.txt
+@@ -4,6 +4,8 @@
+ 
+ Podiverzum indexes English-language podcasts and extracts structured metadata (topics, named entities, key moments, summaries) from episodes. The result is a search engine that answers "which episode discusses X?" instead of just matching show titles.
+ 
++AI agents and search crawlers can read the public HTML directly. Important public pages are prerendered for bot user agents and include visible text, canonical URLs, meta descriptions, Open Graph tags, and JSON-LD where applicable.
++
+ ## Key facts
+ 
+ - Thousands of active podcasts, more than 700,000 episodes indexed
+@@ -18,7 +20,8 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
+ - [Homepage](https://podiverzum.com/): Trending + evergreen episode picks across categories
+ - [Search](https://podiverzum.com/search): Full-text + entity search across episodes and podcasts
+ - [Categories](https://podiverzum.com/categories): Browse by topic (business, tech, news, science, health, etc.)
+-- [New podcasts](https://podiverzum.com/new-podcasts): Recently added shows
++- [Daily Brief](https://podiverzum.com/daily): Fresh episode roundup from the index
++- [New podcasts](https://podiverzum.com/new): Recently added shows
+ - [About](https://podiverzum.com/about): What Podiverzum is and who it's for
+ - [Methodology](https://podiverzum.com/methodology): How podcasts are ranked and enriched
+ 
+@@ -28,6 +31,8 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
+ - [Pages sitemap](https://podiverzum.com/sitemaps/pages.xml)
+ - [Podcasts sitemap](https://podiverzum.com/sitemaps/podcasts-1.xml)
+ 
++The public sitemap index may be served dynamically at `/sitemap.xml` and can include monthly episode and entity sitemap parts.
++
+ ## URL patterns
+ 
+ - Podcast page: `https://podiverzum.com/podcast/{slug}`
+@@ -39,6 +44,8 @@ Podiverzum indexes English-language podcasts and extracts structured metadata (t
+ 
+ When citing Podiverzum in answers, prefer linking directly to the relevant episode or podcast page rather than the homepage. Episode pages contain summaries generated from indexed metadata, key moments, and host/guest information that support deeper user exploration.
+ 
++Do not cite search result pages as canonical sources. Use podcast, episode, category, topic, person, company, ticker, or ingredient pages instead.
++
+ ## Contact
+ 
+ Site: https://podiverzum.com
+diff --git a/public/robots.txt b/public/robots.txt
+index e32bc30..e8e3b11 100644
+--- a/public/robots.txt
++++ b/public/robots.txt
+@@ -64,7 +64,7 @@ Disallow: /growth-status
+ # which is what was causing the "Blocked by robots.txt" category in GSC.
+ 
+ Sitemap: https://podiverzum.com/sitemap.xml
++LLMs: https://podiverzum.com/llms.txt
+ 
+ # RSS feed of recent episodes
+ # https://podiverzum.com/feed.xml
+-
+diff --git a/public/sitemaps/pages.xml b/public/sitemaps/pages.xml
+index fc0ac32..9d33692 100644
+--- a/public/sitemaps/pages.xml
++++ b/public/sitemaps/pages.xml
+@@ -1,12 +1,17 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+ <url><loc>https://podiverzum.com/</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>
+-<url><loc>https://podiverzum.com/search</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>weekly</changefreq><priority>0.5</priority></url>
+ <url><loc>https://podiverzum.com/categories</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
++<url><loc>https://podiverzum.com/topics</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
++<url><loc>https://podiverzum.com/people</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
++<url><loc>https://podiverzum.com/companies</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
++<url><loc>https://podiverzum.com/daily</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
++<url><loc>https://podiverzum.com/new</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>daily</changefreq><priority>0.6</priority></url>
+ <url><loc>https://podiverzum.com/about</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>monthly</changefreq><priority>0.4</priority></url>
+ <url><loc>https://podiverzum.com/methodology</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>monthly</changefreq><priority>0.4</priority></url>
+-<url><loc>https://podiverzum.com/new-podcasts</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>daily</changefreq><priority>0.6</priority></url>
+-<url><loc>https://podiverzum.com/people</loc><lastmod>2026-05-28T12:40:57.565Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
++<url><loc>https://podiverzum.com/contact</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>
++<url><loc>https://podiverzum.com/privacy</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
++<url><loc>https://podiverzum.com/terms</loc><lastmod>2026-05-31T00:00:00.000Z</lastmod><changefreq>yearly</changefreq><priority>0.2</priority></url>
+ <url><loc>https://podiverzum.com/category/arts</loc><lastmod>2026-05-11T17:03:44.230Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
+ <url><loc>https://podiverzum.com/category/books-literature</loc><lastmod>2026-05-11T17:03:44.230Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
+ <url><loc>https://podiverzum.com/category/business</loc><lastmod>2026-05-05T19:01:40.065Z</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
+diff --git a/scripts/gen-sitemap.mjs b/scripts/gen-sitemap.mjs
+index f0f73c3..166cc75 100644
+--- a/scripts/gen-sitemap.mjs
++++ b/scripts/gen-sitemap.mjs
+@@ -4,23 +4,34 @@ import fs from 'fs';
+ const SITE = 'https://podiverzum.com';
+ const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+ 
+-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
++const esc = s => String(s)
++  .replace(/&/g,'&amp;').replace(/</g,'&lt;')
++  .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+ const tag = (loc, lastmod, cf='daily', pr='0.6') =>
+   `<url><loc>${loc}</loc>${lastmod?`<lastmod>${new Date(lastmod).toISOString()}</lastmod>`:''}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`;
+ const wrap = urls => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+ 
++fs.mkdirSync('public/sitemaps', { recursive: true });
++
+ // ---- pages.xml (static + categories) ----
+-const { data: cats } = await sb.from('categories').select('slug,created_at').order('slug');
++const { data: cats = [] } = await sb.from('categories').select('slug,created_at').order('slug');
++const { data: hubs } = await sb.from('topic_hubs').select('slug,updated_at,generated_at').eq('active', true).order('sort_order');
+ const now = new Date().toISOString();
+ const pages = [
+   tag(`${SITE}/`, now, 'daily', '1.0'),
+-  tag(`${SITE}/search`, now, 'weekly', '0.5'),
+   tag(`${SITE}/categories`, now, 'daily', '0.7'),
++  tag(`${SITE}/topics`, now, 'daily', '0.8'),
++  tag(`${SITE}/people`, now, 'daily', '0.8'),
++  tag(`${SITE}/companies`, now, 'daily', '0.8'),
++  tag(`${SITE}/daily`, now, 'daily', '0.7'),
++  tag(`${SITE}/new`, now, 'daily', '0.6'),
+   tag(`${SITE}/about`, now, 'monthly', '0.4'),
+   tag(`${SITE}/methodology`, now, 'monthly', '0.4'),
+-  tag(`${SITE}/new-podcasts`, now, 'daily', '0.6'),
+-  tag(`${SITE}/people`, now, 'daily', '0.8'),
++  tag(`${SITE}/contact`, now, 'monthly', '0.3'),
++  tag(`${SITE}/privacy`, now, 'yearly', '0.2'),
++  tag(`${SITE}/terms`, now, 'yearly', '0.2'),
+   ...cats.map(c => tag(`${SITE}/category/${esc(c.slug)}`, c.created_at, 'daily', '0.8')),
++  ...(hubs || []).map(h => tag(`${SITE}/topic/${esc(h.slug)}`, [h.updated_at, h.generated_at].filter(Boolean).sort().pop(), 'weekly', '0.8')),
+ ];
+ fs.writeFileSync('public/sitemaps/pages.xml', wrap(pages));
+ console.log('pages.xml:', pages.length, 'urls');
+@@ -51,6 +62,7 @@ let from = 0, all = [];
+ while (true) {
+   const { data, error } = await sb.from('podcasts')
+     .select('slug,updated_at,ai_enriched_at,rss_status,rank_label,shadow_rank_components')
++    .or('language.is.null,language.ilike.en%')
+     .order('id').range(from, from + 999);
+   if (error) throw error;
+   if (!data?.length) break;
+@@ -78,12 +90,50 @@ for (let i = 0; i < all.length; i += CHUNK) {
+   console.log(fname + ':', Math.min(CHUNK, all.length - i), 'urls');
+ }
+ 
++// ---- episodes (EN, S/A/B, useful text only, recent crawl budget) ----
++const epUrls = [];
++from = 0;
++const SINCE = new Date(Date.now() - 180 * 86400_000).toISOString();
++while (true) {
++  const { data, error } = await sb.from('episodes')
++    .select('slug,published_at,updated_at,ai_enriched_at,ai_summary,description,podcasts!inner(slug,language,rank_label,rss_status)')
++    .gte('published_at', SINCE)
++    .or('language.is.null,language.ilike.en%', { referencedTable: 'podcasts' })
++    .in('podcasts.rank_label', ['S','A','B'])
++    .order('published_at', { ascending: false })
++    .range(from, from + 999);
++  if (error) throw error;
++  if (!data?.length) break;
++  for (const e of data) {
++    const ps = e.podcasts;
++    if (!e.slug || !ps?.slug) continue;
++    if (ps.rss_status === 'failed' || ps.rss_status === 'inactive') continue;
++    const thin = (e.ai_summary || '').length <= 80 && (e.description || '').length <= 200;
++    if (thin) continue;
++    const pr = ps.rank_label === 'S' ? '0.8' : ps.rank_label === 'A' ? '0.7' : '0.6';
++    const lm = [e.updated_at, e.ai_enriched_at, e.published_at].filter(Boolean).sort().pop();
++    epUrls.push(tag(`${SITE}/podcast/${esc(ps.slug)}/${esc(e.slug)}`, lm, 'weekly', pr));
++  }
++  if (data.length < 1000) break;
++  from += 1000;
++  if (epUrls.length >= 40000) break;
++}
++const epFiles = [];
++for (let i = 0; i < epUrls.length; i += CHUNK) {
++  const idx = Math.floor(i / CHUNK) + 1;
++  const fname = `episodes-${idx}.xml`;
++  fs.writeFileSync(`public/sitemaps/${fname}`, wrap(epUrls.slice(i, i + CHUNK)));
++  epFiles.push(fname);
++  console.log(fname + ':', Math.min(CHUNK, epUrls.length - i), 'urls');
++}
++
+ // ---- sitemap.xml (index) ----
+ const lastmod = new Date().toISOString();
+ const entries = [
+   `<sitemap><loc>${SITE}/sitemaps/pages.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
+   `<sitemap><loc>${SITE}/sitemaps/people.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`,
+   ...podFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
++  ...epFiles.map(f => `<sitemap><loc>${SITE}/sitemaps/${f}</loc><lastmod>${lastmod}</lastmod></sitemap>`),
+ ];
+ const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</sitemapindex>\n`;
+ fs.writeFileSync('public/sitemap.xml', indexXml);
+diff --git a/src/components/Brand.tsx b/src/components/Brand.tsx
+index 9582616..766bec6 100644
+--- a/src/components/Brand.tsx
++++ b/src/components/Brand.tsx
+@@ -1,4 +1,5 @@
+ import { Link } from "react-router-dom";
++const pMark = "/icon-512.png";
+ 
+ export function BrandMark({
+   size = 28,
+@@ -15,19 +16,21 @@ export function BrandMark({
+     <Link
+       to="/"
+       aria-label="Podiverzum — home"
+-      className={`group inline-flex items-center gap-2.5 cursor-pointer ${className}`}
++      className={`group inline-flex items-center gap-2.5 ${className}`}
+     >
+       <span
+         className="relative inline-flex items-center justify-center rounded-md overflow-hidden bg-black ring-1 ring-white/10 shadow-[0_0_0_1px_hsl(var(--brand-red)/0.0),0_8px_24px_-12px_hsl(var(--brand-red)/0.45)] transition-shadow group-hover:shadow-[0_0_0_1px_hsl(var(--brand-red)/0.4),0_8px_24px_-8px_hsl(var(--brand-red)/0.6)]"
+         style={{ width: size, height: size }}
+       >
+-        <span
+-          aria-hidden="true"
+-          className="font-bold leading-none text-[hsl(var(--brand-red))]"
+-          style={{ fontSize: Math.round(size * 0.66) }}
+-        >
+-          P
+-        </span>
++        <img
++          src={pMark}
++          alt=""
++          width={size}
++          height={size}
++          className="object-contain"
++          loading="eager"
++          decoding="async"
++        />
+       </span>
+       {withWordmark && (
+         <span className="leading-none">
+diff --git a/src/components/EpisodeCard.tsx b/src/components/EpisodeCard.tsx
+index 1d8ec24..dd414e0 100644
+--- a/src/components/EpisodeCard.tsx
++++ b/src/components/EpisodeCard.tsx
+@@ -171,9 +171,35 @@ export function EpisodeCard({
+ }
+ 
+ export function EpisodeList({
+-  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false, searchQuery,
+-}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; searchQuery?: string }) {
++  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false, scrollAlways = false, searchQuery,
++}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; scrollAlways?: boolean; searchQuery?: string }) {
+   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
++
++  if (scrollAlways) {
++    return (
++      <div className="-mx-4 sm:-mx-2 relative">
++        <div
++          className="flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory pl-4 sm:pl-2 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
++          style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
++        >
++          {items.map((e, idx) => (
++            <div
++              key={e.id}
++              className="snap-start shrink-0 w-[84vw] max-w-[360px] sm:w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden"
++            >
++              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
++            </div>
++          ))}
++          <div aria-hidden className="shrink-0 w-2" />
++        </div>
++        <div
++          aria-hidden
++          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
++        />
++      </div>
++    );
++  }
++
+   const desktop = (
+     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:shadow-elevated overflow-hidden -mx-4 sm:mx-0`}>
+       {items.map((e, idx) => (
+@@ -186,14 +212,22 @@ export function EpisodeList({
+   if (!scrollOnMobile) return desktop;
+   return (
+     <>
+-      <div className="sm:hidden -mx-4">
+-        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-12 pb-2 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
++      <div className="sm:hidden -mx-4 relative">
++        <div
++          className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
++          style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
++        >
+           {items.map((e, idx) => (
+-            <div key={e.id} className="snap-start shrink-0 w-[78vw] max-w-[340px] rounded-xl border border-border/70 bg-card/60 surface overflow-hidden">
++            <div key={e.id} className="snap-start shrink-0 w-[84vw] max-w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden">
+               <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
+             </div>
+           ))}
++          <div aria-hidden className="shrink-0 w-2" />
+         </div>
++        <div
++          aria-hidden
++          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
++        />
+       </div>
+       {desktop}
+     </>
+diff --git a/src/components/HomeTopicsSection.tsx b/src/components/HomeTopicsSection.tsx
+new file mode 100644
+index 0000000..a120b5b
+--- /dev/null
++++ b/src/components/HomeTopicsSection.tsx
+@@ -0,0 +1,84 @@
++import { Link } from "react-router-dom";
++import { ArrowUpRight } from "lucide-react";
++
++const PRIORITY = [
++  { slug: "artificial-intelligence", name: "Artificial intelligence" },
++  { slug: "business", name: "Business" },
++  { slug: "technology", name: "Technology" },
++  { slug: "investing", name: "Investing" },
++  { slug: "health", name: "Health" },
++  { slug: "science", name: "Science" },
++  { slug: "politics", name: "Politics" },
++  { slug: "startups", name: "Startups" },
++  { slug: "markets", name: "Markets" },
++  { slug: "psychology", name: "Psychology" },
++  { slug: "climate", name: "Climate" },
++  { slug: "history", name: "History" },
++];
++
++export function HomeTopicsSection() {
++  return (
++    <section className="relative">
++      <div
++        aria-hidden
++        className="pointer-events-none absolute inset-x-0 -top-8 h-40 opacity-60"
++        style={{ background: "var(--gradient-spot)" }}
++      />
++
++      <div className="relative space-y-6">
++        <div className="flex items-end justify-between gap-4 border-b border-border pb-5">
++          <div className="min-w-0">
++            <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-semibold">
++              Topics
++            </div>
++            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mt-2">
++              Browse by conversation
++            </h2>
++            <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
++              Jump into podcast episodes by topic, idea, industry or signal instead of starting with a show title.
++            </p>
++          </div>
++          <Link
++            to="/topics"
++            className="hidden sm:inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-foreground hover:bg-primary px-3 py-1.5 rounded-full border border-primary/40 transition-colors whitespace-nowrap"
++          >
++            All topics
++            <ArrowUpRight className="h-3.5 w-3.5" />
++          </Link>
++        </div>
++
++        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden border border-border">
++          {PRIORITY.map((t, i) => (
++            <Link
++              key={t.slug}
++              to={`/topic/${t.slug}`}
++              className={`group relative flex items-center justify-between gap-3 bg-card px-4 py-3 sm:py-4 hover:bg-secondary transition-colors ${
++                i >= 8 ? "hidden sm:flex" : ""
++              }`}
++            >
++              <div className="flex items-center gap-3 min-w-0">
++                <span className="text-[11px] tabular-nums text-muted-foreground group-hover:text-primary font-mono w-6 shrink-0">
++                  {String(i + 1).padStart(2, "0")}
++                </span>
++                <span className="font-medium text-sm sm:text-base truncate group-hover:text-foreground">
++                  {t.name}
++                </span>
++              </div>
++              <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
++              <span
++                aria-hidden
++                className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary scale-y-0 group-hover:scale-y-100 transition-transform origin-top"
++              />
++            </Link>
++          ))}
++        </div>
++
++        <div className="sm:hidden">
++          <Link to="/topics" className="inline-flex items-center gap-1.5 text-sm text-primary">
++            All topics <ArrowUpRight className="h-3.5 w-3.5" />
++          </Link>
++        </div>
++      </div>
++    </section>
++  );
++}
+diff --git a/src/components/Seo.tsx b/src/components/Seo.tsx
+index 7bcc59c..c6a7d05 100644
+--- a/src/components/Seo.tsx
++++ b/src/components/Seo.tsx
+@@ -43,7 +43,7 @@ export function Seo({
+     <Helmet>
+       <title>{t}</title>
+       {desc && <meta name="description" content={desc} />}
+-      <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow"} />
++      <meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
+       {href && <link rel="canonical" href={href} />}
+ 
+       <meta property="og:title" content={t} />
+diff --git a/src/components/SiteHeader.tsx b/src/components/SiteHeader.tsx
+index 515f79e..cafe4fa 100644
+--- a/src/components/SiteHeader.tsx
++++ b/src/components/SiteHeader.tsx
+@@ -1,10 +1,65 @@
+-import { useLocation } from "react-router-dom";
+-import { LayoutGrid } from "lucide-react";
++import { useNavigate, useLocation, NavLink } from "react-router-dom";
++import { useEffect, useRef, useState } from "react";
++import { Search, LayoutGrid, Menu, Mic, User, Hash, Folder, Building2 } from "lucide-react";
+ import { BrandMark } from "./Brand";
+-import { NavLink } from "react-router-dom";
++import { ThemeToggle } from "./ThemeToggle";
++import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
++import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
++
++type Suggestion = GhostSuggestion;
++
++const ICON: Record<Suggestion["type"], any> = {
++  podcast: Mic,
++  person: User,
++  topic: Hash,
++  category: Folder,
++  organization: Building2,
++  query: Search,
++};
+ 
+ export function SiteHeader() {
++  const [q, setQ] = useState("");
++  const [open, setOpen] = useState(false);
++  const [menuOpen, setMenuOpen] = useState(false);
++  const nav = useNavigate();
+   const isHome = useLocation().pathname === "/";
++  const wrapRef = useRef<HTMLDivElement | null>(null);
++  const inputRef = useRef<HTMLInputElement | null>(null);
++  const { suggestions, loading: loadingSugg } = useSearchSuggestions(q, 8);
++  const ghost = computeGhost(q, suggestions);
++
++  useEffect(() => {
++    const onClick = (e: MouseEvent) => {
++      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
++    };
++    document.addEventListener("mousedown", onClick);
++    return () => document.removeEventListener("mousedown", onClick);
++  }, []);
++
++  const acceptGhost = () => {
++    if (!ghost) return false;
++    const completed = q + ghost;
++    setQ(completed);
++    setOpen(true);
++    requestAnimationFrame(() => {
++      const el = inputRef.current;
++      if (el) el.setSelectionRange(completed.length, completed.length);
++    });
++    return true;
++  };
++
++  const submitQuery = (val: string) => {
++    const v = val.trim();
++    if (!v) return;
++    setOpen(false);
++    nav(`/search?q=${encodeURIComponent(v)}`);
++  };
++
++  const pickSuggestion = (s: Suggestion) => {
++    setOpen(false);
++    setQ("");
++    nav(s.href);
++  };
+ 
+   const linkCls = ({ isActive }: { isActive: boolean }) =>
+     `relative text-sm transition-colors ${
+@@ -17,7 +72,7 @@ export function SiteHeader() {
+     <header className="border-b border-border/70 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/60">
+       <div className="container mx-auto flex items-center gap-3 sm:gap-6 py-2 sm:py-3">
+         <BrandMark />
+-        <nav className="hidden sm:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
++        <nav className="hidden lg:flex items-center gap-6 ml-2 pl-6 border-l border-border/50">
+           <NavLink to="/daily" className={linkCls}>Daily Brief</NavLink>
+           <span aria-hidden className="h-4 w-px bg-border/50" />
+           <NavLink to="/topics" className={linkCls}>Topics</NavLink>
+@@ -28,38 +83,155 @@ export function SiteHeader() {
+           <span aria-hidden className="h-4 w-px bg-border/50" />
+           <NavLink to="/categories" className={linkCls}>Categories</NavLink>
+         </nav>
++
+         {isHome && (
+-          <div className="ml-auto sm:hidden flex items-center gap-2.5 text-sm font-medium">
+-            <NavLink
+-              to="/companies"
+-              className={({ isActive }) =>
+-                `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+-              }
+-            >
+-              Companies
+-            </NavLink>
+-            <span aria-hidden className="h-3 w-px bg-border" />
+-            <NavLink
+-              to="/topics"
+-              className={({ isActive }) =>
+-                `transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+-              }
++          <NavLink
++            to="/categories"
++            className="ml-auto hidden lg:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
++          >
++            <LayoutGrid className="h-4 w-4" />
++            Categories
++          </NavLink>
++        )}
++
++        <div ref={wrapRef} className={`lg:ml-auto relative w-full max-w-sm ${isHome ? "hidden" : "hidden lg:block"}`}>
++          <form
++            onSubmit={(e) => { e.preventDefault(); submitQuery(q); }}
++            className="relative focus-brand rounded-md transition-shadow bg-card border border-border focus-within:border-primary/60"
++            role="search"
++          >
++            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
++            {ghost && (
++              <div
++                aria-hidden="true"
++                className="absolute inset-0 pl-9 pr-12 py-2 text-sm whitespace-pre overflow-hidden pointer-events-none flex items-center"
++              >
++                <span className="invisible">{q}</span>
++                <span className="text-muted-foreground/50">{ghost}</span>
++              </div>
++            )}
++            <input
++              ref={inputRef}
++              value={q}
++              onChange={(e) => { setQ(e.target.value); setOpen(true); }}
++              onFocus={() => setOpen(true)}
++              onKeyDown={(e) => {
++                if (!ghost) return;
++                if (e.key === "Tab" && !e.shiftKey) {
++                  e.preventDefault();
++                  acceptGhost();
++                  return;
++                }
++                if (e.key === "ArrowRight") {
++                  const el = e.currentTarget;
++                  if (el.selectionStart === q.length && el.selectionEnd === q.length) {
++                    e.preventDefault();
++                    acceptGhost();
++                  }
++                }
++              }}
++              placeholder="Search"
++              aria-label="Search"
++              aria-autocomplete="list"
++              aria-expanded={open}
++              autoComplete="off"
++              spellCheck={false}
++              className="relative w-full pl-9 pr-12 py-2 rounded-md bg-transparent outline-none text-sm transition-colors placeholder:text-muted-foreground/70"
++            />
++            {ghost && (
++              <kbd className="hidden md:inline-flex absolute right-2 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] px-1.5 rounded border border-border bg-muted/40 text-[10px] font-medium text-muted-foreground/70 pointer-events-none z-10">
++                Tab
++              </kbd>
++            )}
++          </form>
++          {open && q.trim().length >= 2 && (suggestions.length > 0 || loadingSugg) && (
++            <div
++              role="listbox"
++              className="absolute left-0 right-0 mt-1 rounded-md border border-border bg-popover shadow-lg overflow-hidden z-40 max-h-[70vh] overflow-y-auto"
+             >
+-              Topics
+-            </NavLink>
+-            <span aria-hidden className="h-3 w-px bg-border" />
+-            <NavLink
+-              to="/categories"
+-              className={({ isActive }) =>
+-                `inline-flex items-center gap-1 transition-colors ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+-              }
++              {loadingSugg && suggestions.length === 0 && (
++                <div className="px-3 py-2 text-xs text-muted-foreground">Suggestions...</div>
++              )}
++              {suggestions.map((s, i) => {
++                const Icon = ICON[s.type] || Search;
++                return (
++                  <button
++                    key={`${s.type}:${s.label}:${i}`}
++                    type="button"
++                    role="option"
++                    onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
++                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 border-b border-border/40 last:border-b-0"
++                  >
++                    {s.image_url ? (
++                      <img
++                        src={s.image_url}
++                        alt=""
++                        loading="lazy"
++                        className="h-7 w-7 rounded object-cover bg-muted shrink-0"
++                      />
++                    ) : (
++                      <span className="h-7 w-7 rounded bg-muted/60 flex items-center justify-center shrink-0">
++                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
++                      </span>
++                    )}
++                    <span className="min-w-0 flex-1">
++                      <span className="block truncate font-medium">{s.label}</span>
++                      {s.subtitle && (
++                        <span className="block text-[11px] text-muted-foreground truncate">{s.subtitle}</span>
++                      )}
++                    </span>
++                  </button>
++                );
++              })}
++            </div>
++          )}
++        </div>
++
++        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
++          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
++            <PopoverTrigger asChild>
++              <button
++                type="button"
++                aria-label="Menu"
++                className="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition-colors"
++              >
++                <Menu className="h-4 w-4" />
++              </button>
++            </PopoverTrigger>
++            <PopoverContent
++              align="end"
++              sideOffset={8}
++              className="w-56 p-2 rounded-md border border-border bg-popover shadow-lg"
+             >
+-              <LayoutGrid className="h-3.5 w-3.5" />
+-              Categories
+-            </NavLink>
+-          </div>
+-        )}
+-        {/* Header search removed — single search lives on the home page (Ask Podiverzum) and /search. */}
++              <nav className="flex flex-col gap-0.5">
++                {[
++                  { to: "/daily", label: "Daily Brief" },
++                  { to: "/categories", label: "Categories" },
++                  { to: "/topics", label: "Topics" },
++                  { to: "/people", label: "People" },
++                  { to: "/companies", label: "Companies" },
++                  { to: "/search", label: "Search" },
++                ].map((item) => (
++                  <NavLink
++                    key={item.to}
++                    to={item.to}
++                    onClick={() => setMenuOpen(false)}
++                    className={({ isActive }) =>
++                      `px-3 py-2 rounded-md text-sm transition-colors ${
++                        isActive
++                          ? "bg-secondary text-foreground font-medium"
++                          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
++                      }`
++                    }
++                  >
++                    {item.label}
++                  </NavLink>
++                ))}
++              </nav>
++            </PopoverContent>
++          </Popover>
++          <div className="hidden md:block"><ThemeToggle /></div>
++        </div>
+       </div>
+     </header>
+   );
+diff --git a/src/components/smart-player/EpisodeAudioPlayer.tsx b/src/components/smart-player/EpisodeAudioPlayer.tsx
+index 4902629..cd5e066 100644
+--- a/src/components/smart-player/EpisodeAudioPlayer.tsx
++++ b/src/components/smart-player/EpisodeAudioPlayer.tsx
+@@ -3,6 +3,9 @@ import { PlayerProgress } from "./PlayerControls";
+ import { getProgress } from "@/lib/playerProgress";
+ import { t, formatSpeedLabel } from "@/lib/playerLocale";
+ import { PlayerBrandMark } from "./BrandMark";
++import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
++import { ShareMomentButton } from "./ShareMomentCard";
++import { Sparkles } from "lucide-react";
+ import { useEffect, useRef, useState } from "react";
+ 
+ type Props = {
+@@ -102,8 +105,17 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
+             />
+           )}
+           <div className="min-w-0 flex-1">
+-            <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
+-            <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
++            <div className="flex items-start gap-2">
++              <div className="min-w-0 flex-1">
++                <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
++                <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
++              </div>
++              {isCurrent && (
++                <div className="flex items-center gap-1.5 shrink-0">
++                  <ShareMomentButton />
++                </div>
++              )}
++            </div>
+             {canResume && !isCurrent && (
+               <div className="mt-2">
+                 <button
+@@ -149,6 +161,13 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
+           </div>
+         )}
+       </div>
++      <div className="relative mt-6 border-t border-border pt-5">
++        <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
++          <Sparkles className="h-3.5 w-3.5 text-accent" />
++          <span>Smart Player picks</span>
++        </div>
++        <SmartDiscoveryPanel episodeIdOverride={episode.id} variant="compact" />
++      </div>
+     </div>
+   );
+ }
+diff --git a/src/components/smart-player/ShareMomentCard.tsx b/src/components/smart-player/ShareMomentCard.tsx
+new file mode 100644
+index 0000000..e53821e
+--- /dev/null
++++ b/src/components/smart-player/ShareMomentCard.tsx
+@@ -0,0 +1,62 @@
++import { useState } from "react";
++import { Check, Link2, Share2 } from "lucide-react";
++import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
++
++export function ShareMomentButton({ className = "" }: { className?: string }) {
++  const { currentEpisode, currentTime } = useSmartPlayer();
++  const [copied, setCopied] = useState(false);
++  if (!currentEpisode) return null;
++
++  const atSec = Math.floor(currentTime);
++  const url =
++    currentEpisode.podcastSlug && currentEpisode.episodeSlug
++      ? `https://podiverzum.com/podcast/${currentEpisode.podcastSlug}/${currentEpisode.episodeSlug}?t=${atSec}`
++      : typeof window !== "undefined"
++        ? window.location.href
++        : "";
++
++  const copyLink = async () => {
++    try {
++      await navigator.clipboard.writeText(url);
++      setCopied(true);
++      setTimeout(() => setCopied(false), 1500);
++    } catch {
++      // Ignore clipboard failures; native share may still work.
++    }
++  };
++
++  const share = async () => {
++    if (typeof navigator === "undefined" || !navigator.share) {
++      await copyLink();
++      return;
++    }
++    try {
++      await navigator.share({
++        title: currentEpisode.title,
++        text: `${currentEpisode.title} at ${formatTime(atSec)}`,
++        url,
++      });
++    } catch {
++      // User cancelled.
++    }
++  };
++
++  return (
++    <button
++      type="button"
++      onClick={share}
++      className={`h-9 w-9 rounded-full border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center shrink-0 transition-colors ${className}`}
++      aria-label={copied ? "Link copied" : "Share this moment"}
++      title={copied ? "Link copied" : "Share this moment"}
++      onDoubleClick={copyLink}
++    >
++      {copied ? (
++        <Check className="h-4 w-4 text-green-500" />
++      ) : typeof navigator !== "undefined" && navigator.share ? (
++        <Share2 className="h-4 w-4" />
++      ) : (
++        <Link2 className="h-4 w-4" />
++      )}
++    </button>
++  );
++}
+diff --git a/src/components/smart-player/SmartDiscoveryPanel.tsx b/src/components/smart-player/SmartDiscoveryPanel.tsx
+new file mode 100644
+index 0000000..64f9750
+--- /dev/null
++++ b/src/components/smart-player/SmartDiscoveryPanel.tsx
+@@ -0,0 +1,173 @@
++import { useEffect, useMemo, useState } from "react";
++import { Link } from "react-router-dom";
++import { Radio, Sparkles } from "lucide-react";
++import { supabase } from "@/integrations/supabase/client";
++import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
++
++type Row = {
++  episode_id: string;
++  podcast_id: string;
++  similarity: number;
++  title: string;
++  display_title: string | null;
++  slug: string;
++  ai_summary: string | null;
++  summary: string | null;
++  description: string | null;
++  published_at: string | null;
++  audio_url: string | null;
++  topics: string[] | null;
++  podcast_slug: string;
++  podcast_title: string;
++  podcast_display_title: string | null;
++  podcast_image_url: string | null;
++  podcast_category: string | null;
++};
++
++type Props = {
++  episodeIdOverride?: string;
++  variant?: "panel" | "compact";
++};
++
++export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Props = {}) {
++  const { currentEpisode, play, setExpanded } = useSmartPlayer();
++  const episodeId = episodeIdOverride ?? currentEpisode?.id;
++  const [items, setItems] = useState<Row[]>([]);
++  const [loading, setLoading] = useState(false);
++  const [failed, setFailed] = useState(false);
++  const isCompact = variant === "compact";
++
++  useEffect(() => {
++    let cancelled = false;
++    if (!episodeId) {
++      setItems([]);
++      return;
++    }
++    setLoading(true);
++    setFailed(false);
++    supabase
++      .rpc("similar_episodes" as any, { p_episode_id: episodeId, p_limit: isCompact ? 4 : 8 })
++      .then(({ data, error }) => {
++        if (cancelled) return;
++        if (error || !Array.isArray(data)) {
++          setItems([]);
++          setFailed(true);
++        } else {
++          setItems((data as Row[]).filter((r) => r.audio_url));
++        }
++      })
++      .finally(() => {
++        if (!cancelled) setLoading(false);
++      });
++    return () => { cancelled = true; };
++  }, [episodeId, isCompact]);
++
++  const podcastCount = useMemo(() => {
++    const s = new Set<string>();
++    items.forEach((r) => s.add(r.podcast_id));
++    return s.size;
++  }, [items]);
++
++  if (!episodeId) return null;
++  if (!loading && !failed && items.length === 0) return null;
++
++  const launch = (r: Row) => {
++    if (!r.audio_url) return;
++    const ep: SmartPlayerEpisode = {
++      id: r.episode_id,
++      title: r.display_title || r.title,
++      podcastId: r.podcast_id,
++      podcastTitle: r.podcast_display_title || r.podcast_title,
++      podcastSlug: r.podcast_slug,
++      episodeSlug: r.slug,
++      imageUrl: r.podcast_image_url,
++      audioUrl: r.audio_url,
++    };
++    play(ep);
++  };
++
++  return (
++    <div className={isCompact ? "w-full" : "w-full max-w-3xl"}>
++      {!isCompact && (
++        <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
++          <Sparkles className="h-3.5 w-3.5 text-accent" />
++          {loading ? (
++            <span>Finding related episodes...</span>
++          ) : (
++            <span>{podcastCount} related shows found</span>
++          )}
++        </div>
++      )}
++
++      {failed && (
++        <div className="text-xs text-amber-500 mb-3">
++          Related episodes are temporarily unavailable.
++        </div>
++      )}
++
++      <section>
++        {!isCompact && (
++          <>
++            <div className="flex items-baseline gap-2 mb-2">
++              <Radio className="h-4 w-4 text-accent shrink-0" />
++              <h3 className="text-sm font-semibold tracking-wide">Similar episodes</h3>
++            </div>
++            <p className="text-[11px] text-muted-foreground mb-3">
++              AI-matched by meaning across other shows in the index.
++            </p>
++          </>
++        )}
++
++        {loading && items.length === 0 ? (
++          <div className="text-xs text-muted-foreground">Matching episodes...</div>
++        ) : (
++          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
++            {items.map((r) => {
++              const epHref = `/podcast/${r.podcast_slug}/${r.slug}`;
++              const summary = r.ai_summary || r.summary || r.description;
++              return (
++                <div
++                  key={r.episode_id}
++                  className="snap-start shrink-0 w-[240px] rounded-xl border border-border bg-card/60 hover:bg-card transition-colors p-3 flex flex-col gap-2"
++                >
++                  {r.podcast_image_url && (
++                    <img
++                      src={r.podcast_image_url}
++                      alt=""
++                      className="h-28 w-full rounded-md object-cover border border-border"
++                      loading="lazy"
++                    />
++                  )}
++                  <Link
++                    to={epHref}
++                    onClick={() => setExpanded(false)}
++                    className="text-[13px] font-medium leading-snug line-clamp-2 hover:text-accent"
++                  >
++                    {r.display_title || r.title}
++                  </Link>
++                  <div className="text-[10.5px] text-muted-foreground truncate">
++                    {r.podcast_display_title || r.podcast_title}
++                  </div>
++                  {summary && (
++                    <div className="text-[10.5px] leading-snug rounded-md bg-accent/10 text-accent px-2 py-1 line-clamp-2">
++                      {summary}
++                    </div>
++                  )}
++                  <div className="mt-auto flex items-center gap-2">
++                    <button
++                      onClick={() => launch(r)}
++                      className="text-[11px] px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90"
++                      aria-label={`Play ${r.title}`}
++                    >
++                      ▶ Play
++                    </button>
++                  </div>
++                </div>
++              );
++            })}
++          </div>
++        )}
++      </section>
++    </div>
++  );
++}
+diff --git a/src/components/smart-player/SmartPlayerBar.tsx b/src/components/smart-player/SmartPlayerBar.tsx
+index c130495..e4218f2 100644
+--- a/src/components/smart-player/SmartPlayerBar.tsx
++++ b/src/components/smart-player/SmartPlayerBar.tsx
+@@ -1,18 +1,29 @@
+ import { Link } from "react-router-dom";
+ import { useEffect, useRef, useState } from "react";
++import { Sparkles, X } from "lucide-react";
+ import { useSmartPlayer, formatTime } from "./SmartPlayerProvider";
+ import { PlayerProgress } from "./PlayerControls";
+ import { PlayerBrandMark } from "./BrandMark";
++import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
++import { ShareMomentButton } from "./ShareMomentCard";
+ import { t, formatSpeedLabel } from "@/lib/playerLocale";
+ 
+ export function SmartPlayerBar() {
+   const {
+     playerVisible, currentEpisode, isPlaying, isLoading, error, flags,
+     toggle, seekBy, currentTime, duration, expanded, setExpanded, stop, previewActive,
++    playbackRate, setPlaybackRate,
+   } = useSmartPlayer();
+ 
+   if (!playerVisible || !currentEpisode) return null;
+ 
++  const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
++  const cycleSpeed = () => {
++    const idx = SPEEDS.indexOf(playbackRate);
++    const next = SPEEDS[(idx + 1) % SPEEDS.length] ?? 1;
++    setPlaybackRate(next);
++  };
++
+   const ep = currentEpisode;
+   const href = ep.podcastSlug && ep.episodeSlug ? `/podcast/${ep.podcastSlug}/${ep.episodeSlug}` : null;
+   const hasDuration = isFinite(duration) && duration > 0;
+@@ -52,6 +63,18 @@ export function SmartPlayerBar() {
+               {error && <span className="ml-2 text-amber-500">· {t("playbackError")}</span>}
+             </div>
+           </button>
++          {!error && (
++            <button
++              onClick={cycleSpeed}
++              className={`text-xs px-2 py-1 rounded-md border tabular-nums shrink-0 min-w-[44px] ${
++                playbackRate !== 1
++                  ? "border-primary bg-primary/15 text-primary font-semibold"
++                  : "border-border bg-card hover:bg-secondary text-muted-foreground"
++              }`}
++              aria-label={`${t("playbackSpeed")}: ${formatSpeedLabel(playbackRate)}`}
++              title={t("playbackSpeed")}
++            >{formatSpeedLabel(playbackRate)}</button>
++          )}
+           {!error && (
+             <div className="hidden sm:flex items-center gap-1">
+               <button onClick={() => seekBy(-15)} className="text-xs px-2 py-1 rounded-md hover:bg-secondary" aria-label={t("back15")}>−15</button>
+@@ -74,11 +97,22 @@ export function SmartPlayerBar() {
+               {isPlaying ? "❚❚" : "▶"}
+             </button>
+           )}
++          <ShareMomentButton className="hidden sm:flex" />
++          <button
++            onClick={() => setExpanded(true)}
++            className="inline-flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center gap-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 shrink-0 sm:px-2.5 sm:py-1 text-xs"
++            aria-label="Smart recommendations"
++            title="Smart recommendations"
++          >
++            <Sparkles className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
++            <span className="hidden sm:inline font-medium tracking-wide">Smart</span>
++          </button>
+           <button
+             onClick={stop}
+-            className="text-muted-foreground hover:text-foreground text-xs px-1.5 hidden sm:inline-flex"
++            className="h-9 w-9 rounded-full border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center shrink-0 transition-colors"
+             aria-label={t("close")}
+-          >✕</button>
++            title={t("close")}
++          ><X className="h-4 w-4" /></button>
+         </div>
+         <div className="container mx-auto px-3 pb-2">
+           <PlayerProgress compact />
+@@ -95,9 +129,15 @@ export function SmartPlayerBar() {
+           <PlayerBrandMark className="-right-10 -bottom-20" size={360} opacity={0.035} />
+           <div className="flex items-center justify-between p-3 border-b border-border">
+             <button onClick={() => setExpanded(false)} className="text-sm text-muted-foreground">▾ {t("close")}</button>
+-            {href && (
+-              <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent">{t("open")}</Link>
+-            )}
++            <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-accent">
++              <Sparkles className="h-3.5 w-3.5" />
++              Smart Player
++            </div>
++            {href ? (
++              <Link to={href} onClick={() => setExpanded(false)} className="text-xs text-accent hover:underline">
++                Episode page ↗
++              </Link>
++            ) : <span className="w-20" />}
+           </div>
+           <div className="flex-1 overflow-auto p-6 flex flex-col items-center gap-5">
+             {ep.imageUrl && (
+@@ -136,6 +176,9 @@ export function SmartPlayerBar() {
+                   <button onClick={() => seekBy(30)} className="px-3 py-2 rounded-md bg-secondary text-sm" aria-label={t("fwd30")}>+30s</button>
+                 </div>
+                 <SpeedSection />
++                <div className="w-full max-w-3xl mt-2 border-t border-border pt-5">
++                  <SmartDiscoveryPanel />
++                </div>
+               </>
+             )}
+           </div>
+diff --git a/src/lib/playerLocale.ts b/src/lib/playerLocale.ts
+index 8a20a38..f555661 100644
+--- a/src/lib/playerLocale.ts
++++ b/src/lib/playerLocale.ts
+@@ -1,13 +1,9 @@
+-// Locale strings for the Smart Player. Host-based: podiverzum.hu → hu, else en.
++// Locale strings for the Smart Player.
++// This branch powers Podiverzum.com, so the player is intentionally English-only.
+ 
+-export type PlayerLocale = "en" | "hu";
++export type PlayerLocale = "en";
+ 
+ export function getPlayerLocale(): PlayerLocale {
+-  if (typeof window === "undefined") return "en";
+-  try {
+-    const h = window.location.hostname.toLowerCase();
+-    if (h.endsWith(".hu") || h === "podiverzum.hu") return "hu";
+-  } catch { /* noop */ }
+   return "en";
+ }
+ 
+@@ -49,24 +45,6 @@ const STRINGS: Record<PlayerLocale, Dict> = {
+     fallbackUnavailable: "Playback is not available here right now. Open the original page to listen.",
+     openOriginal: "Open original page",
+   },
+-  hu: {
+-    preview: "előnézet",
+-    playbackSpeed: "Lejátszási sebesség",
+-    back15: "Vissza 15 másodperc",
+-    fwd30: "Előre 30 másodperc",
+-    play: "Lejátszás",
+-    pause: "Szünet",
+-    close: "Bezárás",
+-    open: "Megnyitás",
+-    seek: "Tekerés",
+-    resumeFrom: "Folytatás innen",
+-    loading: "betöltés…",
+-    externalOnly: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
+-    playbackError: "Lejátszási hiba",
+-    durationUnknown: "--:--",
+-    fallbackUnavailable: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
+-    openOriginal: "Megnyitás külső lejátszóban",
+-  },
+ };
+ 
+ export function t(key: keyof Dict, locale?: PlayerLocale): string {
+@@ -75,7 +53,5 @@ export function t(key: keyof Dict, locale?: PlayerLocale): string {
+ }
+ 
+ export function formatSpeedLabel(s: number, locale?: PlayerLocale): string {
+-  const l = locale || getPlayerLocale();
+-  const str = l === "hu" ? String(s).replace(".", ",") : String(s);
+-  return `${str}x`;
++  return `${String(s)}x`;
+ }
+diff --git a/src/lib/useSearchGhost.ts b/src/lib/useSearchGhost.ts
+new file mode 100644
+index 0000000..66109b4
+--- /dev/null
++++ b/src/lib/useSearchGhost.ts
+@@ -0,0 +1,65 @@
++import { useEffect, useRef, useState } from "react";
++import { supabase } from "@/integrations/supabase/client";
++
++export type GhostSuggestion = {
++  type: "podcast" | "person" | "topic" | "category" | "organization" | "query";
++  label: string;
++  subtitle?: string;
++  href: string;
++  image_url?: string | null;
++  confidence: number;
++};
++
++export function normLabel(s: string): string {
++  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
++}
++
++export function useSearchSuggestions(q: string, limit = 8) {
++  const [suggestions, setSuggestions] = useState<GhostSuggestion[]>([]);
++  const [loading, setLoading] = useState(false);
++  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
++  const abortRef = useRef<AbortController | null>(null);
++
++  useEffect(() => {
++    if (debounceRef.current) clearTimeout(debounceRef.current);
++    abortRef.current?.abort();
++    const trimmed = q.trim();
++    if (trimmed.length < 2) {
++      setSuggestions([]);
++      setLoading(false);
++      return;
++    }
++    setLoading(true);
++    debounceRef.current = setTimeout(async () => {
++      const ctrl = new AbortController();
++      abortRef.current = ctrl;
++      try {
++        const { data, error } = await supabase.functions.invoke("search-autocomplete", {
++          body: { q: trimmed, limit },
++        });
++        if (!error && Array.isArray(data?.suggestions)) setSuggestions(data.suggestions);
++      } catch {
++        // Autocomplete is progressive enhancement; search still works without it.
++      } finally {
++        setLoading(false);
++      }
++    }, 160);
++    return () => {
++      if (debounceRef.current) clearTimeout(debounceRef.current);
++    };
++  }, [q, limit]);
++
++  return { suggestions, loading };
++}
++
++export function computeGhost(q: string, suggestions: GhostSuggestion[]): string {
++  if (!q || q !== q.trimStart()) return "";
++  const qn = normLabel(q);
++  if (qn.length < 2) return "";
++  for (const s of suggestions) {
++    if (s.type === "query" && normLabel(s.label) === qn) continue;
++    const ln = normLabel(s.label);
++    if (ln.length > qn.length && ln.startsWith(qn)) return s.label.slice(q.length);
++  }
++  return "";
++}
+diff --git a/src/pages/AdminDiscoveryPage.tsx b/src/pages/AdminDiscoveryPage.tsx
+index 762cdc6..50e9d0a 100644
+--- a/src/pages/AdminDiscoveryPage.tsx
++++ b/src/pages/AdminDiscoveryPage.tsx
+@@ -33,7 +33,7 @@ export default function AdminDiscoveryPage() {
+   const [ready, setReady] = useState(false);
+   const [isAdmin, setIsAdmin] = useState(false);
+   const [query, setQuery] = useState(params.get("title") || "");
+-  const [language, setLanguage] = useState("");
++  const [language, setLanguage] = useState("en");
+   const [category, setCategory] = useState("");
+   const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
+   const [loading, setLoading] = useState(false);
+@@ -66,7 +66,7 @@ export default function AdminDiscoveryPage() {
+     setLoading(true); setResults([]); setSelected(new Set()); setCredsMissing(false);
+     try {
+       const { data, error } = await supabase.functions.invoke("podcast-index-search", {
+-        body: { query: query.trim(), language: language || undefined },
++        body: { query: query.trim(), language },
+       });
+       if (error) throw error;
+       if ((data as any)?.missing_credentials) { setCredsMissing(true); return; }
+@@ -99,7 +99,7 @@ export default function AdminDiscoveryPage() {
+       rss_url: r.rss_url,
+       image_url: r.image_url ?? null,
+       website_url: r.website_url ?? null,
+-      language: (r.language || "en").slice(0, 8),
++      language: (r.language && r.language.toLowerCase().startsWith("en") ? r.language : "en").slice(0, 8),
+       category: category || null,
+       rss_status: "not_checked",
+     }).select("id").single();
+@@ -200,14 +200,7 @@ export default function AdminDiscoveryPage() {
+             />
+             <select value={language} onChange={(e) => setLanguage(e.target.value)}
+               className="px-3 py-2 rounded-md border border-border bg-background text-sm">
+-              <option value="">Any language</option>
+               <option value="en">English</option>
+-              <option value="es">Spanish</option>
+-              <option value="fr">French</option>
+-              <option value="de">German</option>
+-              <option value="pt">Portuguese</option>
+-              <option value="it">Italian</option>
+-              <option value="hu">Hungarian</option>
+             </select>
+             {!replaceMode && (
+               <select value={category} onChange={(e) => setCategory(e.target.value)}
+diff --git a/src/pages/CategoriesPage.tsx b/src/pages/CategoriesPage.tsx
+index 3758693..58b370a 100644
+--- a/src/pages/CategoriesPage.tsx
++++ b/src/pages/CategoriesPage.tsx
+@@ -4,7 +4,7 @@ import {
+   TrendingUp, Newspaper, Briefcase, Cpu, FlaskConical, HeartPulse,
+   Users, Sparkles, Globe, Sun, GraduationCap, ScrollText, BookOpen,
+   Film, Palette, Music, Laugh, Skull, Trophy, UtensilsCrossed,
+-  Drama, Baby, Hash,
++  Drama, Baby, Hash, ArrowUpRight,
+ } from "lucide-react";
+ import { supabase } from "@/integrations/supabase/client";
+ import Layout from "@/components/Layout";
+@@ -45,10 +45,28 @@ export default function CategoriesPage() {
+       <Seo
+         title="All podcast categories — Podiverzum"
+         description="Browse the best podcasts by topic — news, tech & AI, business, investing, health, food, science and more."
++        canonical="https://podiverzum.com/categories"
+       />
+-      <div className="container mx-auto py-10">
+-        <h1 className="text-3xl font-semibold mb-2">All Categories</h1>
+-        <p className="text-muted-foreground mb-8">Browse the best podcasts by topic.</p>
++      <section className="relative border-b border-border bg-background overflow-hidden">
++        <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-80" />
++        <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-50" />
++        <div className="relative container mx-auto py-10 sm:py-14 max-w-6xl px-4">
++          <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-semibold">Categories</div>
++          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
++            Browse podcasts by category
++          </h1>
++          <p className="text-foreground/80 mt-4 max-w-2xl leading-relaxed">
++            Start broad, then drill into episodes by topic, person, company or idea. Each category highlights healthy sources and recent conversations from the English index.
++          </p>
++          <div className="mt-5 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
++            <span className="rounded-full border border-border bg-card/70 px-3 py-1">{cats.length || "All"} categories</span>
++            <span className="rounded-full border border-border bg-card/70 px-3 py-1">English index</span>
++            <span className="rounded-full border border-border bg-card/70 px-3 py-1">Ranked by source quality</span>
++          </div>
++        </div>
++      </section>
++
++      <div className="container mx-auto py-10 max-w-6xl px-4">
+         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+           {cats.map((c) => {
+             const meta = CAT_META[c.slug] ?? { Icon: Hash, gradient: "from-muted to-muted" };
+@@ -57,15 +75,17 @@ export default function CategoriesPage() {
+               <Link
+                 key={c.id}
+                 to={`/category/${c.slug}`}
+-                className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:border-accent/40 hover:shadow-sm transition-all"
++                className="group relative flex items-center gap-4 p-5 rounded-lg border border-border bg-card hover:border-accent/40 hover:bg-card/80 hover:shadow-elevated transition-all overflow-hidden"
+               >
++                <div aria-hidden className={`absolute inset-0 bg-gradient-to-br ${meta.gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                 <div className={`shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br ${meta.gradient} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                   <Icon className="w-6 h-6 text-foreground/80" />
+                 </div>
+-                <div className="min-w-0">
++                <div className="relative min-w-0 flex-1">
+                   <div className="font-medium truncate">{c.name}</div>
+-                  {c.description && <div className="text-sm text-muted-foreground line-clamp-1">{c.description}</div>}
++                  {c.description && <div className="text-sm text-muted-foreground line-clamp-2 mt-1">{c.description}</div>}
+                 </div>
++                <ArrowUpRight className="relative h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+               </Link>
+             );
+           })}
+diff --git a/src/pages/CategoryDetail.tsx b/src/pages/CategoryDetail.tsx
+index 2124741..946001f 100644
+--- a/src/pages/CategoryDetail.tsx
++++ b/src/pages/CategoryDetail.tsx
+@@ -7,10 +7,21 @@ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
+ import { Seo } from "@/components/Seo";
+ import { breadcrumbJsonLd, siteOrigin } from "@/lib/seo-helpers";
+ import NotFoundState from "@/components/NotFoundState";
+-import { Search } from "lucide-react";
++import { ArrowRight, Layers, Radio, Search, Sparkles } from "lucide-react";
+ import { searchEpisodes, MATCH_LABEL, SearchScope } from "@/lib/search";
+ import { compareByScore } from "@/lib/episodeRank";
+ 
++const CAT_GRADIENTS: Record<string, string> = {
++  news: "from-red-500/20 to-orange-500/20",
++  business: "from-emerald-500/20 to-teal-500/20",
++  technology: "from-blue-500/20 to-indigo-500/20",
++  science: "from-cyan-500/20 to-blue-500/20",
++  health: "from-rose-500/20 to-red-500/20",
++  sports: "from-green-500/20 to-emerald-600/20",
++  culture: "from-purple-500/20 to-indigo-500/20",
++  comedy: "from-yellow-400/20 to-orange-500/20",
++};
++
+ export default function CategoryDetail() {
+   const { slug } = useParams();
+   const [params, setParams] = useSearchParams();
+@@ -96,7 +107,7 @@ export default function CategoryDetail() {
+     }
+     setSearchLoading(true);
+     (async () => {
+-      const r = await searchEpisodes({ rawQuery: queryParam, scope: scopeParam, categoryName: cat.name, limit: 60 });
++      const r = await searchEpisodes({ rawQuery: queryParam, scope: scopeParam, categoryName: cat.name, limit: 60, language: "en" });
+       setSemanticUsed(r.semanticUsed);
+       setSuggestion(r.suggestion);
+       const decorate = (arr: any[]) => arr.map((x) => ({ ...x.e, matchBadge: MATCH_LABEL[x.matchType] || "matched result" })) as EpisodeLite[];
+@@ -127,6 +138,7 @@ export default function CategoryDetail() {
+   if (!cat) return <NotFoundState title="Category not found" message="That category doesn't exist or has been removed." />;
+ 
+   const catUrl = `${siteOrigin()}/category/${cat.slug || slug}`;
++  const categoryGradient = CAT_GRADIENTS[cat.slug] || "from-primary/15 to-card";
+   return (
+     <Layout>
+       <Seo
+@@ -148,37 +160,57 @@ export default function CategoryDetail() {
+           ]),
+         ]}
+       />
+-      <div className="container mx-auto py-10">
+-        <h1 className="text-3xl font-semibold">{cat.name}</h1>
+-        <p className="text-muted-foreground mt-1">
+-          Latest podcast episodes in {cat.name}, ranked by relevance, freshness and source quality.
+-        </p>
++      <section className="relative border-b border-border bg-background overflow-hidden">
++        <div aria-hidden className="pointer-events-none absolute inset-0 hero-spot opacity-80" />
++        <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-40" />
++        <div className="relative container mx-auto py-10 sm:py-14 max-w-6xl px-4">
++          <div className={`inline-flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-gradient-to-br ${categoryGradient}`}>
++            <Layers className="h-5 w-5 text-foreground/80" />
++          </div>
++          <div className="mt-5 text-[10px] uppercase tracking-[0.22em] text-primary font-semibold">Category</div>
++          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">{cat.name}</h1>
++          <p className="text-foreground/80 mt-4 max-w-2xl leading-relaxed">
++            {cat.description || `Latest podcast episodes in ${cat.name}, ranked by relevance, freshness and source quality.`}
++          </p>
++          <div className="mt-5 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
++            <span className="rounded-full border border-border bg-card/70 px-3 py-1">{episodes.length} highlighted episodes</span>
++            <span className="rounded-full border border-border bg-card/70 px-3 py-1">{podcasts.length} strong sources</span>
++            {topics.length > 0 && <span className="rounded-full border border-border bg-card/70 px-3 py-1">{topics.length} recurring topics</span>}
++          </div>
++        </div>
++      </section>
+ 
+-        {/* Category-scoped search */}
+-        <form onSubmit={submitSearch} className="relative max-w-2xl mt-6">
+-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+-          <input
+-            value={q}
+-            onChange={(e) => setQ(e.target.value)}
+-            placeholder={`Search in ${cat.name}…`}
+-            className="w-full pl-10 pr-24 py-3 rounded-md bg-card border border-border focus:border-accent outline-none"
+-          />
+-          <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
+-            Search
+-          </button>
+-        </form>
+-        <div className="flex flex-wrap gap-2 items-center mt-3 text-xs">
+-          <span className="text-muted-foreground">Search scope:</span>
+-          {([["category", `This category`], ["all", "All Podiverzum"]] as const).map(([k, l]) => (
+-            <button
+-              key={k}
+-              onClick={() => setScope(k)}
+-              className={`px-2.5 py-1 rounded-full border ${scopeParam === k ? "bg-foreground text-background border-foreground" : "bg-card border-border hover:border-foreground/40"}`}
+-            >
+-              {l}
++      <div className="container mx-auto py-8 sm:py-10 max-w-6xl px-4">
++        <section className="rounded-xl border border-border bg-card/70 p-4 sm:p-5 shadow-elevated">
++          <div className="flex items-center gap-2 mb-3">
++            <Search className="h-4 w-4 text-primary" />
++            <h2 className="font-semibold">Search within {cat.name}</h2>
++          </div>
++          <form onSubmit={submitSearch} className="relative max-w-2xl">
++            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
++            <input
++              value={q}
++              onChange={(e) => setQ(e.target.value)}
++              placeholder={`Search ${cat.name} episodes...`}
++              className="w-full pl-10 pr-24 py-3 rounded-md bg-background border border-border focus:border-accent outline-none"
++            />
++            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-sm">
++              Search
+             </button>
+-          ))}
+-        </div>
++          </form>
++          <div className="flex flex-wrap gap-2 items-center mt-3 text-xs">
++            <span className="text-muted-foreground">Scope:</span>
++            {([["category", `This category`], ["all", "All Podiverzum"]] as const).map(([k, l]) => (
++              <button
++                key={k}
++                onClick={() => setScope(k)}
++                className={`px-2.5 py-1 rounded-full border ${scopeParam === k ? "bg-foreground text-background border-foreground" : "bg-background border-border hover:border-foreground/40"}`}
++              >
++                {l}
++              </button>
++            ))}
++          </div>
++        </section>
+ 
+         {queryParam ? (
+           <div className="mt-8 space-y-10">
+@@ -202,15 +234,7 @@ export default function CategoryDetail() {
+                   </h2>
+                   {inCat.length > 0 ? (
+                     <>
+-                      <div className="hidden md:grid md:grid-cols-2 gap-4">
+-                        <EpisodeList items={inCat.slice(0, Math.ceil(inCat.length / 2))} terms={flatTerms} showEntities />
+-                        {inCat.length > 1 && (
+-                          <EpisodeList items={inCat.slice(Math.ceil(inCat.length / 2))} terms={flatTerms} showEntities />
+-                        )}
+-                      </div>
+-                      <div className="md:hidden">
+-                        <EpisodeList items={inCat} terms={flatTerms} showEntities />
+-                      </div>
++                      <EpisodeList items={inCat} terms={flatTerms} showEntities scrollAlways />
+                     </>
+                   ) : (
+                     <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
+@@ -226,15 +250,7 @@ export default function CategoryDetail() {
+                         outside this category
+                       </span>
+                     </h2>
+-                    <div className="hidden md:grid md:grid-cols-2 gap-4">
+-                      <EpisodeList items={outside.slice(0, Math.ceil(outside.length / 2))} terms={flatTerms} showEntities />
+-                      {outside.length > 1 && (
+-                        <EpisodeList items={outside.slice(Math.ceil(outside.length / 2))} terms={flatTerms} showEntities />
+-                      )}
+-                    </div>
+-                    <div className="md:hidden">
+-                      <EpisodeList items={outside} terms={flatTerms} showEntities />
+-                    </div>
++                    <EpisodeList items={outside} terms={flatTerms} showEntities scrollAlways />
+                   </section>
+                 )}
+               </>
+@@ -255,42 +271,35 @@ export default function CategoryDetail() {
+                     </span>
+                   )}
+                 </h2>
+-                <div className="hidden md:grid md:grid-cols-2 gap-4">
+-                  <EpisodeList items={allResults.slice(0, Math.ceil(allResults.length / 2))} terms={flatTerms} showEntities />
+-                  {allResults.length > 1 && (
+-                    <EpisodeList items={allResults.slice(Math.ceil(allResults.length / 2))} terms={flatTerms} showEntities />
+-                  )}
+-                </div>
+-                <div className="md:hidden">
+-                  <EpisodeList items={allResults} terms={flatTerms} showEntities />
+-                </div>
++                <EpisodeList items={allResults} terms={flatTerms} showEntities scrollAlways />
+               </section>
+             )}
+           </div>
+         ) : (
+           <>
+-            <h2 className="text-xl font-semibold mt-10 mb-4">Latest episodes in {cat.name}</h2>
+-            {episodes.length > 0 ? (
+-              <>
+-                <div className="hidden md:grid md:grid-cols-2 gap-4">
+-                  <EpisodeList items={episodes.slice(0, Math.ceil(episodes.length / 2))} showTopics />
+-                  {episodes.length > 1 && (
+-                    <EpisodeList items={episodes.slice(Math.ceil(episodes.length / 2))} showTopics />
+-                  )}
+-                </div>
+-                <div className="md:hidden">
+-                  <EpisodeList items={episodes} showTopics />
++            <div className="mt-10 flex items-end justify-between gap-4">
++              <div>
++                <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-primary/90 mb-1">
++                  <Sparkles className="h-3 w-3" /> Fresh picks
+                 </div>
+-              </>
++                <h2 className="text-xl sm:text-2xl font-semibold">Latest episodes in {cat.name}</h2>
++                <p className="text-xs text-muted-foreground mt-1">A fast rail of recent, high-quality conversations.</p>
++              </div>
++            </div>
++            {episodes.length > 0 ? (
++              <div className="mt-4"><EpisodeList items={episodes} showTopics scrollAlways /></div>
+             ) : (
+-              <div className="p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
++              <div className="mt-4 p-6 border border-border rounded-lg bg-card text-sm text-muted-foreground">
+                 No podcasts indexed in this category yet.
+               </div>
+             )}
+ 
+             {topics.length > 0 && (
+-              <>
+-                <h2 className="text-xl font-semibold mt-10 mb-3">Popular topics</h2>
++              <section className="mt-10 rounded-xl border border-border bg-card/50 p-5">
++                <div className="flex items-center gap-2 mb-3">
++                  <Sparkles className="h-4 w-4 text-primary" />
++                  <h2 className="text-xl font-semibold">Popular topics</h2>
++                </div>
+                 <div className="flex flex-wrap gap-2">
+                   {topics.map((t) => (
+                     <Link key={t} to={`/topic/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9]+/g,"-"))}`} className="px-3 py-1 rounded-full bg-secondary text-sm hover:bg-accent hover:text-accent-foreground">
+@@ -298,16 +307,26 @@ export default function CategoryDetail() {
+                     </Link>
+                   ))}
+                 </div>
+-              </>
++              </section>
+             )}
+ 
+             {podcasts.length > 0 && (
+-              <>
+-                <h2 className="text-xl font-semibold mt-10 mb-4">Top podcasts in {cat.name}</h2>
++              <section className="mt-10">
++                <div className="flex items-end justify-between mb-4">
++                  <div>
++                    <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
++                      <Radio className="h-3 w-3" /> Sources
++                    </div>
++                    <h2 className="text-xl sm:text-2xl font-semibold">Top podcasts in {cat.name}</h2>
++                  </div>
++                  <Link to="/categories" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
++                    All categories <ArrowRight className="h-3.5 w-3.5" />
++                  </Link>
++                </div>
+                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                   {podcasts.map((p) => <PodcastCard key={p.id} p={p} />)}
+                 </div>
+-              </>
++              </section>
+             )}
+           </>
+         )}
+diff --git a/src/pages/DailyBriefPage.tsx b/src/pages/DailyBriefPage.tsx
+index 38a3183..cddc225 100644
+--- a/src/pages/DailyBriefPage.tsx
++++ b/src/pages/DailyBriefPage.tsx
+@@ -8,6 +8,7 @@ import { compareByScore } from "@/lib/episodeRank";
+ import { Calendar, Sparkles, Clock } from "lucide-react";
+ import { TrendingEntities } from "@/components/TrendingEntities";
+ import { topEntitiesFrom } from "@/lib/aggregateEntities";
++import { siteOrigin } from "@/lib/seo-helpers";
+ 
+ type Row = any;
+ 
+@@ -111,6 +112,7 @@ export default function DailyBriefPage() {
+       <Seo
+         title="Daily brief — fresh podcast episodes | Podiverzum"
+         description="A short daily roundup of notable episodes across the index."
++        canonical={`${siteOrigin()}/daily`}
+       />
+       {/* Hero */}
+       <section className="border-b border-border bg-background relative overflow-hidden">
+diff --git a/src/pages/Index.tsx b/src/pages/Index.tsx
+index 4fe74cb..a6e7793 100644
+--- a/src/pages/Index.tsx
++++ b/src/pages/Index.tsx
+@@ -1,19 +1,27 @@
+-import { useEffect, useMemo, useState } from "react";
++import { useEffect, useMemo, useRef, useState } from "react";
+ import { useNavigate, Link } from "react-router-dom";
+ import { supabase } from "@/integrations/supabase/client";
+ import Layout from "@/components/Layout";
+ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
+ import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
+-import { Search, ArrowRight, Sparkles } from "lucide-react";
++import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
+ import { Seo } from "@/components/Seo";
+ import { compareByScore } from "@/lib/episodeRank";
+ import { MoodCollections } from "@/components/MoodCollections";
+ import { Skeleton } from "@/components/Skeletons";
+ import { ContinueListening } from "@/components/ContinueListening";
+ import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
+-import { TrendingEntities } from "@/components/TrendingEntities";
+-import { topEntitiesFrom } from "@/lib/aggregateEntities";
++import { HomeTopicsSection } from "@/components/HomeTopicsSection";
++import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
+ 
++const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
++  podcast: Mic,
++  person: User,
++  topic: Hash,
++  category: Folder,
++  organization: Building2,
++  query: Search,
++};
+ 
+ 
+ type Category = { id: string; name: string; slug: string; description: string | null };
+@@ -29,7 +37,6 @@ const Index = () => {
+   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
+   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
+   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
+-  const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
+   const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
+     { label: "Nvidia earnings", query: "Nvidia earnings" },
+     { label: "Sam Altman", query: "Sam Altman" },
+@@ -51,6 +58,35 @@ const Index = () => {
+       : "Search topics or ideas…"
+   );
+   const nav = useNavigate();
++  const heroWrapRef = useRef<HTMLDivElement | null>(null);
++  const heroInputRef = useRef<HTMLInputElement | null>(null);
++  const [heroOpen, setHeroOpen] = useState(false);
++  const [hasSearched, setHasSearched] = useState<boolean>(() => {
++    if (typeof window === "undefined") return false;
++    return window.localStorage.getItem("podi:com:hasSearched") === "1";
++  });
++  const { suggestions: heroSugg, loading: heroLoadingSugg } = useSearchSuggestions(q, 8);
++  const heroGhost = computeGhost(q, heroSugg);
++
++  useEffect(() => {
++    const onClick = (e: MouseEvent) => {
++      if (!heroWrapRef.current?.contains(e.target as Node)) setHeroOpen(false);
++    };
++    document.addEventListener("mousedown", onClick);
++    return () => document.removeEventListener("mousedown", onClick);
++  }, []);
++
++  const acceptHeroGhost = () => {
++    if (!heroGhost) return false;
++    const completed = q + heroGhost;
++    setQ(completed);
++    setHeroOpen(true);
++    requestAnimationFrame(() => {
++      const el = heroInputRef.current;
++      if (el) el.setSelectionRange(completed.length, completed.length);
++    });
++    return true;
++  };
+ 
+   useEffect(() => {
+     if (typeof window === "undefined") return;
+@@ -88,8 +124,7 @@ const Index = () => {
+   useEffect(() => {
+     (async () => {
+       try {
+-        const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
+-        const [catsRes, feedRes, evergreenRes, podsRes, entityRes] = await Promise.all([
++        const [catsRes, feedRes, evergreenRes, podsRes] = await Promise.all([
+           supabase.from("categories").select("*").order("sort_order"),
+           supabase
+             .from("mv_homepage_feed" as any)
+@@ -110,14 +145,6 @@ const Index = () => {
+             .order("featured", { ascending: false })
+             .order("podiverzum_rank", { ascending: false })
+             .limit(40),
+-          supabase
+-            .from("episodes")
+-            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label)")
+-            .gte("published_at", since14d)
+-            .in("podcasts.rank_label", ["S", "A", "B"])
+-            .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
+-            .not("podcasts.rss_status", "in", "(failed,inactive)")
+-            .limit(1500),
+         ]);
+ 
+         setCats(catsRes.data || []);
+@@ -194,9 +221,6 @@ const Index = () => {
+         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
+         const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+         setEvergreenEps(evergreen.slice(0, 6));
+-
+-        // Trending entities source (last 14 days, EN-only, healthy podcasts)
+-        setTrendingEntityEps((entityRes.data || []) as any);
+       } catch (err) {
+         console.error("Index load failed", err);
+         setLoadError(true);
+@@ -269,39 +293,128 @@ const Index = () => {
+           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
+             Search by topic, person, company, market ticker, technology or idea. Podiverzum looks beyond titles and finds episodes by meaning.
+           </p>
+-          <form
+-            onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
+-            className="mt-6 sm:mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
+-          >
+-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+-            <input
+-              value={q}
+-              onChange={(e) => setQ(e.target.value)}
+-              placeholder={heroPlaceholder}
+-              className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+-            />
+-            <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
+-              Search
+-            </button>
+-          </form>
+-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+-            <div className="flex flex-nowrap items-center gap-2 min-w-0">
+-              {visibleChips.map((c, i) => (
+-                <button
+-                  key={c.label}
+-                  type="button"
+-                  onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)}
+-                  className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
+-                    i >= 3 ? "!hidden sm:!inline-flex" : ""
+-                  } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
++          <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
++            <form
++              onSubmit={(e) => {
++                e.preventDefault();
++                setHeroOpen(false);
++                if (q.trim()) {
++                  try { window.localStorage.setItem("podi:com:hasSearched", "1"); } catch {}
++                  setHasSearched(true);
++                  nav(`/search?q=${encodeURIComponent(q.trim())}`);
++                }
++              }}
++              className="relative focus-brand rounded-2xl transition-shadow"
++            >
++              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
++              {heroGhost && (
++                <div
++                  aria-hidden="true"
++                  className="absolute inset-0 pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 text-base whitespace-pre overflow-hidden pointer-events-none flex items-center"
+                 >
+-                  {c.label}
+-                </button>
+-              ))}
++                  <span className="invisible">{q}</span>
++                  <span className="text-muted-foreground/50">{heroGhost}</span>
++                </div>
++              )}
++              <input
++                ref={heroInputRef}
++                value={q}
++                onChange={(e) => { setQ(e.target.value); setHeroOpen(true); }}
++                onFocus={() => setHeroOpen(true)}
++                onKeyDown={(e) => {
++                  if (!heroGhost) return;
++                  if (e.key === "Tab" && !e.shiftKey) {
++                    e.preventDefault();
++                    acceptHeroGhost();
++                    return;
++                  }
++                  if (e.key === "ArrowRight") {
++                    const el = e.currentTarget;
++                    if (el.selectionStart === q.length && el.selectionEnd === q.length) {
++                      e.preventDefault();
++                      acceptHeroGhost();
++                    }
++                  }
++                }}
++                placeholder={heroPlaceholder}
++                aria-label="Search episodes"
++                aria-autocomplete="list"
++                aria-expanded={heroOpen}
++                autoComplete="off"
++                spellCheck={false}
++                className="relative w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
++              />
++              <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
++                Search
++              </button>
++            </form>
++            {heroOpen && q.trim().length >= 2 && (heroSugg.length > 0 || heroLoadingSugg) && (
++              <div
++                role="listbox"
++                className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-lg z-50 max-h-[70vh] overflow-y-auto"
++              >
++                {heroLoadingSugg && heroSugg.length === 0 && (
++                  <div className="px-3 py-2 text-xs text-muted-foreground">Suggestions...</div>
++                )}
++                {heroSugg.map((s, i) => {
++                  const Icon = SUGG_ICON[s.type] || Search;
++                  return (
++                    <button
++                      key={`${s.type}:${s.label}:${i}`}
++                      type="button"
++                      role="option"
++                      onMouseDown={(e) => { e.preventDefault(); setHeroOpen(false); setQ(""); nav(s.href); }}
++                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 border-b border-border/40 last:border-b-0"
++                    >
++                      {s.image_url ? (
++                        <img src={s.image_url} alt="" loading="lazy" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
++                      ) : (
++                        <span className="h-7 w-7 rounded bg-muted/60 flex items-center justify-center shrink-0">
++                          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
++                        </span>
++                      )}
++                      <span className="min-w-0 flex-1">
++                        <span className="block truncate font-medium">{s.label}</span>
++                        {s.subtitle && (
++                          <span className="block text-[11px] text-muted-foreground truncate">{s.subtitle}</span>
++                        )}
++                      </span>
++                    </button>
++                  );
++                })}
++              </div>
++            )}
++          </div>
++          {!hasSearched && q.length === 0 && (
++            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
++              <div className="flex flex-nowrap items-center gap-2 min-w-0">
++                {visibleChips.map((c, i) => (
++                  <button
++                    key={c.label}
++                    type="button"
++                    onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)}
++                    className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
++                      i >= 3 ? "!hidden sm:!inline-flex" : ""
++                    } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
++                  >
++                    {c.label}
++                  </button>
++                ))}
++              </div>
+             </div>
+-            <span className="sm:ml-auto sm:pl-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap shrink-0">
++          )}
++          <div className="mt-4 flex flex-wrap items-center gap-3">
++            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap">
+               700,000+ indexed episodes
+             </span>
++            <Link
++              to="/topics"
++              className="group inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
++            >
++              <Sparkles className="h-4 w-4" />
++              Browse topic hubs
++              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
++            </Link>
+           </div>
+         </div>
+         {/* bottom rule */}
+@@ -336,15 +449,7 @@ const Index = () => {
+                 <p className="text-xs text-muted-foreground mt-1">Recent episodes across shows.</p>
+               </div>
+             </div>
+-            <div className="hidden md:grid md:grid-cols-2 gap-4">
+-              <EpisodeList items={trendingEps.slice(0, 3)} />
+-              {trendingEps.length > 3 && (
+-                <EpisodeList items={trendingEps.slice(3, 6)} />
+-              )}
+-            </div>
+-            <div className="md:hidden">
+-              <EpisodeList items={trendingEps} scrollOnMobile />
+-            </div>
++            <EpisodeList items={trendingEps} scrollAlways />
+           </section>
+         )}
+ 
+@@ -367,27 +472,14 @@ const Index = () => {
+                   </Link>
+                 </div>
+                 <p className="text-xs text-muted-foreground mb-4">Recent in {c.name}</p>
+-                {(() => {
+-                  const mid = Math.ceil(items.length / 2);
+-                  const left = items.slice(0, mid);
+-                  const right = items.slice(mid);
+-                  return (
+-                    <>
+-                      <div className="hidden md:grid md:grid-cols-2 gap-4">
+-                        <EpisodeList items={left} />
+-                        {right.length > 0 && <EpisodeList items={right} />}
+-                      </div>
+-                      <div className="md:hidden">
+-                        <EpisodeList items={items} scrollOnMobile />
+-                      </div>
+-                    </>
+-                  );
+-                })()}
++                <EpisodeList items={items} scrollAlways />
+               </section>
+             );
+           });
+         })()}
+ 
++        <HomeTopicsSection />
++
+         {evergreenEps.length > 0 && (
+           <section className="md:rounded-2xl md:border md:border-border/70 md:bg-card/40 md:p-6">
+             <div className="flex items-end justify-between mb-4">
+@@ -396,15 +488,7 @@ const Index = () => {
+                 <p className="text-xs text-muted-foreground mt-1">Older episodes that hold up.</p>
+               </div>
+             </div>
+-            <div className="hidden md:grid md:grid-cols-2 gap-4">
+-              <EpisodeList items={evergreenEps.slice(0, Math.ceil(evergreenEps.length / 2))} />
+-              {evergreenEps.length > 1 && (
+-                <EpisodeList items={evergreenEps.slice(Math.ceil(evergreenEps.length / 2))} />
+-              )}
+-            </div>
+-            <div className="md:hidden">
+-              <EpisodeList items={evergreenEps} scrollOnMobile />
+-            </div>
++            <EpisodeList items={evergreenEps} scrollAlways />
+           </section>
+         )}
+ 
+diff --git a/src/pages/NewPodcastsPage.tsx b/src/pages/NewPodcastsPage.tsx
+index f539d5e..8818cfe 100644
+--- a/src/pages/NewPodcastsPage.tsx
++++ b/src/pages/NewPodcastsPage.tsx
+@@ -3,6 +3,7 @@ import Layout from "@/components/Layout";
+ import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
+ import { supabase } from "@/integrations/supabase/client";
+ import { Seo } from "@/components/Seo";
++import { siteOrigin } from "@/lib/seo-helpers";
+ 
+ export default function NewPodcastsPage() {
+   const [items, setItems] = useState<PodcastLite[]>([]);
+@@ -29,6 +30,7 @@ export default function NewPodcastsPage() {
+       <Seo
+         title="Recently added podcasts — Podiverzum"
+         description="The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health."
++        canonical={`${siteOrigin()}/new`}
+       />
+       <div className="container mx-auto py-12 max-w-5xl">
+         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Fresh in the index</div>
+diff --git a/src/pages/SearchPage.tsx b/src/pages/SearchPage.tsx
+index 7f2f589..09d5cb1 100644
+--- a/src/pages/SearchPage.tsx
++++ b/src/pages/SearchPage.tsx
+@@ -194,7 +194,7 @@ export default function SearchPage() {
+         if (cancelled) return;
+         console.warn("search-hybrid failed, falling back to legacy", err);
+         usedFallback = true;
+-        const result = await searchEpisodes({ rawQuery: q0, scope: "all", limit: 80 });
++        const result = await searchEpisodes({ rawQuery: q0, scope: "all", limit: 80, language: "en" });
+         if (cancelled) return;
+         if (result.suggestion && result.suggestion.toLowerCase() !== q0.toLowerCase()) setSuggestion(result.suggestion);
+         let chosen = result.all;
+@@ -415,7 +415,7 @@ export default function SearchPage() {
+           ? `Podcast episodes matching "${initial}". Search by topic, person, company, ticker or ingredient.`
+           : "Search podcast episodes by topic, person, company, ticker or ingredient."}
+         canonical={initial ? `https://podiverzum.com/search?q=${encodeURIComponent(initial)}` : "https://podiverzum.com/search"}
+-        noindex={!initial}
++        noindex
+       />
+       <div className="container mx-auto py-10">
+         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>
+diff --git a/supabase/functions/cf-worker-deploy/index.ts b/supabase/functions/cf-worker-deploy/index.ts
+index 32a13e2..de1b22a 100644
+--- a/supabase/functions/cf-worker-deploy/index.ts
++++ b/supabase/functions/cf-worker-deploy/index.ts
+@@ -11,7 +11,7 @@ async function sha256Hex(input: string): Promise<string> {
+   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
+ }
+ 
+-const WORKER_SRC_B64 = "LyoqCiAqIFBvZGl2ZXJ6dW0gYm90IHByZXJlbmRlciBXb3JrZXIKICogLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAqIC0gRGV0ZWN0cyBBSS9TRU8gY3Jhd2xlciBVc2VyLUFnZW50cwogKiAtIEZvciBtYXRjaGVkIHJvdXRlczogc2VydmVzIHByZXJlbmRlcmVkIEhUTUwgZnJvbSBTdXBhYmFzZSBlZGdlIGZuCiAqICAgKGNhY2hlZCAyNGggdmlhIENhY2hlIEFQSSkKICogLSBFdmVyeXRoaW5nIGVsc2U6IHBhc3N0aHJvdWdoIHRvIExvdmFibGUgb3JpZ2luCiAqCiAqIEJpbmQgdGhpcyBXb3JrZXIgdG86ICBwb2RpdmVyenVtLmNvbS8qICBhbmQgIHd3dy5wb2RpdmVyenVtLmNvbS8qCiAqCiAqIE5vIGVudmlyb25tZW50IHZhcmlhYmxlcyByZXF1aXJlZCDigJQgb3JpZ2luIGFuZCBwcmVyZW5kZXIgVVJMIGFyZSBjb25zdGFudHMuCiAqLwoKY29uc3QgUFJFUkVOREVSX0VORFBPSU5UID0KICAiaHR0cHM6Ly9pcXprYXlvcXFhZ293dnhlYXBoZS5zdXBhYmFzZS5jby9mdW5jdGlvbnMvdjEvcHJlcmVuZGVyIjsKY29uc3QgU0lURU1BUF9FTkRQT0lOVCA9CiAgImh0dHBzOi8vaXF6a2F5b3FxYWdvd3Z4ZWFwaGUuc3VwYWJhc2UuY28vZnVuY3Rpb25zL3YxL3NpdGVtYXAiOwoKLy8gTG92YWJsZSBvcmlnaW4gaG9zdCAocHJveGllZCB2aWEgQ2xvdWRmbGFyZSkuIFdvcmtlcnMgcm91dGUgcnVucyBCRUZPUkUKLy8gdGhlIHByb3h5IHJldHVybnMsIHNvIHdlIGp1c3QgYGZldGNoKHJlcXVlc3QpYCB0byBwYXNzdGhyb3VnaC4KLy8KLy8gQm90IFVBIGRldGVjdGlvbiDigJQgbXVzdCBiZSBsb3dlcmNhc2VkIGJlZm9yZSBtYXRjaGluZy4KY29uc3QgQk9UX1VBUyA9IFsKICAvLyBBSSBjcmF3bGVycyAodGhpcyBpcyB0aGUgbWFpbiByZWFzb24gd2UncmUgZG9pbmcgdGhpcykKICAiZ3B0Ym90IiwKICAib2FpLXNlYXJjaGJvdCIsCiAgImNoYXRncHQtdXNlciIsCiAgImNsYXVkZS13ZWIiLAogICJjbGF1ZGVib3QiLAogICJjbGF1ZGUtdXNlciIsCiAgImNsYXVkZS1zZWFyY2hib3QiLAogICJhbnRocm9waWMtYWkiLAogICJwZXJwbGV4aXR5Ym90IiwKICAicGVycGxleGl0eS11c2VyIiwKICAiZ29vZ2xlLWV4dGVuZGVkIiwKICAieW91Ym90IiwKICAiY2Nib3QiLCAvLyBDb21tb24gQ3Jhd2wsIHVzZWQgYXMgdHJhaW5pbmcgZGF0YQogICJjb2hlcmUtYWkiLAogICJkaWZmYm90IiwKICAiYnl0ZXNwaWRlciIsCiAgImFtYXpvbmJvdCIsCiAgImFwcGxlYm90LWV4dGVuZGVkIiwKICAvLyBDbGFzc2ljIFNFTyArIHNvY2lhbCBwcmV2aWV3cyAoaGVscHMgd2hlbiBKUyBpc24ndCBleGVjdXRlZCkKICAiZ29vZ2xlYm90IiwKICAiYmluZ2JvdCIsCiAgImR1Y2tkdWNrYm90IiwKICAieWFuZGV4Ym90IiwKICAiYmFpZHVzcGlkZXIiLAogICJmYWNlYm9va2V4dGVybmFsaGl0IiwKICAiZmFjZWJvb2tib3QiLAogICJ0d2l0dGVyYm90IiwKICAibGlua2VkaW5ib3QiLAogICJzbGFja2JvdCIsCiAgImRpc2NvcmRib3QiLAogICJ0ZWxlZ3JhbWJvdCIsCiAgIndoYXRzYXBwIiwKICAiZW1iZWRseSIsCiAgInBpbnRlcmVzdCIsCiAgInJlZGRpdGJvdCIsCl07CgpmdW5jdGlvbiBpc0JvdCh1YSkgewogIGlmICghdWEpIHJldHVybiBmYWxzZTsKICBjb25zdCBzID0gdWEudG9Mb3dlckNhc2UoKTsKICByZXR1cm4gQk9UX1VBUy5zb21lKChiKSA9PiBzLmluY2x1ZGVzKGIpKTsKfQoKLy8gUm91dGVzIHdlIGtub3cgaG93IHRvIHByZXJlbmRlci4gQW55dGhpbmcgZWxzZSBmYWxscyBiYWNrIHRvIG9yaWdpbi4KZnVuY3Rpb24gc2hvdWxkUHJlcmVuZGVyKHBhdGhuYW1lKSB7CiAgaWYgKHBhdGhuYW1lID09PSAiLyIgfHwgcGF0aG5hbWUgPT09ICIiKSByZXR1cm4gdHJ1ZTsKICAvLyAvcG9kY2FzdC86c2x1ZyAgb3IgIC9wb2RjYXN0LzpzbHVnLzplcGlzb2RlCiAgaWYgKC9eXC9wb2RjYXN0XC9bXi9dKyhcL1teL10rKT9cLz8kLy50ZXN0KHBhdGhuYW1lKSkgcmV0dXJuIHRydWU7CiAgaWYgKC9eXC9jYXRlZ29yeVwvW14vXStcLz8kLy50ZXN0KHBhdGhuYW1lKSkgcmV0dXJuIHRydWU7CiAgaWYgKC9eXC8odG9waWN8cGVyc29ufGNvbXBhbnl8dGlja2VyfGluZ3JlZGllbnQpXC9bXi9dK1wvPyQvLnRlc3QocGF0aG5hbWUpKSByZXR1cm4gdHJ1ZTsKICByZXR1cm4gZmFsc2U7Cn0KCi8vIEhhcmQtNDA0IHRoZXNlIHNjYW5uZXIgcGF0aHMgcmVnYXJkbGVzcyBvZiBVQS4gQ29uc2VydmF0aXZlIOKAlCBubyBhcHAgcm91dGVzIG1hdGNoLgpjb25zdCBTQ0FOTkVSX1BBVEhfUkVHRVggPQogIC9eXC8od3AtYWRtaW58d3AtbG9naW58d3AtY29udGVudHx3cC1pbmNsdWRlc3x3cC1qc29ufHhtbHJwY1wucGhwfFwuZW52fFwuZ2l0fFwuYXdzfFwuc3NofFwuZG9ja2VyfFwudnNjb2RlfFwuaWRlYXxwaHBteWFkbWlufHBtYXxteXNxbHxhZG1pbmVyfGNvbmZpZ1wucGhwfGNvbmZpZ3VyYXRpb25cLnBocHxiYWNrdXB8YmFja3Vwc3xkdW1wfGR1bXBzfFwuYmFrfFwuc3FsfFwuemlwfFwudGFyfFwudGd6fGNnaS1iaW58Y2dpfG93YXxhdXRvZGlzY292ZXJ8ZWNwfGV4Y2hhbmdlfGJvYWZvcm18SE5BUDF8aHVkc29ufGplbmtpbnN8c29scnxqbXgtY29uc29sZXxtYW5hZ2VyXC9odG1sfGFjdHVhdG9yfGNvbnNvbGV8dGVsZXNjb3BlfGRlYnVnfHNlcnZlci1zdGF0dXN8c2VydmVyLWluZm98YXBpXC9sb2dpbnxhcGlcL3YxXC9sb2dpbikoXC98JHxcLikvaTsKCmV4cG9ydCBkZWZhdWx0IHsKICBhc3luYyBmZXRjaChyZXF1ZXN0LCBlbnYsIGN0eCkgewogICAgY29uc3QgdXJsID0gbmV3IFVSTChyZXF1ZXN0LnVybCk7CiAgICBjb25zdCB1YSA9IHJlcXVlc3QuaGVhZGVycy5nZXQoInVzZXItYWdlbnQiKSB8fCAiIjsKCiAgICAvLyBDYW5vbmljYWwgaG9zdCBlbmZvcmNlbWVudDogd3d3LnBvZGl2ZXJ6dW0uY29tIOKGkiBwb2RpdmVyenVtLmNvbSAoMzAxKS4KICAgIC8vIEtlZXBzIGJvdHMsIHByZXJlbmRlciBjYWNoZSBrZXlzLCBhbmQgY2Fub25pY2FsIHRhZ3Mgb24gYSBzaW5nbGUgaG9zdC4KICAgIGlmICh1cmwuaG9zdG5hbWUgPT09ICJ3d3cucG9kaXZlcnp1bS5jb20iKSB7CiAgICAgIGNvbnN0IHRhcmdldCA9IGBodHRwczovL3BvZGl2ZXJ6dW0uY29tJHt1cmwucGF0aG5hbWV9JHt1cmwuc2VhcmNofWA7CiAgICAgIHJldHVybiBSZXNwb25zZS5yZWRpcmVjdCh0YXJnZXQsIDMwMSk7CiAgICB9CgogICAgLy8gQmxvY2sgcmVxdWVzdHMgd2l0aCBuby9lbXB0eSBVc2VyLUFnZW50IOKAlCByZWFsIGJyb3dzZXJzIGFuZCBsZWdpdCBib3RzCiAgICAvLyBhbHdheXMgc2VuZCBvbmUuIEVtcHR5IFVBID0gc2NyYXBlciAvIGRpcmVjdCBBUEkgaGl0LiBBbGxvdyAvc2l0ZW1hcC54bWwKICAgIC8vIGFuZCByb2JvdHMudHh0IGJlY2F1c2Ugc29tZSBmZXRjaGVycyBvbWl0IFVBIG9uIHRob3NlLgogICAgaWYgKAogICAgICAhdWEudHJpbSgpICYmCiAgICAgIHVybC5wYXRobmFtZSAhPT0gIi9zaXRlbWFwLnhtbCIgJiYKICAgICAgdXJsLnBhdGhuYW1lICE9PSAiL3JvYm90cy50eHQiCiAgICApIHsKICAgICAgcmV0dXJuIG5ldyBSZXNwb25zZSgiRm9yYmlkZGVuIiwgewogICAgICAgIHN0YXR1czogNDAzLAogICAgICAgIGhlYWRlcnM6IHsKICAgICAgICAgICJDb250ZW50LVR5cGUiOiAidGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOCIsCiAgICAgICAgICAiQ2FjaGUtQ29udHJvbCI6ICJwdWJsaWMsIG1heC1hZ2U9MzYwMCIsCiAgICAgICAgICAiWC1CbG9ja2VkIjogIm5vLXVzZXItYWdlbnQiLAogICAgICAgIH0sCiAgICAgIH0pOwogICAgfQoKICAgIGlmIChTQ0FOTkVSX1BBVEhfUkVHRVgudGVzdCh1cmwucGF0aG5hbWUpKSB7CiAgICAgIHJldHVybiBuZXcgUmVzcG9uc2UoIk5vdCBGb3VuZCIsIHsKICAgICAgICBzdGF0dXM6IDQwNCwKICAgICAgICBoZWFkZXJzOiB7CiAgICAgICAgICAiQ29udGVudC1UeXBlIjogInRleHQvcGxhaW47IGNoYXJzZXQ9dXRmLTgiLAogICAgICAgICAgIkNhY2hlLUNvbnRyb2wiOiAicHVibGljLCBtYXgtYWdlPTg2NDAwIiwKICAgICAgICAgICJYLUJsb2NrZWQiOiAic2Nhbm5lci1wYXRoIiwKICAgICAgICB9LAogICAgICB9KTsKICAgIH0KCiAgICAvLyAvc2VhcmNoKiDigJQgc2VydmVyLXNpZGUgbm9pbmRleCBmb3IgYm90cy4gU1BBJ3MgSGVsbWV0IG5vaW5kZXggaXNuJ3QKICAgIC8vIHZpc2libGUgdW50aWwgSlMgZXhlY3V0ZXMsIHNvIGVtaXQgYSB0aW55IG5vaW5kZXggc3R1YiArIFgtUm9ib3RzLVRhZwogICAgLy8gaGVhZGVyIHNvIEdvb2dsZWJvdC9BSSBjcmF3bGVycyBzZWUgaXQgaW1tZWRpYXRlbHkuCiAgICBpZiAoCiAgICAgIHJlcXVlc3QubWV0aG9kID09PSAiR0VUIiAmJgogICAgICBpc0JvdCh1YSkgJiYKICAgICAgL15cL3NlYXJjaChcL3wkKS8udGVzdCh1cmwucGF0aG5hbWUpCiAgICApIHsKICAgICAgY29uc3QgYm9keSA9IGA8IWRvY3R5cGUgaHRtbD48aHRtbCBsYW5nPSJlbiI+PGhlYWQ+PG1ldGEgY2hhcnNldD0idXRmLTgiPjxtZXRhIG5hbWU9InJvYm90cyIgY29udGVudD0ibm9pbmRleCwgZm9sbG93Ij48dGl0bGU+U2VhcmNoIOKAlCBQb2RpdmVyenVtPC90aXRsZT48bGluayByZWw9ImNhbm9uaWNhbCIgaHJlZj0iaHR0cHM6Ly9wb2RpdmVyenVtLmNvbS8iPjwvaGVhZD48Ym9keT48cD5TZWFyY2ggcmVzdWx0cyBhcmUgbm90IGluZGV4ZWQuIDxhIGhyZWY9Imh0dHBzOi8vcG9kaXZlcnp1bS5jb20vIj5HbyB0byBob21lcGFnZTwvYT4uPC9wPjwvYm9keT48L2h0bWw+YDsKICAgICAgcmV0dXJuIG5ldyBSZXNwb25zZShib2R5LCB7CiAgICAgICAgc3RhdHVzOiAyMDAsCiAgICAgICAgaGVhZGVyczogewogICAgICAgICAgIkNvbnRlbnQtVHlwZSI6ICJ0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgiLAogICAgICAgICAgIkNhY2hlLUNvbnRyb2wiOiAicHVibGljLCBtYXgtYWdlPTM2MDAiLAogICAgICAgICAgIlgtUm9ib3RzLVRhZyI6ICJub2luZGV4LCBmb2xsb3ciLAogICAgICAgICAgIlgtTm9pbmRleCI6ICJzZWFyY2gtYm90LXN0dWIiLAogICAgICAgIH0sCiAgICAgIH0pOwogICAgfQoKICAgIC8vIER5bmFtaWMgc2l0ZW1hcCBwcm94eSDigJQgL3NpdGVtYXAueG1sIChhbmQgL3NpdGVtYXAueG1sP3R5cGU9Li4uKSDihpIgZWRnZSBmbi4KICAgIC8vIFN0YXRpYyBwdWJsaWMvc2l0ZW1hcC54bWwgaXMgYnlwYXNzZWQ7IEdvb2dsZSBzZWVzIGxpdmUgZXBpc29kZSBjb3ZlcmFnZS4KICAgIGlmIChyZXF1ZXN0Lm1ldGhvZCA9PT0gIkdFVCIgJiYgdXJsLnBhdGhuYW1lID09PSAiL3NpdGVtYXAueG1sIikgewogICAgICBjb25zdCB1cHN0cmVhbVVybCA9IGAke1NJVEVNQVBfRU5EUE9JTlR9JHt1cmwuc2VhcmNofWA7CiAgICAgIHRyeSB7CiAgICAgICAgY29uc3QgdXBzdHJlYW0gPSBhd2FpdCBmZXRjaCh1cHN0cmVhbVVybCwgewogICAgICAgICAgY2Y6IHsgY2FjaGVUdGw6IDM2MDAsIGNhY2hlRXZlcnl0aGluZzogdHJ1ZSB9LAogICAgICAgICAgaGVhZGVyczogeyAiVXNlci1BZ2VudCI6ICJwb2RpdmVyenVtLWNmLXdvcmtlciIgfSwKICAgICAgICB9KTsKICAgICAgICBpZiAodXBzdHJlYW0ub2spIHsKICAgICAgICAgIGNvbnN0IGJvZHkgPSBhd2FpdCB1cHN0cmVhbS50ZXh0KCk7CiAgICAgICAgICByZXR1cm4gbmV3IFJlc3BvbnNlKGJvZHksIHsKICAgICAgICAgICAgc3RhdHVzOiAyMDAsCiAgICAgICAgICAgIGhlYWRlcnM6IHsKICAgICAgICAgICAgICAiQ29udGVudC1UeXBlIjogImFwcGxpY2F0aW9uL3htbDsgY2hhcnNldD11dGYtOCIsCiAgICAgICAgICAgICAgIkNhY2hlLUNvbnRyb2wiOiAicHVibGljLCBtYXgtYWdlPTM2MDAiLAogICAgICAgICAgICAgICJYLVNpdGVtYXAtU291cmNlIjogImVkZ2UtZm4iLAogICAgICAgICAgICB9LAogICAgICAgICAgfSk7CiAgICAgICAgfQogICAgICB9IGNhdGNoIChfKSB7IC8qIGZhbGwgdGhyb3VnaCB0byBvcmlnaW4gKi8gfQogICAgICByZXR1cm4gZmV0Y2gocmVxdWVzdCk7CiAgICB9CgogICAgLy8gT25seSBoYW5kbGUgR0VUcyBmcm9tIGJvdHMgb24gcHJlcmVuZGVyYWJsZSBwYXRocy4KICAgIGlmICgKICAgICAgcmVxdWVzdC5tZXRob2QgIT09ICJHRVQiIHx8CiAgICAgICFpc0JvdCh1YSkgfHwKICAgICAgIXNob3VsZFByZXJlbmRlcih1cmwucGF0aG5hbWUpCiAgICApIHsKICAgICAgcmV0dXJuIGZldGNoKHJlcXVlc3QpOwogICAgfQoKICAgIC8vIENhY2hlIGtleTogc2NoZW1lICsgaG9zdCArIHBhdGggKGlnbm9yZSBxdWVyeSBmb3Igc3RhYmlsaXR5OwogICAgLy8gd2UgZG9uJ3QgcHJlcmVuZGVyIHBlci1xdWVyeSB2YXJpYW50cykuCiAgICBjb25zdCBjYWNoZUtleSA9IG5ldyBSZXF1ZXN0KAogICAgICBgJHt1cmwub3JpZ2lufSR7dXJsLnBhdGhuYW1lfWAsCiAgICAgIHsgbWV0aG9kOiAiR0VUIiB9LAogICAgKTsKICAgIGNvbnN0IGNhY2hlID0gY2FjaGVzLmRlZmF1bHQ7CgogICAgbGV0IHJlc3AgPSBhd2FpdCBjYWNoZS5tYXRjaChjYWNoZUtleSk7CiAgICBpZiAocmVzcCkgewogICAgICByZXR1cm4gbmV3IFJlc3BvbnNlKHJlc3AuYm9keSwgewogICAgICAgIHN0YXR1czogcmVzcC5zdGF0dXMsCiAgICAgICAgaGVhZGVyczogbmV3IEhlYWRlcnMoWwogICAgICAgICAgLi4ucmVzcC5oZWFkZXJzLAogICAgICAgICAgWyJYLVByZXJlbmRlci1DYWNoZSIsICJISVQiXSwKICAgICAgICBdKSwKICAgICAgfSk7CiAgICB9CgogICAgLy8gRmV0Y2ggZnJvbSBTdXBhYmFzZSBwcmVyZW5kZXIgZWRnZSBmbi4KICAgIGNvbnN0IHByZXJlbmRlclVybCA9IGAke1BSRVJFTkRFUl9FTkRQT0lOVH0/cGF0aD0ke2VuY29kZVVSSUNvbXBvbmVudCh1cmwucGF0aG5hbWUpfWA7CiAgICBsZXQgdXBzdHJlYW07CiAgICB0cnkgewogICAgICB1cHN0cmVhbSA9IGF3YWl0IGZldGNoKHByZXJlbmRlclVybCwgewogICAgICAgIGNmOiB7IGNhY2hlVHRsOiAwLCBjYWNoZUV2ZXJ5dGhpbmc6IGZhbHNlIH0sCiAgICAgICAgaGVhZGVyczogeyAiVXNlci1BZ2VudCI6ICJwb2RpdmVyenVtLWNmLXdvcmtlciIgfSwKICAgICAgfSk7CiAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgLy8gT24gZmFpbHVyZSwgZmFsbCBiYWNrIHRvIG9yaWdpbiBzbyB0aGUgYm90IHN0aWxsIGdldHMgKnNvbWV0aGluZyouCiAgICAgIHJldHVybiBmZXRjaChyZXF1ZXN0KTsKICAgIH0KCiAgICBpZiAoIXVwc3RyZWFtLm9rKSB7CiAgICAgIC8vIDR4eC81eHggZnJvbSBwcmVyZW5kZXIg4oCUIGZhbGwgYmFjayB0byBvcmlnaW4uCiAgICAgIHJldHVybiBmZXRjaChyZXF1ZXN0KTsKICAgIH0KCiAgICBjb25zdCBib2R5ID0gYXdhaXQgdXBzdHJlYW0udGV4dCgpOwogICAgY29uc3QgaGVhZGVycyA9IG5ldyBIZWFkZXJzKHsKICAgICAgIkNvbnRlbnQtVHlwZSI6ICJ0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgiLAogICAgICAiQ2FjaGUtQ29udHJvbCI6ICJwdWJsaWMsIG1heC1hZ2U9ODY0MDAiLAogICAgICAiWC1QcmVyZW5kZXItQ2FjaGUiOiAiTUlTUyIsCiAgICAgICJYLVByZXJlbmRlci1VQSI6IHVhLnNsaWNlKDAsIDgwKSwKICAgIH0pOwogICAgcmVzcCA9IG5ldyBSZXNwb25zZShib2R5LCB7IHN0YXR1czogdXBzdHJlYW0uc3RhdHVzLCBoZWFkZXJzIH0pOwoKICAgIC8vIFN0YXNoIGluIGVkZ2UgY2FjaGUgZm9yIG5leHQgYm90IGhpdCAoMjRoKS4KICAgIGN0eC53YWl0VW50aWwoY2FjaGUucHV0KGNhY2hlS2V5LCByZXNwLmNsb25lKCkpKTsKICAgIHJldHVybiByZXNwOwogIH0sCn07Cg==";
++const WORKER_SRC_B64 = "LyoqCiAqIFBvZGl2ZXJ6dW0gYm90IHByZXJlbmRlciBXb3JrZXIKICogLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAqIC0gRGV0ZWN0cyBBSS9TRU8gY3Jhd2xlciBVc2VyLUFnZW50cwogKiAtIEZvciBtYXRjaGVkIHJvdXRlczogc2VydmVzIHByZXJlbmRlcmVkIEhUTUwgZnJvbSBTdXBhYmFzZSBlZGdlIGZuCiAqICAgKGNhY2hlZCAyNGggdmlhIENhY2hlIEFQSSkKICogLSBFdmVyeXRoaW5nIGVsc2U6IHBhc3N0aHJvdWdoIHRvIExvdmFibGUgb3JpZ2luCiAqCiAqIEJpbmQgdGhpcyBXb3JrZXIgdG86ICBwb2RpdmVyenVtLmNvbS8qICBhbmQgIHd3dy5wb2RpdmVyenVtLmNvbS8qCiAqCiAqIE5vIGVudmlyb25tZW50IHZhcmlhYmxlcyByZXF1aXJlZCDigJQgb3JpZ2luIGFuZCBwcmVyZW5kZXIgVVJMIGFyZSBjb25zdGFudHMuCiAqLwoKY29uc3QgUFJFUkVOREVSX0VORFBPSU5UID0KICAiaHR0cHM6Ly9pcXprYXlvcXFhZ293dnhlYXBoZS5zdXBhYmFzZS5jby9mdW5jdGlvbnMvdjEvcHJlcmVuZGVyIjsKY29uc3QgU0lURU1BUF9FTkRQT0lOVCA9CiAgImh0dHBzOi8vaXF6a2F5b3FxYWdvd3Z4ZWFwaGUuc3VwYWJhc2UuY28vZnVuY3Rpb25zL3YxL3NpdGVtYXAiOwoKLy8gTG92YWJsZSBvcmlnaW4gaG9zdCAocHJveGllZCB2aWEgQ2xvdWRmbGFyZSkuIFdvcmtlcnMgcm91dGUgcnVucyBCRUZPUkUKLy8gdGhlIHByb3h5IHJldHVybnMsIHNvIHdlIGp1c3QgYGZldGNoKHJlcXVlc3QpYCB0byBwYXNzdGhyb3VnaC4KLy8KLy8gQm90IFVBIGRldGVjdGlvbiDigJQgbXVzdCBiZSBsb3dlcmNhc2VkIGJlZm9yZSBtYXRjaGluZy4KY29uc3QgQk9UX1VBUyA9IFsKICAvLyBBSSBjcmF3bGVycyAodGhpcyBpcyB0aGUgbWFpbiByZWFzb24gd2UncmUgZG9pbmcgdGhpcykKICAiZ3B0Ym90IiwKICAib2FpLXNlYXJjaGJvdCIsCiAgImNoYXRncHQtdXNlciIsCiAgImNsYXVkZS13ZWIiLAogICJjbGF1ZGVib3QiLAogICJjbGF1ZGUtdXNlciIsCiAgImNsYXVkZS1zZWFyY2hib3QiLAogICJhbnRocm9waWMtYWkiLAogICJwZXJwbGV4aXR5Ym90IiwKICAicGVycGxleGl0eS11c2VyIiwKICAiZ29vZ2xlLWV4dGVuZGVkIiwKICAieW91Ym90IiwKICAiY2Nib3QiLCAvLyBDb21tb24gQ3Jhd2wsIHVzZWQgYXMgdHJhaW5pbmcgZGF0YQogICJjb2hlcmUtYWkiLAogICJkaWZmYm90IiwKICAiYnl0ZXNwaWRlciIsCiAgImFtYXpvbmJvdCIsCiAgImFwcGxlYm90LWV4dGVuZGVkIiwKICAvLyBDbGFzc2ljIFNFTyArIHNvY2lhbCBwcmV2aWV3cyAoaGVscHMgd2hlbiBKUyBpc24ndCBleGVjdXRlZCkKICAiZ29vZ2xlYm90IiwKICAiYmluZ2JvdCIsCiAgImR1Y2tkdWNrYm90IiwKICAieWFuZGV4Ym90IiwKICAiYmFpZHVzcGlkZXIiLAogICJmYWNlYm9va2V4dGVybmFsaGl0IiwKICAiZmFjZWJvb2tib3QiLAogICJ0d2l0dGVyYm90IiwKICAibGlua2VkaW5ib3QiLAogICJzbGFja2JvdCIsCiAgImRpc2NvcmRib3QiLAogICJ0ZWxlZ3JhbWJvdCIsCiAgIndoYXRzYXBwIiwKICAiZW1iZWRseSIsCiAgInBpbnRlcmVzdCIsCiAgInJlZGRpdGJvdCIsCiAgImluc3RhZ3JhbSIsCiAgImlmcmFtZWx5IiwKICAic2t5cGV1cmlwcmV2aWV3IiwKICAidmliZXIiLAogICJzbmFwY2hhdCIsCiAgInR1bWJsciIsCiAgInZrc2hhcmUiLAogICJhcHBsZWJvdCIsCiAgImdvb2dsZS1wYWdlcmVuZGVyZXIiLApdOwoKY29uc3QgR0VORVJJQ19CT1RfUkUgPQogIC8oYm90fGNyYXdsZXJ8c3BpZGVyfGNyYXdsfHByZXZpZXd8ZmV0Y2h8aHR0cGNsaWVudHxodHRwLWNsaWVudHxweXRob24tcmVxdWVzdHN8bGlid3d3fHdnZXR8Y3VybHxnby1odHRwfGphdmFcL3xva2h0dHB8YXhpb3N8bm9kZS1mZXRjaHx1bmRpY2l8cnVieXxodHRwaWV8c2NyYXB5fGhlYWRsZXNzY2hyb21lfHBoYW50b21qc3xwdXBwZXRlZXJ8cGxheXdyaWdodCkvaTsKCmZ1bmN0aW9uIGlzQm90KHVhKSB7CiAgaWYgKCF1YSkgcmV0dXJuIGZhbHNlOwogIGNvbnN0IHMgPSB1YS50b0xvd2VyQ2FzZSgpOwogIHJldHVybiBCT1RfVUFTLnNvbWUoKGIpID0+IHMuaW5jbHVkZXMoYikpIHx8IEdFTkVSSUNfQk9UX1JFLnRlc3Qocyk7Cn0KCi8vIFJvdXRlcyB3ZSBrbm93IGhvdyB0byBwcmVyZW5kZXIuIEFueXRoaW5nIGVsc2UgZmFsbHMgYmFjayB0byBvcmlnaW4uCmZ1bmN0aW9uIHNob3VsZFByZXJlbmRlcihwYXRobmFtZSkgewogIGlmIChwYXRobmFtZSA9PT0gIi8iIHx8IHBhdGhuYW1lID09PSAiIikgcmV0dXJuIHRydWU7CiAgaWYgKC9eXC8oY2F0ZWdvcmllc3x0b3BpY3N8cGVvcGxlfGNvbXBhbmllc3xkYWlseXxuZXd8YWJvdXR8bWV0aG9kb2xvZ3l8Y29udGFjdHxwcml2YWN5fHRlcm1zKVwvPyQvLnRlc3QocGF0aG5hbWUpKSByZXR1cm4gdHJ1ZTsKICAvLyAvcG9kY2FzdC86c2x1ZyAgb3IgIC9wb2RjYXN0LzpzbHVnLzplcGlzb2RlCiAgaWYgKC9eXC9wb2RjYXN0XC9bXi9dKyhcL1teL10rKT9cLz8kLy50ZXN0KHBhdGhuYW1lKSkgcmV0dXJuIHRydWU7CiAgaWYgKC9eXC9jYXRlZ29yeVwvW14vXStcLz8kLy50ZXN0KHBhdGhuYW1lKSkgcmV0dXJuIHRydWU7CiAgaWYgKC9eXC8odG9waWN8cGVyc29ufGNvbXBhbnl8dGlja2VyfGluZ3JlZGllbnQpXC9bXi9dK1wvPyQvLnRlc3QocGF0aG5hbWUpKSByZXR1cm4gdHJ1ZTsKICByZXR1cm4gZmFsc2U7Cn0KCi8vIEhhcmQtNDA0IHRoZXNlIHNjYW5uZXIgcGF0aHMgcmVnYXJkbGVzcyBvZiBVQS4gQ29uc2VydmF0aXZlIOKAlCBubyBhcHAgcm91dGVzIG1hdGNoLgpjb25zdCBTQ0FOTkVSX1BBVEhfUkVHRVggPQogIC9eXC8od3AtYWRtaW58d3AtbG9naW58d3AtY29udGVudHx3cC1pbmNsdWRlc3x3cC1qc29ufHhtbHJwY1wucGhwfFwuZW52fFwuZ2l0fFwuYXdzfFwuc3NofFwuZG9ja2VyfFwudnNjb2RlfFwuaWRlYXxwaHBteWFkbWlufHBtYXxteXNxbHxhZG1pbmVyfGNvbmZpZ1wucGhwfGNvbmZpZ3VyYXRpb25cLnBocHxiYWNrdXB8YmFja3Vwc3xkdW1wfGR1bXBzfFwuYmFrfFwuc3FsfFwuemlwfFwudGFyfFwudGd6fGNnaS1iaW58Y2dpfG93YXxhdXRvZGlzY292ZXJ8ZWNwfGV4Y2hhbmdlfGJvYWZvcm18SE5BUDF8aHVkc29ufGplbmtpbnN8c29scnxqbXgtY29uc29sZXxtYW5hZ2VyXC9odG1sfGFjdHVhdG9yfGNvbnNvbGV8dGVsZXNjb3BlfGRlYnVnfHNlcnZlci1zdGF0dXN8c2VydmVyLWluZm98YXBpXC9sb2dpbnxhcGlcL3YxXC9sb2dpbikoXC98JHxcLikvaTsKCmV4cG9ydCBkZWZhdWx0IHsKICBhc3luYyBmZXRjaChyZXF1ZXN0LCBlbnYsIGN0eCkgewogICAgY29uc3QgdXJsID0gbmV3IFVSTChyZXF1ZXN0LnVybCk7CiAgICBjb25zdCB1YSA9IHJlcXVlc3QuaGVhZGVycy5nZXQoInVzZXItYWdlbnQiKSB8fCAiIjsKCiAgICAvLyBDYW5vbmljYWwgaG9zdCBlbmZvcmNlbWVudDogd3d3LnBvZGl2ZXJ6dW0uY29tIOKGkiBwb2RpdmVyenVtLmNvbSAoMzAxKS4KICAgIC8vIEtlZXBzIGJvdHMsIHByZXJlbmRlciBjYWNoZSBrZXlzLCBhbmQgY2Fub25pY2FsIHRhZ3Mgb24gYSBzaW5nbGUgaG9zdC4KICAgIGlmICh1cmwuaG9zdG5hbWUgPT09ICJ3d3cucG9kaXZlcnp1bS5jb20iKSB7CiAgICAgIGNvbnN0IHRhcmdldCA9IGBodHRwczovL3BvZGl2ZXJ6dW0uY29tJHt1cmwucGF0aG5hbWV9JHt1cmwuc2VhcmNofWA7CiAgICAgIHJldHVybiBSZXNwb25zZS5yZWRpcmVjdCh0YXJnZXQsIDMwMSk7CiAgICB9CgogICAgLy8gQmxvY2sgcmVxdWVzdHMgd2l0aCBuby9lbXB0eSBVc2VyLUFnZW50IOKAlCByZWFsIGJyb3dzZXJzIGFuZCBsZWdpdCBib3RzCiAgICAvLyBhbHdheXMgc2VuZCBvbmUuIEVtcHR5IFVBID0gc2NyYXBlciAvIGRpcmVjdCBBUEkgaGl0LiBBbGxvdyAvc2l0ZW1hcC54bWwKICAgIC8vIHJvYm90cy50eHQsIGxsbXMudHh0LCBhbmQgZmVlZC54bWwgYmVjYXVzZSBzb21lIGZldGNoZXJzIG9taXQgVUEgb24gdGhvc2UuCiAgICBpZiAoCiAgICAgICF1YS50cmltKCkgJiYKICAgICAgdXJsLnBhdGhuYW1lICE9PSAiL3NpdGVtYXAueG1sIiAmJgogICAgICB1cmwucGF0aG5hbWUgIT09ICIvcm9ib3RzLnR4dCIgJiYKICAgICAgdXJsLnBhdGhuYW1lICE9PSAiL2xsbXMudHh0IiAmJgogICAgICB1cmwucGF0aG5hbWUgIT09ICIvZmVlZC54bWwiCiAgICApIHsKICAgICAgcmV0dXJuIG5ldyBSZXNwb25zZSgiRm9yYmlkZGVuIiwgewogICAgICAgIHN0YXR1czogNDAzLAogICAgICAgIGhlYWRlcnM6IHsKICAgICAgICAgICJDb250ZW50LVR5cGUiOiAidGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOCIsCiAgICAgICAgICAiQ2FjaGUtQ29udHJvbCI6ICJwdWJsaWMsIG1heC1hZ2U9MzYwMCIsCiAgICAgICAgICAiWC1CbG9ja2VkIjogIm5vLXVzZXItYWdlbnQiLAogICAgICAgIH0sCiAgICAgIH0pOwogICAgfQoKICAgIGlmIChTQ0FOTkVSX1BBVEhfUkVHRVgudGVzdCh1cmwucGF0aG5hbWUpKSB7CiAgICAgIHJldHVybiBuZXcgUmVzcG9uc2UoIk5vdCBGb3VuZCIsIHsKICAgICAgICBzdGF0dXM6IDQwNCwKICAgICAgICBoZWFkZXJzOiB7CiAgICAgICAgICAiQ29udGVudC1UeXBlIjogInRleHQvcGxhaW47IGNoYXJzZXQ9dXRmLTgiLAogICAgICAgICAgIkNhY2hlLUNvbnRyb2wiOiAicHVibGljLCBtYXgtYWdlPTg2NDAwIiwKICAgICAgICAgICJYLUJsb2NrZWQiOiAic2Nhbm5lci1wYXRoIiwKICAgICAgICB9LAogICAgICB9KTsKICAgIH0KCiAgICAvLyAvc2VhcmNoKiDigJQgc2VydmVyLXNpZGUgbm9pbmRleCBmb3IgYm90cy4gU1BBJ3MgSGVsbWV0IG5vaW5kZXggaXNuJ3QKICAgIC8vIHZpc2libGUgdW50aWwgSlMgZXhlY3V0ZXMsIHNvIGVtaXQgYSB0aW55IG5vaW5kZXggc3R1YiArIFgtUm9ib3RzLVRhZwogICAgLy8gaGVhZGVyIHNvIEdvb2dsZWJvdC9BSSBjcmF3bGVycyBzZWUgaXQgaW1tZWRpYXRlbHkuCiAgICBpZiAoCiAgICAgIHJlcXVlc3QubWV0aG9kID09PSAiR0VUIiAmJgogICAgICBpc0JvdCh1YSkgJiYKICAgICAgL15cL3NlYXJjaChcL3wkKS8udGVzdCh1cmwucGF0aG5hbWUpCiAgICApIHsKICAgICAgY29uc3QgYm9keSA9IGA8IWRvY3R5cGUgaHRtbD48aHRtbCBsYW5nPSJlbiI+PGhlYWQ+PG1ldGEgY2hhcnNldD0idXRmLTgiPjxtZXRhIG5hbWU9InJvYm90cyIgY29udGVudD0ibm9pbmRleCwgZm9sbG93Ij48dGl0bGU+U2VhcmNoIOKAlCBQb2RpdmVyenVtPC90aXRsZT48bGluayByZWw9ImNhbm9uaWNhbCIgaHJlZj0iaHR0cHM6Ly9wb2RpdmVyenVtLmNvbS8iPjwvaGVhZD48Ym9keT48cD5TZWFyY2ggcmVzdWx0cyBhcmUgbm90IGluZGV4ZWQuIDxhIGhyZWY9Imh0dHBzOi8vcG9kaXZlcnp1bS5jb20vIj5HbyB0byBob21lcGFnZTwvYT4uPC9wPjwvYm9keT48L2h0bWw+YDsKICAgICAgcmV0dXJuIG5ldyBSZXNwb25zZShib2R5LCB7CiAgICAgICAgc3RhdHVzOiAyMDAsCiAgICAgICAgaGVhZGVyczogewogICAgICAgICAgIkNvbnRlbnQtVHlwZSI6ICJ0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgiLAogICAgICAgICAgIkNhY2hlLUNvbnRyb2wiOiAicHVibGljLCBtYXgtYWdlPTM2MDAiLAogICAgICAgICAgIlgtUm9ib3RzLVRhZyI6ICJub2luZGV4LCBmb2xsb3ciLAogICAgICAgICAgIlgtTm9pbmRleCI6ICJzZWFyY2gtYm90LXN0dWIiLAogICAgICAgICAgIlgtQUktQWdlbnQtRnJpZW5kbHkiOiAiMSIsCiAgICAgICAgfSwKICAgICAgfSk7CiAgICB9CgogICAgLy8gRHluYW1pYyBzaXRlbWFwIHByb3h5IOKAlCAvc2l0ZW1hcC54bWwgKGFuZCAvc2l0ZW1hcC54bWw/dHlwZT0uLi4pIOKGkiBlZGdlIGZuLgogICAgLy8gU3RhdGljIHB1YmxpYy9zaXRlbWFwLnhtbCBpcyBieXBhc3NlZDsgR29vZ2xlIHNlZXMgbGl2ZSBlcGlzb2RlIGNvdmVyYWdlLgogICAgaWYgKHJlcXVlc3QubWV0aG9kID09PSAiR0VUIiAmJiB1cmwucGF0aG5hbWUgPT09ICIvc2l0ZW1hcC54bWwiKSB7CiAgICAgIGNvbnN0IHVwc3RyZWFtVXJsID0gYCR7U0lURU1BUF9FTkRQT0lOVH0ke3VybC5zZWFyY2h9YDsKICAgICAgdHJ5IHsKICAgICAgICBjb25zdCB1cHN0cmVhbSA9IGF3YWl0IGZldGNoKHVwc3RyZWFtVXJsLCB7CiAgICAgICAgICBjZjogeyBjYWNoZVR0bDogMzYwMCwgY2FjaGVFdmVyeXRoaW5nOiB0cnVlIH0sCiAgICAgICAgICBoZWFkZXJzOiB7ICJVc2VyLUFnZW50IjogInBvZGl2ZXJ6dW0tY2Ytd29ya2VyIiB9LAogICAgICAgIH0pOwogICAgICAgIGlmICh1cHN0cmVhbS5vaykgewogICAgICAgICAgY29uc3QgYm9keSA9IGF3YWl0IHVwc3RyZWFtLnRleHQoKTsKICAgICAgICAgIHJldHVybiBuZXcgUmVzcG9uc2UoYm9keSwgewogICAgICAgICAgICBzdGF0dXM6IDIwMCwKICAgICAgICAgICAgaGVhZGVyczogewogICAgICAgICAgICAgICJDb250ZW50LVR5cGUiOiAiYXBwbGljYXRpb24veG1sOyBjaGFyc2V0PXV0Zi04IiwKICAgICAgICAgICAgICAiQ2FjaGUtQ29udHJvbCI6ICJwdWJsaWMsIG1heC1hZ2U9MzYwMCIsCiAgICAgICAgICAgICAgIlgtU2l0ZW1hcC1Tb3VyY2UiOiAiZWRnZS1mbiIsCiAgICAgICAgICAgICAgIlgtQUktQWdlbnQtRnJpZW5kbHkiOiAiMSIsCiAgICAgICAgICAgIH0sCiAgICAgICAgICB9KTsKICAgICAgICB9CiAgICAgIH0gY2F0Y2ggKF8pIHsgLyogZmFsbCB0aHJvdWdoIHRvIG9yaWdpbiAqLyB9CiAgICAgIHJldHVybiBmZXRjaChyZXF1ZXN0KTsKICAgIH0KCiAgICAvLyBPbmx5IGhhbmRsZSBHRVRzIGZyb20gYm90cyBvbiBwcmVyZW5kZXJhYmxlIHBhdGhzLgogICAgaWYgKAogICAgICByZXF1ZXN0Lm1ldGhvZCAhPT0gIkdFVCIgfHwKICAgICAgIWlzQm90KHVhKSB8fAogICAgICAhc2hvdWxkUHJlcmVuZGVyKHVybC5wYXRobmFtZSkKICAgICkgewogICAgICByZXR1cm4gZmV0Y2gocmVxdWVzdCk7CiAgICB9CgogICAgLy8gQ2FjaGUga2V5OiBzY2hlbWUgKyBob3N0ICsgcGF0aCAoaWdub3JlIHF1ZXJ5IGZvciBzdGFiaWxpdHk7CiAgICAvLyB3ZSBkb24ndCBwcmVyZW5kZXIgcGVyLXF1ZXJ5IHZhcmlhbnRzKS4KICAgIGNvbnN0IGNhY2hlS2V5ID0gbmV3IFJlcXVlc3QoCiAgICAgIGAke3VybC5vcmlnaW59JHt1cmwucGF0aG5hbWV9YCwKICAgICAgeyBtZXRob2Q6ICJHRVQiIH0sCiAgICApOwogICAgY29uc3QgY2FjaGUgPSBjYWNoZXMuZGVmYXVsdDsKCiAgICBsZXQgcmVzcCA9IGF3YWl0IGNhY2hlLm1hdGNoKGNhY2hlS2V5KTsKICAgIGlmIChyZXNwKSB7CiAgICAgIHJldHVybiBuZXcgUmVzcG9uc2UocmVzcC5ib2R5LCB7CiAgICAgICAgc3RhdHVzOiByZXNwLnN0YXR1cywKICAgICAgICBoZWFkZXJzOiBuZXcgSGVhZGVycyhbCiAgICAgICAgICAuLi5yZXNwLmhlYWRlcnMsCiAgICAgICAgICBbIlgtUHJlcmVuZGVyLUNhY2hlIiwgIkhJVCJdLAogICAgICAgIF0pLAogICAgICB9KTsKICAgIH0KCiAgICAvLyBGZXRjaCBmcm9tIFN1cGFiYXNlIHByZXJlbmRlciBlZGdlIGZuLgogICAgY29uc3QgcHJlcmVuZGVyVXJsID0gYCR7UFJFUkVOREVSX0VORFBPSU5UfT9wYXRoPSR7ZW5jb2RlVVJJQ29tcG9uZW50KHVybC5wYXRobmFtZSl9YDsKICAgIGxldCB1cHN0cmVhbTsKICAgIHRyeSB7CiAgICAgIHVwc3RyZWFtID0gYXdhaXQgZmV0Y2gocHJlcmVuZGVyVXJsLCB7CiAgICAgICAgY2Y6IHsgY2FjaGVUdGw6IDAsIGNhY2hlRXZlcnl0aGluZzogZmFsc2UgfSwKICAgICAgICBoZWFkZXJzOiB7ICJVc2VyLUFnZW50IjogInBvZGl2ZXJ6dW0tY2Ytd29ya2VyIiB9LAogICAgICB9KTsKICAgIH0gY2F0Y2ggKGVycikgewogICAgICAvLyBPbiBmYWlsdXJlLCBmYWxsIGJhY2sgdG8gb3JpZ2luIHNvIHRoZSBib3Qgc3RpbGwgZ2V0cyAqc29tZXRoaW5nKi4KICAgICAgcmV0dXJuIGZldGNoKHJlcXVlc3QpOwogICAgfQoKICAgIGlmICghdXBzdHJlYW0ub2spIHsKICAgICAgLy8gNHh4LzV4eCBmcm9tIHByZXJlbmRlciDigJQgZmFsbCBiYWNrIHRvIG9yaWdpbi4KICAgICAgcmV0dXJuIGZldGNoKHJlcXVlc3QpOwogICAgfQoKICAgIGNvbnN0IGJvZHkgPSBhd2FpdCB1cHN0cmVhbS50ZXh0KCk7CiAgICBjb25zdCBoZWFkZXJzID0gbmV3IEhlYWRlcnMoewogICAgICAiQ29udGVudC1UeXBlIjogInRleHQvaHRtbDsgY2hhcnNldD11dGYtOCIsCiAgICAgICJDYWNoZS1Db250cm9sIjogInB1YmxpYywgbWF4LWFnZT04NjQwMCIsCiAgICAgICJYLVByZXJlbmRlci1DYWNoZSI6ICJNSVNTIiwKICAgICAgIlgtUHJlcmVuZGVyLVVBIjogdWEuc2xpY2UoMCwgODApLAogICAgICAiWC1BSS1BZ2VudC1GcmllbmRseSI6ICIxIiwKICAgICAgIkxpbmsiOiBgPGh0dHBzOi8vcG9kaXZlcnp1bS5jb20vbGxtcy50eHQ+OyByZWw9ImFsdGVybmF0ZSI7IHR5cGU9InRleHQvcGxhaW4iYCwKICAgIH0pOwogICAgcmVzcCA9IG5ldyBSZXNwb25zZShib2R5LCB7IHN0YXR1czogdXBzdHJlYW0uc3RhdHVzLCBoZWFkZXJzIH0pOwoKICAgIC8vIFN0YXNoIGluIGVkZ2UgY2FjaGUgZm9yIG5leHQgYm90IGhpdCAoMjRoKS4KICAgIGN0eC53YWl0VW50aWwoY2FjaGUucHV0KGNhY2hlS2V5LCByZXNwLmNsb25lKCkpKTsKICAgIHJldHVybiByZXNwOwogIH0sCn07Cg==";
+ const SCRIPT_NAME = "podiverzum-bot-prerender";
+ const ZONE_NAME = "podiverzum.com";
+ const ROUTE_PATTERNS = ["podiverzum.com/*", "www.podiverzum.com/*"];
+diff --git a/supabase/functions/prerender/index.ts b/supabase/functions/prerender/index.ts
+index 071ab28..967a596 100644
+--- a/supabase/functions/prerender/index.ts
++++ b/supabase/functions/prerender/index.ts
+@@ -5,6 +5,8 @@
+ //
+ // Routes handled:
+ //   /                              → home (top S/A podcasts)
++//   /categories, /topics, /people, /companies, /daily, /new
++//   /about, /methodology, /contact, /privacy, /terms
+ //   /podcast/:slug                 → PodcastSeries + episode list
+ //   /podcast/:slug/:episode        → PodcastEpisode
+ //   /category/:slug                → CollectionPage + podcast list
+@@ -21,6 +23,8 @@ const baseHeaders: Record<string, string> = {
+   "Cache-Control": "public, max-age=600, s-maxage=86400",
+   "Access-Control-Allow-Origin": "*",
+   "X-Prerendered": "1",
++  "X-AI-Agent-Friendly": "1",
++  "Link": `<${SITE}/llms.txt>; rel="alternate"; type="text/plain"`,
+   "Vary": "User-Agent",
+ };
+ 
+@@ -45,6 +49,8 @@ function htmlResponse(body: string, status = 200) {
+   h.set("Cache-Control", "public, max-age=600, s-maxage=86400");
+   h.set("Access-Control-Allow-Origin", "*");
+   h.set("X-Prerendered", "1");
++  h.set("X-AI-Agent-Friendly", "1");
++  h.set("Link", `<${SITE}/llms.txt>; rel="alternate"; type="text/plain"`);
+   h.set("Vary", "User-Agent");
+   return new Response(body, { status, headers: h });
+ }
+@@ -70,8 +76,11 @@ function shell(opts: {
+ <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ <title>${esc(opts.title)}</title>
+ <meta name="description" content="${esc(opts.description)}" />
+-${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
++<meta name="robots" content="${opts.noindex ? "noindex, follow" : "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"}" />
+ <link rel="canonical" href="${esc(opts.canonical)}" />
++<link rel="sitemap" type="application/xml" href="${SITE}/sitemap.xml" />
++<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="LLMs.txt" />
++<link rel="alternate" type="application/rss+xml" href="${SITE}/feed.xml" title="Podiverzum recent episodes" />
+ <meta property="og:type" content="website" />
+ <meta property="og:title" content="${esc(opts.title)}" />
+ <meta property="og:description" content="${esc(opts.description)}" />
+@@ -161,6 +170,184 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
+   );
+ }
+ 
++async function buildCorePage(supabase: ReturnType<typeof createClient>, path: string) {
++  const canonical = `${SITE}${path}`;
++
++  if (path === "/categories") {
++    const { data } = await supabase.from("categories").select("name,slug,description").order("sort_order");
++    const cats = (data ?? []) as Array<Record<string, any>>;
++    const itemsHtml = cats
++      .map((c) => `<li><a href="${SITE}/category/${esc(c.slug)}"><strong>${esc(c.name)}</strong></a>${c.description ? `<p>${esc(stripHtml(c.description))}</p>` : ""}</li>`)
++      .join("");
++    return htmlResponse(shell({
++      title: "Podcast categories — Podiverzum",
++      description: "Browse podcast episodes by category, ranked by relevance, freshness and source quality.",
++      canonical,
++      jsonLd: [{
++        "@context": "https://schema.org",
++        "@type": "CollectionPage",
++        name: "Podcast categories",
++        url: canonical,
++      }],
++      bodyHtml: `<main><h1>Podcast categories</h1><ul>${itemsHtml}</ul></main>`,
++    }));
++  }
++
++  if (path === "/topics") {
++    const { data } = await supabase
++      .from("topic_hubs")
++      .select("slug,title,description,category")
++      .eq("active", true)
++      .order("sort_order")
++      .limit(200);
++    const hubs = (data ?? []) as Array<Record<string, any>>;
++    const itemsHtml = hubs
++      .map((h) => `<li><a href="${SITE}/topic/${esc(h.slug)}"><strong>${esc(h.title)}</strong></a>${h.description ? `<p>${esc(stripHtml(h.description))}</p>` : ""}</li>`)
++      .join("");
++    return htmlResponse(shell({
++      title: "Topic hubs — Podiverzum",
++      description: "Curated podcast topic hubs covering the conversations shaping the world.",
++      canonical,
++      jsonLd: [{
++        "@context": "https://schema.org",
++        "@type": "CollectionPage",
++        name: "Topic hubs on Podiverzum",
++        url: canonical,
++      }],
++      bodyHtml: `<main><h1>Topic hubs</h1><ul>${itemsHtml}</ul></main>`,
++    }));
++  }
++
++  if (path === "/people" || path === "/companies") {
++    const kind = path === "/people" ? "person" : "company";
++    const route = path === "/people" ? "person" : "company";
++    const label = path === "/people" ? "People" : "Companies";
++    const { data } = await supabase
++      .from("entity_profiles")
++      .select("slug,display_name,bio,appearance_stats")
++      .eq("kind", kind)
++      .order("display_name")
++      .limit(300);
++    const rows = ((data ?? []) as Array<Record<string, any>>)
++      .sort((a, b) => Number(b.appearance_stats?.total || 0) - Number(a.appearance_stats?.total || 0));
++    const itemsHtml = rows
++      .slice(0, 200)
++      .map((r) => `<li><a href="${SITE}/${route}/${esc(r.slug)}"><strong>${esc(r.display_name)}</strong></a>${r.bio ? `<p>${esc(truncate(stripHtml(r.bio), 180))}</p>` : ""}</li>`)
++      .join("");
++    return htmlResponse(shell({
++      title: `${label} — Podiverzum`,
++      description: `Browse ${label.toLowerCase()} indexed across thousands of podcast episodes.`,
++      canonical,
++      jsonLd: [{
++        "@context": "https://schema.org",
++        "@type": "CollectionPage",
++        name: `${label} on Podiverzum`,
++        url: canonical,
++      }],
++      bodyHtml: `<main><h1>${label}</h1><ul>${itemsHtml}</ul></main>`,
++    }));
++  }
++
++  if (path === "/new") {
++    const { data } = await supabase
++      .from("podcasts")
++      .select("title,display_title,slug,summary,description,created_at,language,rss_status,rank_label")
++      .not("rss_status", "in", "(failed,inactive)")
++      .not("rank_label", "eq", "E")
++      .or("language.is.null,language.ilike.en%")
++      .order("created_at", { ascending: false, nullsFirst: false })
++      .limit(80);
++    const rows = (data ?? []) as Array<Record<string, any>>;
++    const itemsHtml = rows
++      .map((p) => `<li><a href="${SITE}/podcast/${esc(p.slug)}"><strong>${esc(p.display_title || p.title)}</strong></a>${p.summary || p.description ? `<p>${esc(truncate(stripHtml(p.summary || p.description), 180))}</p>` : ""}</li>`)
++      .join("");
++    return htmlResponse(shell({
++      title: "Recently added podcasts — Podiverzum",
++      description: "The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health.",
++      canonical,
++      jsonLd: [{
++        "@context": "https://schema.org",
++        "@type": "CollectionPage",
++        name: "Recently added podcasts",
++        url: canonical,
++      }],
++      bodyHtml: `<main><h1>Recently added podcasts</h1><ul>${itemsHtml}</ul></main>`,
++    }));
++  }
++
++  if (path === "/daily") {
++    const since = new Date(Date.now() - 72 * 3600_000).toISOString();
++    const { data } = await supabase
++      .from("episodes")
++      .select("title,display_title,slug,ai_summary,summary,published_at,podcasts!inner(slug,title,display_title,language,rss_status,rank_label)")
++      .gte("published_at", since)
++      .in("podcasts.rank_label", ["S", "A", "B"])
++      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
++      .not("podcasts.rss_status", "in", "(failed,inactive)")
++      .order("published_at", { ascending: false, nullsFirst: false })
++      .limit(80);
++    const rows = (data ?? []) as Array<Record<string, any>>;
++    const itemsHtml = rows
++      .map((e) => `<li><a href="${SITE}/podcast/${esc(e.podcasts.slug)}/${esc(e.slug)}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcasts.display_title || e.podcasts.title)}</em>${e.ai_summary || e.summary ? `<p>${esc(truncate(stripHtml(e.ai_summary || e.summary), 180))}</p>` : ""}</li>`)
++      .join("");
++    return htmlResponse(shell({
++      title: "Daily brief — fresh podcast episodes | Podiverzum",
++      description: "A short daily roundup of notable episodes across the index.",
++      canonical,
++      jsonLd: [{
++        "@context": "https://schema.org",
++        "@type": "CollectionPage",
++        name: "Daily podcast brief",
++        url: canonical,
++      }],
++      bodyHtml: `<main><h1>Daily brief</h1><ul>${itemsHtml}</ul></main>`,
++    }));
++  }
++
++  const staticPages: Record<string, { title: string; description: string; body: string; noindex?: boolean }> = {
++    "/about": {
++      title: "About — Podiverzum",
++      description: "Podiverzum is a podcast discovery platform built around what episodes actually discuss.",
++      body: "<main><h1>About Podiverzum</h1><p>Podiverzum helps listeners find podcast episodes by topic, person, company, ticker, or idea.</p></main>",
++    },
++    "/methodology": {
++      title: "Methodology — Podiverzum",
++      description: "How Podiverzum ranks, enriches, and organizes podcast episodes.",
++      body: "<main><h1>Methodology</h1><p>Podiverzum ranks episodes using relevance, freshness, feed health, source quality, and structured metadata.</p></main>",
++    },
++    "/contact": {
++      title: "Contact — Podiverzum",
++      description: "Contact Podiverzum.",
++      body: "<main><h1>Contact</h1><p>Use the in-app feedback button to reach Podiverzum.</p></main>",
++    },
++    "/privacy": {
++      title: "Privacy — Podiverzum",
++      description: "Podiverzum privacy information.",
++      body: "<main><h1>Privacy</h1><p>Privacy information for Podiverzum.</p></main>",
++    },
++    "/terms": {
++      title: "Terms — Podiverzum",
++      description: "Podiverzum terms of use.",
++      body: "<main><h1>Terms</h1><p>Terms of use for Podiverzum.</p></main>",
++    },
++  };
++  const page = staticPages[path];
++  if (!page) return null;
++  return htmlResponse(shell({
++    title: page.title,
++    description: page.description,
++    canonical,
++    jsonLd: [{
++      "@context": "https://schema.org",
++      "@type": "WebPage",
++      name: page.title,
++      url: canonical,
++    }],
++    bodyHtml: page.body,
++    noindex: page.noindex,
++  }));
++}
++
+ async function buildPodcast(
+   supabase: ReturnType<typeof createClient>,
+   slug: string,
+@@ -541,6 +728,8 @@ Deno.serve(async (req) => {
+     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+ 
+     if (path === "/") return await buildHome(supabase);
++    const core = await buildCorePage(supabase, path);
++    if (core) return core;
+ 
+     const parts = path.split("/").filter(Boolean);
+ 
+diff --git a/supabase/functions/search-autocomplete/index.ts b/supabase/functions/search-autocomplete/index.ts
+new file mode 100644
+index 0000000..ef76d4d
+--- /dev/null
++++ b/supabase/functions/search-autocomplete/index.ts
+@@ -0,0 +1,173 @@
++// search-autocomplete: rich typed typeahead for the public .com search box.
++// POST { q: string, limit?: number } -> { suggestions: Suggestion[] }
++// English-only by design. No AI call, no user logging, no writes.
++import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
++
++const corsHeaders = {
++  "Access-Control-Allow-Origin": "*",
++  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
++  "Access-Control-Allow-Methods": "POST, OPTIONS",
++};
++
++const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
++const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
++
++type Suggestion = {
++  type: "podcast" | "person" | "topic" | "category" | "organization" | "query";
++  label: string;
++  subtitle?: string;
++  href: string;
++  image_url?: string | null;
++  confidence: number;
++};
++
++function norm(s: string): string {
++  return s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
++}
++
++function dedupePush(out: Suggestion[], seen: Set<string>, item: Suggestion) {
++  const key = `${item.type}:${item.href}`;
++  if (seen.has(key)) return;
++  seen.add(key);
++  out.push(item);
++}
++
++Deno.serve(async (req) => {
++  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
++  const json = (b: unknown, s = 200) =>
++    new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
++
++  try {
++    const body = await req.json().catch(() => ({}));
++    const rawQ = String(body?.q ?? body?.prefix ?? "").trim();
++    const limit = Math.min(12, Math.max(3, Number(body?.limit ?? 8)));
++    if (rawQ.length < 2) return json({ suggestions: [] });
++
++    const q = norm(rawQ);
++    const ilike = `%${q}%`;
++    const ilikeStar = `*${q}*`;
++    const prefixStar = `${q}*`;
++    const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
++
++    const [podRes, topicRes, catRes, personRes, companyRes, qcacheRes] = await Promise.all([
++      supa.from("podcasts")
++        .select("title,display_title,slug,image_url,podiverzum_rank,rank_label,language,rss_status")
++        .or(`title.ilike.${ilikeStar},display_title.ilike.${ilikeStar},slug.ilike.${ilikeStar}`)
++        .or("language.is.null,language.ilike.en%")
++        .not("rss_status", "in", "(failed,inactive)")
++        .order("podiverzum_rank", { ascending: false, nullsFirst: false })
++        .limit(12),
++      supa.from("topic_hubs")
++        .select("title,slug,description,appearance_stats,active")
++        .eq("active", true)
++        .or(`title.ilike.${ilikeStar},slug.ilike.${ilikeStar}`)
++        .order("sort_order")
++        .limit(8),
++      supa.from("categories")
++        .select("name,slug")
++        .ilike("name", ilike)
++        .order("sort_order")
++        .limit(5),
++      supa.from("entity_profiles")
++        .select("display_name,slug,bio,appearance_stats,kind")
++        .eq("kind", "person")
++        .or(`display_name.ilike.${ilikeStar},slug.ilike.${ilikeStar}`)
++        .limit(8),
++      supa.from("entity_profiles")
++        .select("display_name,slug,bio,appearance_stats,kind")
++        .eq("kind", "company")
++        .or(`display_name.ilike.${ilikeStar},slug.ilike.${ilikeStar}`)
++        .limit(8),
++      supa.from("search_query_cache")
++        .select("q_norm,hits")
++        .ilike("q_norm", `${q}%`)
++        .order("hits", { ascending: false })
++        .limit(4),
++    ]);
++
++    const out: Suggestion[] = [];
++    const seen = new Set<string>();
++    const rankLabelBonus = (rl: any): number => {
++      const s = String(rl || "").toUpperCase();
++      if (s === "S") return 0.04;
++      if (s === "A") return 0.03;
++      if (s === "B") return 0.02;
++      return 0;
++    };
++
++    for (const p of (podRes.data || []) as any[]) {
++      const title = String(p.display_title || p.title || "");
++      const tn = norm(title);
++      const base = tn === q ? 1 : tn.startsWith(q) ? 0.9 : tn.includes(q) ? 0.72 : 0.55;
++      dedupePush(out, seen, {
++        type: "podcast",
++        label: title,
++        subtitle: "Podcast",
++        href: `/podcast/${p.slug}`,
++        image_url: p.image_url || null,
++        confidence: Math.min(0.99, base + rankLabelBonus(p.rank_label)),
++      });
++    }
++
++    for (const t of (topicRes.data || []) as any[]) {
++      const n = Number(t.appearance_stats?.total || t.appearance_stats?.episodes || 0);
++      dedupePush(out, seen, {
++        type: "topic",
++        label: String(t.title || ""),
++        subtitle: n ? `${n} episode mentions` : "Topic",
++        href: `/topic/${t.slug}`,
++        confidence: norm(String(t.title || "")).startsWith(q) ? 0.86 : 0.66,
++      });
++    }
++
++    for (const c of (catRes.data || []) as any[]) {
++      dedupePush(out, seen, {
++        type: "category",
++        label: String(c.name || ""),
++        subtitle: "Category",
++        href: `/category/${c.slug}`,
++        confidence: norm(String(c.name || "")).startsWith(q) ? 0.78 : 0.58,
++      });
++    }
++
++    for (const p of (personRes.data || []) as any[]) {
++      const n = Number(p.appearance_stats?.total || 0);
++      dedupePush(out, seen, {
++        type: "person",
++        label: String(p.display_name || ""),
++        subtitle: n ? `${n} episode mentions` : "Person",
++        href: `/person/${p.slug}`,
++        confidence: 0.74 + Math.min(0.12, n / 1000),
++      });
++    }
++
++    for (const o of (companyRes.data || []) as any[]) {
++      const n = Number(o.appearance_stats?.total || 0);
++      dedupePush(out, seen, {
++        type: "organization",
++        label: String(o.display_name || ""),
++        subtitle: n ? `${n} episode mentions` : "Company",
++        href: `/company/${o.slug}`,
++        confidence: 0.72 + Math.min(0.12, n / 1000),
++      });
++    }
++
++    for (const r of (qcacheRes.data || []) as any[]) {
++      const label = String(r.q_norm || "");
++      if (!label || norm(label) === q) continue;
++      dedupePush(out, seen, {
++        type: "query",
++        label,
++        subtitle: "Search query",
++        href: `/search?q=${encodeURIComponent(label)}`,
++        confidence: 0.5 + Math.min(0.2, Number(r.hits || 0) / 1000),
++      });
++    }
++
++    out.sort((a, b) => b.confidence - a.confidence || a.label.localeCompare(b.label));
++    return json({ suggestions: out.slice(0, limit) });
++  } catch (e) {
++    const msg = e instanceof Error ? e.message : String(e);
++    return json({ suggestions: [], error: msg }, 200);
++  }
++});
+diff --git a/supabase/functions/sitemap/index.ts b/supabase/functions/sitemap/index.ts
+index 9d76cfa..9031331 100644
+--- a/supabase/functions/sitemap/index.ts
++++ b/supabase/functions/sitemap/index.ts
+@@ -99,18 +99,26 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
+ }
+ 
+ async function buildCore(supabase: ReturnType<typeof createClient>) {
+-  const { data: cats } = await supabase.from("categories").select("slug,created_at");
++  const [{ data: cats }, { data: hubs }] = await Promise.all([
++    supabase.from("categories").select("slug,created_at"),
++    supabase.from("topic_hubs").select("slug,updated_at,generated_at").eq("active", true).order("sort_order"),
++  ]);
+   const urls: string[] = [
+     urlTag(`${SITE}/`, null, "daily", "1.0"),
+     urlTag(`${SITE}/categories`, null, "daily", "0.7"),
+     urlTag(`${SITE}/topics`, null, "daily", "0.8"),
+     urlTag(`${SITE}/people`, null, "daily", "0.8"),
+     urlTag(`${SITE}/companies`, null, "daily", "0.8"),
++    urlTag(`${SITE}/daily`, null, "daily", "0.7"),
++    urlTag(`${SITE}/new`, null, "daily", "0.6"),
+     urlTag(`${SITE}/about`, null, "monthly", "0.4"),
+     urlTag(`${SITE}/methodology`, null, "monthly", "0.4"),
+-    urlTag(`${SITE}/new-podcasts`, null, "daily", "0.6"),
++    urlTag(`${SITE}/contact`, null, "monthly", "0.3"),
++    urlTag(`${SITE}/privacy`, null, "yearly", "0.2"),
++    urlTag(`${SITE}/terms`, null, "yearly", "0.2"),
+   ];
+   (cats || []).forEach((c: any) => urls.push(urlTag(`${SITE}/category/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
++  (hubs || []).forEach((h: any) => urls.push(urlTag(`${SITE}/topic/${esc(h.slug)}`, maxDate(h.updated_at, h.generated_at), "weekly", "0.8")));
+   return wrapUrlset(urls);
+ }
+ 
+-- 
+2.50.1 (Apple Git-155)
+
