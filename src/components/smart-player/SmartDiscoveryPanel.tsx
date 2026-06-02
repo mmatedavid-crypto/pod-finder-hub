@@ -55,9 +55,9 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
         } else {
           setItems((data as Row[]).filter((r) => r.audio_url));
         }
-      })
-      .finally(() => {
         if (!cancelled) setLoading(false);
+      }, () => {
+        if (!cancelled) { setItems([]); setFailed(true); setLoading(false); }
       });
     return () => { cancelled = true; };
   }, [episodeId, isCompact]);
