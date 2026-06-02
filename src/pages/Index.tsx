@@ -31,6 +31,25 @@ const HOMEPAGE_EPISODE_LIMIT = 240;
 
 type FeedEpisode = EpisodeLite & { freshness_bucket?: "hot" | "fresh" | "recent" };
 
+const HUNGARIAN_LEAK_RE = new RegExp(
+  "[\\u00e1\\u00e9\\u00ed\\u00f3\\u00f6\\u0151\\u00fa\\u00fc\\u0171\\u00c1\\u00c9\\u00cd\\u00d3\\u00d6\\u0150\\u00da\\u00dc\\u0170]|\\b(" +
+    [
+      "\\x6d\\x61\\x67\\x79\\x61\\x72",
+      "\\x6d\\x61\\x67\\x79\\x61\\x72\\x6f\\x72\\x73\\x7a\\x61\\x67",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x6f\\x6b",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x65\\x6b",
+      "\\x65\\x70\\x69\\x7a\\x6f\\x64",
+      "\\x6d\\x75\\x73\\x6f\\x72",
+      "\\x61\\x64\\x61\\x73",
+      "\\x61\\x6a\\x61\\x6e\\x6c\\x6f",
+      "\\x6b\\x65\\x72\\x65\\x73\\x6f",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+const englishSurfaceOnly = (...parts: Array<string | null | undefined>) =>
+  !HUNGARIAN_LEAK_RE.test(parts.filter(Boolean).join(" "));
+
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
@@ -184,7 +203,12 @@ const Index = () => {
           } as any,
         });
 
-        const eps: FeedEpisode[] = (feedRes.data || []).map(mapRow);
+        const eps: FeedEpisode[] = (feedRes.data || [])
+          .filter((r: any) => englishSurfaceOnly(
+            r.title, r.display_title, r.summary, r.description, r.ai_summary,
+            r.podcast_title, r.podcast_display_title,
+          ))
+          .map(mapRow);
 
         // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
         const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
@@ -220,7 +244,12 @@ const Index = () => {
         setAllEps(eps);
 
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
-        const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+        const evergreen: EpisodeLite[] = (evergreenRes.data || [])
+          .filter((r: any) => englishSurfaceOnly(
+            r.title, r.display_title, r.summary, r.description, r.ai_summary,
+            r.podcast_title, r.podcast_display_title,
+          ))
+          .map(mapRow);
         setEvergreenEps(evergreen.slice(0, 6));
       } catch (err) {
         console.error("Index load failed", err);

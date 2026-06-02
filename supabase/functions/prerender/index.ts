@@ -41,6 +41,26 @@ const stripHtml = (s?: string | null) =>
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 
+const HUNGARIAN_LEAK_RE = new RegExp(
+  "[\\u00e1\\u00e9\\u00ed\\u00f3\\u00f6\\u0151\\u00fa\\u00fc\\u0171\\u00c1\\u00c9\\u00cd\\u00d3\\u00d6\\u0150\\u00da\\u00dc\\u0170]|\\b(" +
+    [
+      "\\x6d\\x61\\x67\\x79\\x61\\x72",
+      "\\x6d\\x61\\x67\\x79\\x61\\x72\\x6f\\x72\\x73\\x7a\\x61\\x67",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x6f\\x6b",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x65\\x6b",
+      "\\x65\\x70\\x69\\x7a\\x6f\\x64",
+      "\\x6d\\x75\\x73\\x6f\\x72",
+      "\\x61\\x64\\x61\\x73",
+      "\\x61\\x6a\\x61\\x6e\\x6c\\x6f",
+      "\\x6b\\x65\\x72\\x65\\x73\\x6f",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+const isEnglishLang = (lang?: string | null) => !lang || String(lang).toLowerCase().startsWith("en");
+const isEnglishSurface = (...parts: Array<string | null | undefined>) =>
+  !HUNGARIAN_LEAK_RE.test(parts.map((p) => stripHtml(p)).join(" "));
+
 function htmlResponse(body: string, status = 200) {
   // Build a fresh Headers per response — sharing a plain object can let the
   // gateway override Content-Type to text/plain.
@@ -123,7 +143,9 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     .limit(40);
 
   const rows = (data ?? []) as Array<Record<string, any>>;
-  const items = rows.slice(0, 30);
+  const items = rows
+    .filter((r) => isEnglishSurface(r.title, r.display_title, r.summary, r.description, r.podcast_title, r.podcast_display_title))
+    .slice(0, 30);
 
   const itemsHtml = items
     .map((r) => {
@@ -393,6 +415,7 @@ async function buildPodcast(
     .eq("slug", slug)
     .maybeSingle();
   if (!pod) return null;
+  if (!isEnglishLang(pod.language) || !isEnglishSurface(pod.title, pod.display_title, pod.summary, pod.description, pod.seo_title, pod.seo_description)) return null;
 
   const { data: epData } = await supabase
     .from("episodes")
@@ -401,6 +424,7 @@ async function buildPodcast(
     .order("published_at", { ascending: false })
     .limit(50);
   const eps = (epData ?? []) as Array<Record<string, any>>;
+  const visibleEps = eps.filter((e) => isEnglishSurface(e.title, e.summary, e.description, e.ai_summary));
 
   const title = pod.seo_title || `${pod.display_title || pod.title} — Podiverzum`;
   const desc =
@@ -408,7 +432,7 @@ async function buildPodcast(
     truncate(stripHtml(pod.summary || pod.description) || `${pod.title} podcast on Podiverzum.`, 160);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
-  const epHtml = eps
+  const epHtml = visibleEps
     .map((e) => {
       const url = `${SITE}/podcast/${pod.slug}/${e.slug}`;
       const s = truncate(stripHtml(e.ai_summary || e.summary || e.description), 240);
@@ -429,7 +453,7 @@ async function buildPodcast(
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    itemListElement: eps.slice(0, 30).map((e, i) => ({
+    itemListElement: visibleEps.slice(0, 30).map((e, i) => ({
       "@type": "ListItem",
       position: i + 1,
       url: `${SITE}/podcast/${pod.slug}/${e.slug}`,
@@ -466,6 +490,7 @@ async function buildEpisode(
     .eq("slug", podcastSlug)
     .maybeSingle();
   if (!pod) return null;
+  if (!isEnglishLang(pod.language) || !isEnglishSurface(pod.title, pod.display_title)) return null;
 
   const { data: ep } = await supabase
     .from("episodes")
@@ -474,6 +499,7 @@ async function buildEpisode(
     .eq("slug", episodeSlug)
     .maybeSingle();
   if (!ep) return null;
+  if (!isEnglishSurface(ep.title, ep.display_title, ep.ai_summary, ep.summary, ep.description, ep.seo_title, ep.seo_description)) return null;
 
   const title = ep.seo_title || `${ep.display_title || ep.title} — ${pod.display_title || pod.title}`;
   const desc =
