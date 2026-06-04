@@ -88,6 +88,11 @@ function shouldPrerender(pathname) {
   return false;
 }
 
+function shouldServeStaticEnglish(pathname) {
+  if (pathname === "/" || pathname === "") return true;
+  return /^\/(categories|topics|people|companies|daily|toplist|rankings|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname);
+}
+
 const LANGUAGE_LEAK_RE = new RegExp(
   "[\\u00e1\\u00e9\\u00ed\\u00f3\\u00f6\\u0151\\u00fa\\u00fc\\u0171\\u00c1\\u00c9\\u00cd\\u00d3\\u00d6\\u0150\\u00da\\u00dc\\u0170]|\\b(" +
     [
@@ -259,6 +264,23 @@ export default {
       { method: "GET" },
     );
     const cache = caches.default;
+
+    // Emergency containment for the .com surface: these pages are too visible
+    // to risk stale upstream prerender HTML or old social-preview cache.
+    if (shouldServeStaticEnglish(url.pathname)) {
+      const fallback = new Response(englishFallback(url.pathname), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300, s-maxage=300",
+          "X-Prerender-Static-English": "1",
+          "X-AI-Agent-Friendly": "1",
+          "Link": `<https://podiverzum.com/llms.txt>; rel="alternate"; type="text/plain"`,
+        },
+      });
+      ctx.waitUntil(cache.put(cacheKey, fallback.clone()));
+      return fallback;
+    }
 
     let resp = await cache.match(cacheKey);
     if (resp) {
