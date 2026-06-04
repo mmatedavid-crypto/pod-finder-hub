@@ -129,6 +129,14 @@ Deno.serve(async (req) => {
     }
     log.push({ step: "routes_created", created });
 
+    // 6. Purge Cloudflare cache so bots stop receiving stale (possibly HU) HTML.
+    const purge = await cf(token, `/zones/${zoneId}/purge_cache`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ purge_everything: true }),
+    });
+    log.push({ step: "purge_cache", status: purge.status, ok: purge.ok, body: purge.text });
+
     return new Response(JSON.stringify({ ok: true, log }, null, 2), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
