@@ -961,7 +961,21 @@ Deno.serve(async (req) => {
     return jsonRes({ ok: true, function: "daily-social-post (editorial)", now: new Date().toISOString(), active_slot: activeSlot(new Date()) });
   }
   try {
-    return await main(req);
+    const res = await main(req);
+    // Heartbeat for pipeline-watchdog: record every invocation (incl. skipped)
+    try {
+      const admin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await admin.from("app_settings").upsert({
+        key: "daily_social_post_progress",
+        value: { last_run_at: new Date().toISOString() },
+      });
+    } catch (e) {
+      console.error("progress upsert failed:", (e as any)?.message || e);
+    }
+    return res;
   } catch (e: any) {
     const msg = e?.message || String(e);
     console.error("editorial-x-runner error:", msg);
