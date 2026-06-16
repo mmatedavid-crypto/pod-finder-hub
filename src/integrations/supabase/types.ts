@@ -3354,6 +3354,18 @@ export type Database = {
         Args: { _schedule: string }
         Returns: undefined
       }
+      set_process_email_queue_schedule: {
+        Args: { pending_count: number }
+        Returns: string
+      }
+      set_purge_non_en_schedule: {
+        Args: { pending_count: number }
+        Returns: string
+      }
+      set_queue_drainer_schedule: {
+        Args: { pending_count: number }
+        Returns: string
+      }
       set_rss_hunter_schedule: {
         Args: { _schedule: string }
         Returns: undefined
