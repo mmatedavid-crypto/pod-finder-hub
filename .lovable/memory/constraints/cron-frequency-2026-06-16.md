@@ -19,3 +19,11 @@ Megtartva: jobid 8 incremental-refresh `*/5` (adaptív, 23k podcast overdue), jo
 Inaktív és AZ IS MARAD: 11, 12 (seo-enrich), 18 (embed-podcast) — 39k ai_enrichment_jobs pending, ne reaktiváld kérés nélkül.
 
 Új háttér-cron alapért: `*/30` vagy óránként. Mielőtt új cront raksz, nézd meg a job_run_details payload-ot és a tényleges work-pendinget.
+
+**v3 COST FREEZE (2026-06-17)** — user reported spend still ~$10/day. Billing breakdown showed main cost is **Cloud compute XL** (~8.38 credits today), not cron/AI. Emergency controls applied:
+- `app_settings.background_jobs`: `enabled=false`, `incident_mode=true`.
+- `app_settings.ai_budget`: `daily_total_cap_usd=0.25`, all per-job AI caps `0`.
+- `app_settings.ai_controls`: `enabled=false`, `max_per_day=0`.
+- Cron throttled: jobid 8 + 48 hourly; jobid 7/13/16/19/20/28/32/33/37/45/49/51 every 6h.
+
+To actually remove the ~$10/day base burn, downgrade/resize the Lovable Cloud instance from XL in Backend → Advanced settings → Upgrade instance. Do not restart background jobs until cost is rechecked.
