@@ -129,6 +129,20 @@ Deno.serve(async (req) => {
     }
     log.push({ step: "routes_created", created });
 
+    // 5b. Delete any stray routes on this zone that don't belong to our worker.
+    // A legacy `worker-sitemap-proxy` script was bound to podiverzum.com/sitemap.xml
+    // and served .hu sitemap URLs. Remove any non-matching pattern outright.
+    const stray: any[] = [];
+    for (const r of existing) {
+      if (!ROUTE_PATTERNS.includes(r.pattern) || r.script !== SCRIPT_NAME) {
+        // Skip routes we just rebound in step 5.
+        if (ROUTE_PATTERNS.includes(r.pattern) && r.script !== SCRIPT_NAME) continue;
+        const d = await cf(token, `/zones/${zoneId}/workers/routes/${r.id}`, { method: "DELETE" });
+        stray.push({ pattern: r.pattern, script: r.script, deleted: d.ok, status: d.status });
+      }
+    }
+    log.push({ step: "stray_routes_deleted", stray });
+
     // 6. Purge Cloudflare cache so bots stop receiving stale (possibly HU) HTML.
     const purge = await cf(token, `/zones/${zoneId}/purge_cache`, {
       method: "POST",
