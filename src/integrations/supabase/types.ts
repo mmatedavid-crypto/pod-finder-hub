@@ -2863,6 +2863,7 @@ export type Database = {
           pod_skipped: number
         }[]
       }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       embed_candidate_stats: {
         Args: { _model: string; _tiers: string[] }
         Returns: Json
