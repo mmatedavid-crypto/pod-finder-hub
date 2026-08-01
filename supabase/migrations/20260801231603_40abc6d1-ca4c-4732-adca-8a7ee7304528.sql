@@ -1,0 +1,1 @@
+SELECT public.set_incremental_refresh_schedule('*/5 * * * *');
