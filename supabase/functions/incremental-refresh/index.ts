@@ -139,7 +139,9 @@ Deno.serve(async (req) => {
       due_count = count || 0;
     } catch { /* noop */ }
 
-    const errorish = failed > 0 || throttled;
+    // Only back off if most feeds fail (real outage) or the worker hit resource limits.
+    const failRatio = scanned > 0 ? failed / scanned : 0;
+    const errorish = throttled || (scanned >= 5 && failRatio > 0.6);
     let recommended: string;
     if (errorish) recommended = "0 * * * *";
     else if (due_count > 500) recommended = "*/5 * * * *";
