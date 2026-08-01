@@ -1,13 +1,9 @@
-// Locale strings for the Smart Player. Host-based: podiverzum.hu → hu, else en.
+// Locale strings for the Smart Player.
+// This branch powers Podiverzum.com, so the player is intentionally English-only.
 
-export type PlayerLocale = "en" | "hu";
+export type PlayerLocale = "en";
 
 export function getPlayerLocale(): PlayerLocale {
-  if (typeof window === "undefined") return "en";
-  try {
-    const h = window.location.hostname.toLowerCase();
-    if (h.endsWith(".hu") || h === "podiverzum.hu") return "hu";
-  } catch { /* noop */ }
   return "en";
 }
 
@@ -49,24 +45,6 @@ const STRINGS: Record<PlayerLocale, Dict> = {
     fallbackUnavailable: "Playback is not available here right now. Open the original page to listen.",
     openOriginal: "Open original page",
   },
-  hu: {
-    preview: "előnézet",
-    playbackSpeed: "Lejátszási sebesség",
-    back15: "Vissza 15 másodperc",
-    fwd30: "Előre 30 másodperc",
-    play: "Lejátszás",
-    pause: "Szünet",
-    close: "Bezárás",
-    open: "Megnyitás",
-    seek: "Tekerés",
-    resumeFrom: "Folytatás innen",
-    loading: "betöltés…",
-    externalOnly: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
-    playbackError: "Lejátszási hiba",
-    durationUnknown: "--:--",
-    fallbackUnavailable: "Ezt az epizódot jelenleg külső lejátszóban tudod megnyitni.",
-    openOriginal: "Megnyitás külső lejátszóban",
-  },
 };
 
 export function t(key: keyof Dict, locale?: PlayerLocale): string {
@@ -75,7 +53,5 @@ export function t(key: keyof Dict, locale?: PlayerLocale): string {
 }
 
 export function formatSpeedLabel(s: number, locale?: PlayerLocale): string {
-  const l = locale || getPlayerLocale();
-  const str = l === "hu" ? String(s).replace(".", ",") : String(s);
-  return `${str}x`;
+  return `${String(s)}x`;
 }

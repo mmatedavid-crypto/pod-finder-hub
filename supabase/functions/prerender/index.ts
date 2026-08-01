@@ -5,6 +5,8 @@
 //
 // Routes handled:
 //   /                              → home (top S/A podcasts)
+//   /categories, /topics, /people, /companies, /daily, /toplist, /new
+//   /about, /methodology, /contact, /privacy, /terms
 //   /podcast/:slug                 → PodcastSeries + episode list
 //   /podcast/:slug/:episode        → PodcastEpisode
 //   /category/:slug                → CollectionPage + podcast list
@@ -21,6 +23,8 @@ const baseHeaders: Record<string, string> = {
   "Cache-Control": "public, max-age=600, s-maxage=86400",
   "Access-Control-Allow-Origin": "*",
   "X-Prerendered": "1",
+  "X-AI-Agent-Friendly": "1",
+  "Link": `<${SITE}/llms.txt>; rel="alternate"; type="text/plain"`,
   "Vary": "User-Agent",
 };
 
@@ -37,6 +41,26 @@ const stripHtml = (s?: string | null) =>
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : s.slice(0, n - 1).trimEnd() + "…";
 
+const HUNGARIAN_LEAK_RE = new RegExp(
+  "[\\u00e1\\u00e9\\u00ed\\u00f3\\u00f6\\u0151\\u00fa\\u00fc\\u0171\\u00c1\\u00c9\\u00cd\\u00d3\\u00d6\\u0150\\u00da\\u00dc\\u0170]|\\b(" +
+    [
+      "\\x6d\\x61\\x67\\x79\\x61\\x72",
+      "\\x6d\\x61\\x67\\x79\\x61\\x72\\x6f\\x72\\x73\\x7a\\x61\\x67",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x6f\\x6b",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x65\\x6b",
+      "\\x65\\x70\\x69\\x7a\\x6f\\x64",
+      "\\x6d\\x75\\x73\\x6f\\x72",
+      "\\x61\\x64\\x61\\x73",
+      "\\x61\\x6a\\x61\\x6e\\x6c\\x6f",
+      "\\x6b\\x65\\x72\\x65\\x73\\x6f",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+const isEnglishLang = (lang?: string | null) => !lang || String(lang).toLowerCase().startsWith("en");
+const isEnglishSurface = (...parts: Array<string | null | undefined>) =>
+  !HUNGARIAN_LEAK_RE.test(parts.map((p) => stripHtml(p)).join(" "));
+
 function htmlResponse(body: string, status = 200) {
   // Build a fresh Headers per response — sharing a plain object can let the
   // gateway override Content-Type to text/plain.
@@ -45,6 +69,8 @@ function htmlResponse(body: string, status = 200) {
   h.set("Cache-Control", "public, max-age=600, s-maxage=86400");
   h.set("Access-Control-Allow-Origin", "*");
   h.set("X-Prerendered", "1");
+  h.set("X-AI-Agent-Friendly", "1");
+  h.set("Link", `<${SITE}/llms.txt>; rel="alternate"; type="text/plain"`);
   h.set("Vary", "User-Agent");
   return new Response(body, { status, headers: h });
 }
@@ -70,8 +96,11 @@ function shell(opts: {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(opts.title)}</title>
 <meta name="description" content="${esc(opts.description)}" />
-${opts.noindex ? '<meta name="robots" content="noindex" />' : ""}
+<meta name="robots" content="${opts.noindex ? "noindex, follow" : "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"}" />
 <link rel="canonical" href="${esc(opts.canonical)}" />
+<link rel="sitemap" type="application/xml" href="${SITE}/sitemap.xml" />
+<link rel="alternate" type="text/plain" href="${SITE}/llms.txt" title="LLMs.txt" />
+<link rel="alternate" type="application/rss+xml" href="${SITE}/feed.xml" title="Podiverzum recent episodes" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${esc(opts.title)}" />
 <meta property="og:description" content="${esc(opts.description)}" />
@@ -114,7 +143,9 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
     .limit(40);
 
   const rows = (data ?? []) as Array<Record<string, any>>;
-  const items = rows.slice(0, 30);
+  const items = rows
+    .filter((r) => isEnglishSurface(r.title, r.display_title, r.summary, r.description, r.podcast_title, r.podcast_display_title))
+    .slice(0, 30);
 
   const itemsHtml = items
     .map((r) => {
@@ -161,6 +192,219 @@ async function buildHome(supabase: ReturnType<typeof createClient>) {
   );
 }
 
+async function buildCorePage(supabase: ReturnType<typeof createClient>, path: string) {
+  const canonical = `${SITE}${path}`;
+
+  if (path === "/categories") {
+    const { data } = await supabase.from("categories").select("name,slug,description").order("sort_order");
+    const cats = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = cats
+      .map((c) => `<li><a href="${SITE}/category/${esc(c.slug)}"><strong>${esc(c.name)}</strong></a>${c.description ? `<p>${esc(stripHtml(c.description))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Podcast categories — Podiverzum",
+      description: "Browse podcast episodes by category, ranked by relevance, freshness and source quality.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Podcast categories",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Podcast categories</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/topics") {
+    const { data } = await supabase
+      .from("topic_hubs")
+      .select("slug,title,description,category")
+      .eq("active", true)
+      .order("sort_order")
+      .limit(200);
+    const hubs = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = hubs
+      .map((h) => `<li><a href="${SITE}/topic/${esc(h.slug)}"><strong>${esc(h.title)}</strong></a>${h.description ? `<p>${esc(stripHtml(h.description))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Topic hubs — Podiverzum",
+      description: "Curated podcast topic hubs covering the conversations shaping the world.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Topic hubs on Podiverzum",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Topic hubs</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/people" || path === "/companies") {
+    const kind = path === "/people" ? "person" : "company";
+    const route = path === "/people" ? "person" : "company";
+    const label = path === "/people" ? "People" : "Companies";
+    const { data } = await supabase
+      .from("entity_profiles")
+      .select("slug,display_name,bio,appearance_stats")
+      .eq("kind", kind)
+      .order("display_name")
+      .limit(300);
+    const rows = ((data ?? []) as Array<Record<string, any>>)
+      .sort((a, b) => Number(b.appearance_stats?.total || 0) - Number(a.appearance_stats?.total || 0));
+    const itemsHtml = rows
+      .slice(0, 200)
+      .map((r) => `<li><a href="${SITE}/${route}/${esc(r.slug)}"><strong>${esc(r.display_name)}</strong></a>${r.bio ? `<p>${esc(truncate(stripHtml(r.bio), 180))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: `${label} — Podiverzum`,
+      description: `Browse ${label.toLowerCase()} indexed across thousands of podcast episodes.`,
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: `${label} on Podiverzum`,
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>${label}</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/new") {
+    const { data } = await supabase
+      .from("podcasts")
+      .select("title,display_title,slug,summary,description,created_at,language,rss_status,rank_label")
+      .not("rss_status", "in", "(failed,inactive)")
+      .not("rank_label", "eq", "E")
+      .or("language.is.null,language.ilike.en%")
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(80);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = rows
+      .map((p) => `<li><a href="${SITE}/podcast/${esc(p.slug)}"><strong>${esc(p.display_title || p.title)}</strong></a>${p.summary || p.description ? `<p>${esc(truncate(stripHtml(p.summary || p.description), 180))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Recently added podcasts — Podiverzum",
+      description: "The newest podcasts indexed by Podiverzum. Fresh shows, ranked by quality and feed health.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Recently added podcasts",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Recently added podcasts</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/daily") {
+    const since = new Date(Date.now() - 72 * 3600_000).toISOString();
+    const { data } = await supabase
+      .from("episodes")
+      .select("title,display_title,slug,ai_summary,summary,published_at,podcasts!inner(slug,title,display_title,language,rss_status,rank_label)")
+      .gte("published_at", since)
+      .in("podcasts.rank_label", ["S", "A", "B"])
+      .or("language.is.null,language.ilike.en%", { referencedTable: "podcasts" })
+      .not("podcasts.rss_status", "in", "(failed,inactive)")
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(80);
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = rows
+      .map((e) => `<li><a href="${SITE}/podcast/${esc(e.podcasts.slug)}/${esc(e.slug)}"><strong>${esc(e.display_title || e.title)}</strong></a> — <em>${esc(e.podcasts.display_title || e.podcasts.title)}</em>${e.ai_summary || e.summary ? `<p>${esc(truncate(stripHtml(e.ai_summary || e.summary), 180))}</p>` : ""}</li>`)
+      .join("");
+    return htmlResponse(shell({
+      title: "Daily brief — fresh podcast episodes | Podiverzum",
+      description: "A short daily roundup of notable episodes across the index.",
+      canonical,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Daily podcast brief",
+        url: canonical,
+      }],
+      bodyHtml: `<main><h1>Daily brief</h1><ul>${itemsHtml}</ul></main>`,
+    }));
+  }
+
+  if (path === "/toplist" || path === "/rankings") {
+    const { data } = await (supabase as any).rpc("get_trending_podcasts", { p_limit: 100, p_country: "us" });
+    const rows = (data ?? []) as Array<Record<string, any>>;
+    const itemsHtml = rows
+      .map((p, i) => {
+        const sources = Array.isArray(p.sources)
+          ? p.sources.map((s: any) => `${s.source} #${s.rank}`).join(", ")
+          : "";
+        return `<li><a href="${SITE}/podcast/${esc(p.slug)}"><strong>${i + 1}. ${esc(p.display_title || p.title)}</strong></a><p>Score ${Number(p.trending_score || 0).toFixed(3)}${sources ? `; ${esc(sources)}` : ""}</p></li>`;
+      })
+      .join("");
+    return htmlResponse(shell({
+      title: "Podcast toplist - reciprocal-rank fusion | Podiverzum",
+      description: "A cross-platform podcast toplist built from Apple, Spotify and YouTube chart signals using reciprocal-rank fusion.",
+      canonical: `${SITE}/toplist`,
+      jsonLd: [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Podiverzum podcast toplist",
+        url: `${SITE}/toplist`,
+        description: "Cross-platform podcast ranking using reciprocal-rank fusion.",
+      }, {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        itemListElement: rows.slice(0, 50).map((p, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${SITE}/podcast/${p.slug}`,
+          name: p.display_title || p.title,
+        })),
+      }],
+      bodyHtml: `<main><h1>Podcast toplist</h1><p>score = sum(1 / rank) across Apple, Spotify and YouTube chart signals.</p><ol>${itemsHtml}</ol></main>`,
+    }));
+  }
+
+  const staticPages: Record<string, { title: string; description: string; body: string; noindex?: boolean }> = {
+    "/about": {
+      title: "About — Podiverzum",
+      description: "Podiverzum is a podcast discovery platform built around what episodes actually discuss.",
+      body: "<main><h1>About Podiverzum</h1><p>Podiverzum helps listeners find podcast episodes by topic, person, company, ticker, or idea.</p></main>",
+    },
+    "/methodology": {
+      title: "Methodology — Podiverzum",
+      description: "How Podiverzum ranks, enriches, and organizes podcast episodes.",
+      body: "<main><h1>Methodology</h1><p>Podiverzum ranks episodes using relevance, freshness, feed health, source quality, and structured metadata.</p></main>",
+    },
+    "/contact": {
+      title: "Contact — Podiverzum",
+      description: "Contact Podiverzum.",
+      body: "<main><h1>Contact</h1><p>Use the in-app feedback button to reach Podiverzum.</p></main>",
+    },
+    "/privacy": {
+      title: "Privacy — Podiverzum",
+      description: "Podiverzum privacy information.",
+      body: "<main><h1>Privacy</h1><p>Privacy information for Podiverzum.</p></main>",
+    },
+    "/terms": {
+      title: "Terms — Podiverzum",
+      description: "Podiverzum terms of use.",
+      body: "<main><h1>Terms</h1><p>Terms of use for Podiverzum.</p></main>",
+    },
+  };
+  const page = staticPages[path];
+  if (!page) return null;
+  return htmlResponse(shell({
+    title: page.title,
+    description: page.description,
+    canonical,
+    jsonLd: [{
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: page.title,
+      url: canonical,
+    }],
+    bodyHtml: page.body,
+    noindex: page.noindex,
+  }));
+}
+
 async function buildPodcast(
   supabase: ReturnType<typeof createClient>,
   slug: string,
@@ -171,6 +415,7 @@ async function buildPodcast(
     .eq("slug", slug)
     .maybeSingle();
   if (!pod) return null;
+  if (!isEnglishLang(pod.language) || !isEnglishSurface(pod.title, pod.display_title, pod.summary, pod.description, pod.seo_title, pod.seo_description)) return null;
 
   const { data: epData } = await supabase
     .from("episodes")
@@ -179,6 +424,7 @@ async function buildPodcast(
     .order("published_at", { ascending: false })
     .limit(50);
   const eps = (epData ?? []) as Array<Record<string, any>>;
+  const visibleEps = eps.filter((e) => isEnglishSurface(e.title, e.summary, e.description, e.ai_summary));
 
   const title = pod.seo_title || `${pod.display_title || pod.title} — Podiverzum`;
   const desc =
@@ -186,7 +432,7 @@ async function buildPodcast(
     truncate(stripHtml(pod.summary || pod.description) || `${pod.title} podcast on Podiverzum.`, 160);
   const canonical = `${SITE}/podcast/${pod.slug}`;
 
-  const epHtml = eps
+  const epHtml = visibleEps
     .map((e) => {
       const url = `${SITE}/podcast/${pod.slug}/${e.slug}`;
       const s = truncate(stripHtml(e.ai_summary || e.summary || e.description), 240);
@@ -207,7 +453,7 @@ async function buildPodcast(
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    itemListElement: eps.slice(0, 30).map((e, i) => ({
+    itemListElement: visibleEps.slice(0, 30).map((e, i) => ({
       "@type": "ListItem",
       position: i + 1,
       url: `${SITE}/podcast/${pod.slug}/${e.slug}`,
@@ -244,6 +490,7 @@ async function buildEpisode(
     .eq("slug", podcastSlug)
     .maybeSingle();
   if (!pod) return null;
+  if (!isEnglishLang(pod.language) || !isEnglishSurface(pod.title, pod.display_title)) return null;
 
   const { data: ep } = await supabase
     .from("episodes")
@@ -252,6 +499,7 @@ async function buildEpisode(
     .eq("slug", episodeSlug)
     .maybeSingle();
   if (!ep) return null;
+  if (!isEnglishSurface(ep.title, ep.display_title, ep.ai_summary, ep.summary, ep.description, ep.seo_title, ep.seo_description)) return null;
 
   const title = ep.seo_title || `${ep.display_title || ep.title} — ${pod.display_title || pod.title}`;
   const desc =
@@ -541,6 +789,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
     if (path === "/") return await buildHome(supabase);
+    const core = await buildCorePage(supabase, path);
+    if (core) return core;
 
     const parts = path.split("/").filter(Boolean);
 

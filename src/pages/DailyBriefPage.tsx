@@ -8,6 +8,7 @@ import { compareByScore } from "@/lib/episodeRank";
 import { Calendar, Sparkles, Clock } from "lucide-react";
 import { TrendingEntities } from "@/components/TrendingEntities";
 import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { siteOrigin } from "@/lib/seo-helpers";
 
 type Row = any;
 
@@ -111,6 +112,7 @@ export default function DailyBriefPage() {
       <Seo
         title="Daily brief — fresh podcast episodes | Podiverzum"
         description="A short daily roundup of notable episodes across the index."
+        canonical={`${siteOrigin()}/daily`}
       />
       {/* Hero */}
       <section className="border-b border-border bg-background relative overflow-hidden">

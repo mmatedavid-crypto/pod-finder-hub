@@ -15,10 +15,10 @@ const KIND_PATH: Record<string, string> = {
 };
 
 const KIND_LABEL: Record<string, string> = {
-  person: "Személyek",
-  company: "Cégek",
-  ticker: "Tickerek",
-  topic: "Témák",
+  person: "People",
+  company: "Companies",
+  ticker: "Tickers",
+  topic: "Topics",
 };
 
 Deno.serve(async (req) => {
@@ -54,14 +54,14 @@ Deno.serve(async (req) => {
       links: items.map((it: any) => ({
         label: it.display_name,
         url: `${SITE}/${KIND_PATH[kind] || kind}/${it.slug}`,
-        meta: `${(it.episode_ids || []).length} epizód`,
+        meta: `${(it.episode_ids || []).length} episodes`,
       })),
     }));
 
     const total = filtered.length;
     const title = sinceHours
-      ? `Új AI entitás profilok (utolsó ${sinceHours}h) — ${total}`
-      : `AI entitás profilok — ${total}`;
+      ? `New AI entity profiles (last ${sinceHours}h) - ${total}`
+      : `AI entity profiles - ${total}`;
 
     const idem = `entity-report-${new Date().toISOString().slice(0, 13)}-${total}`;
 
@@ -80,9 +80,9 @@ Deno.serve(async (req) => {
         idempotencyKey: idem,
         templateData: {
           title,
-          intro: `${total} entitáshoz van AI életrajz. Kattints bármelyikre a profil megnyitásához.`,
+          intro: `${total} entities have AI bios. Open any profile from the links below.`,
           linkGroups,
-          notes: sinceHours ? null : `Forrás: entity_profiles. Generálva: ${new Date().toISOString()}`,
+          notes: sinceHours ? null : `Source: entity_profiles. Generated: ${new Date().toISOString()}`,
         },
       }),
     });

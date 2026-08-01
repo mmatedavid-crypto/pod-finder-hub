@@ -67,17 +67,17 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const requestedLimit = Number(body.limit ?? body.batch);
-    const limit = Math.max(1, Math.min(3, Number.isFinite(requestedLimit) ? requestedLimit : 3));
-    const concurrency = 1;
+    const limit = Math.max(1, Math.min(60, Number.isFinite(requestedLimit) ? requestedLimit : 30));
+    const concurrency = Math.max(1, Math.min(8, Number(body.concurrency) || 4));
     const stale_hours = Math.max(0, Math.min(168, Number(body.stale_hours ?? 6)));
     const episodeCap = Math.max(3, Math.min(10, Number(body.episode_cap) || 5));
-    const TIME_BUDGET_MS = Math.max(20_000, Math.min(30_000, Number(body.time_budget_ms) || 25_000));
-    const PER_FEED_BUDGET_MS = Math.max(8_000, Math.min(12_000, Number(body.per_feed_timeout_ms) || 10_000));
+    const TIME_BUDGET_MS = Math.max(20_000, Math.min(60_000, Number(body.time_budget_ms) || 45_000));
+    const PER_FEED_BUDGET_MS = Math.max(8_000, Math.min(15_000, Number(body.per_feed_timeout_ms) || 12_000));
     const trigger = (body.trigger as string) || "manual";
     const startedAt = Date.now();
 
     const staleCutoff = new Date(Date.now() - stale_hours * 3600_000).toISOString();
-    const candidateWindow = Math.min(9, limit * 3);
+    const candidateWindow = Math.min(180, limit * 3);
 
     const cq = admin
       .from("podcasts")
@@ -103,11 +103,12 @@ Deno.serve(async (req) => {
       try {
         const r = await fetchOne(admin, p, {
           episodeCap,
-          fetchTimeoutMs: Math.min(8_000, PER_FEED_BUDGET_MS),
+          fetchTimeoutMs: PER_FEED_BUDGET_MS,
           upsertDuplicates: false,
         });
         const lower = (r?.error || "").toLowerCase();
-        if (lower.includes("worker_resource_limit") || lower.includes(" 546") || lower.includes("timeout")) throttled = true;
+        // Only real worker resource limits should throttle cadence; plain feed timeouts are normal.
+        if (lower.includes("worker_resource_limit") || lower.includes(" 546")) throttled = true;
         if (!r.ok) {
           failed++;
           results.push({ id: p.id, slug: p.slug, ok: false, error: r.error });
@@ -138,7 +139,9 @@ Deno.serve(async (req) => {
       due_count = count || 0;
     } catch { /* noop */ }
 
-    const errorish = failed > 0 || throttled;
+    // Only back off if most feeds fail (real outage) or the worker hit resource limits.
+    const failRatio = scanned > 0 ? failed / scanned : 0;
+    const errorish = throttled || (scanned >= 5 && failRatio > 0.6);
     let recommended: string;
     if (errorish) recommended = "0 * * * *";
     else if (due_count > 500) recommended = "*/5 * * * *";

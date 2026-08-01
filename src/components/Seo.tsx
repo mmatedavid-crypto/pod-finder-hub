@@ -43,7 +43,7 @@ export function Seo({
     <Helmet>
       <title>{t}</title>
       {desc && <meta name="description" content={desc} />}
-      <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow"} />
+      <meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
       {href && <link rel="canonical" href={href} />}
 
       <meta property="og:title" content={t} />

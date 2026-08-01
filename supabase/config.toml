@@ -103,7 +103,13 @@ verify_jwt = true
 [functions.prerender]
 verify_jwt = false
 
+[functions.cf-worker-deploy]
+verify_jwt = false
+
 [functions.categorize-podcast-runner]
+verify_jwt = false
+
+[functions.chart-fetcher]
 verify_jwt = false
 
 [functions.x-metrics-fetch]

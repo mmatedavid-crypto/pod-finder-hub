@@ -3,6 +3,9 @@ import { PlayerProgress } from "./PlayerControls";
 import { getProgress } from "@/lib/playerProgress";
 import { t, formatSpeedLabel } from "@/lib/playerLocale";
 import { PlayerBrandMark } from "./BrandMark";
+import { SmartDiscoveryPanel } from "./SmartDiscoveryPanel";
+import { ShareMomentButton } from "./ShareMomentCard";
+import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
@@ -102,8 +105,17 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
-            <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium truncate" title={epTitle}>{epTitle}</div>
+                <div className="text-xs text-muted-foreground truncate">{podTitle}</div>
+              </div>
+              {isCurrent && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <ShareMomentButton />
+                </div>
+              )}
+            </div>
             {canResume && !isCurrent && (
               <div className="mt-2">
                 <button
@@ -148,6 +160,13 @@ export function EpisodeAudioPlayer({ episode, podcast }: Props) {
             <PlayerProgress />
           </div>
         )}
+      </div>
+      <div className="relative mt-6 border-t border-border pt-5">
+        <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-accent" />
+          <span>Smart Player picks</span>
+        </div>
+        <SmartDiscoveryPanel episodeIdOverride={episode.id} variant="compact" />
       </div>
     </div>
   );

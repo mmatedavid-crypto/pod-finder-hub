@@ -27,12 +27,12 @@ interface AdminReportProps {
 }
 
 const AdminReport = ({ title, intro, rows, linkGroups, links, notes }: AdminReportProps) => (
-  <Html lang="hu" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>{title || `${SITE_NAME} admin riport`}</Preview>
+    <Preview>{title || `${SITE_NAME} admin report`}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>{title || 'Admin riport'}</Heading>
+        <Heading style={h1}>{title || 'Admin report'}</Heading>
         {intro ? <Text style={text}>{intro}</Text> : null}
         {rows && rows.length ? (
           <Section style={card}>
@@ -66,7 +66,7 @@ const AdminReport = ({ title, intro, rows, linkGroups, links, notes }: AdminRepo
           </Section>
         ) : null}
         {notes ? <Text style={small}>{notes}</Text> : null}
-        <Text style={footer}>— {SITE_NAME}</Text>
+        <Text style={footer}>- {SITE_NAME}</Text>
       </Container>
     </Body>
   </Html>
@@ -74,15 +74,15 @@ const AdminReport = ({ title, intro, rows, linkGroups, links, notes }: AdminRepo
 
 export const template = {
   component: AdminReport,
-  subject: (d: Record<string, any>) => d?.title || 'Podiverzum admin riport',
+  subject: (d: Record<string, any>) => d?.title || 'Podiverzum admin report',
   displayName: 'Admin report',
   previewData: {
-    title: 'Új személyek',
-    intro: '2 új személyhez készült AI életrajz.',
+    title: 'New people',
+    intro: 'AI bios were created for 2 new people.',
     linkGroups: [
-      { heading: 'Személyek', links: [
-        { label: 'Barack Obama', url: 'https://www.podiverzum.com/person/barack-obama', meta: '15 epizód' },
-        { label: 'Donald Trump', url: 'https://www.podiverzum.com/person/donald-trump', meta: '10 epizód' },
+      { heading: 'People', links: [
+        { label: 'Barack Obama', url: 'https://www.podiverzum.com/person/barack-obama', meta: '15 episodes' },
+        { label: 'Donald Trump', url: 'https://www.podiverzum.com/person/donald-trump', meta: '10 episodes' },
       ]},
     ],
   },
@@ -103,4 +103,3 @@ const linkAnchor = { color: '#2563eb', textDecoration: 'underline' }
 const linkMeta = { color: '#737373', fontSize: '12px' }
 const small = { fontSize: '12px', color: '#737373', margin: '0 0 16px' }
 const footer = { fontSize: '12px', color: '#a3a3a3', margin: '24px 0 0' }
-

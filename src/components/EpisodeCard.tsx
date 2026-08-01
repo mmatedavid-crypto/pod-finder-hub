@@ -171,9 +171,35 @@ export function EpisodeCard({
 }
 
 export function EpisodeList({
-  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false, searchQuery,
-}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; searchQuery?: string }) {
+  items, showTopics = false, empty = "No episodes yet.", terms, showEntities = false, scrollOnMobile = false, scrollAlways = false, searchQuery,
+}: { items: EpisodeLite[]; showTopics?: boolean; empty?: string; terms?: string[]; showEntities?: boolean; scrollOnMobile?: boolean; scrollAlways?: boolean; searchQuery?: string }) {
   if (!items.length) return <div className="text-muted-foreground text-sm p-4">{empty}</div>;
+
+  if (scrollAlways) {
+    return (
+      <div className="-mx-4 sm:-mx-2 relative">
+        <div
+          className="flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory pl-4 sm:pl-2 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
+        >
+          {items.map((e, idx) => (
+            <div
+              key={e.id}
+              className="snap-start shrink-0 w-[84vw] max-w-[360px] sm:w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden"
+            >
+              <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
+            </div>
+          ))}
+          <div aria-hidden className="shrink-0 w-2" />
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
+        />
+      </div>
+    );
+  }
+
   const desktop = (
     <ul className={`${scrollOnMobile ? "hidden sm:block " : ""}divide-y divide-border/70 sm:border sm:border-border/70 sm:rounded-xl sm:bg-card/60 sm:shadow-elevated overflow-hidden -mx-4 sm:mx-0`}>
       {items.map((e, idx) => (
@@ -186,14 +212,22 @@ export function EpisodeList({
   if (!scrollOnMobile) return desktop;
   return (
     <>
-      <div className="sm:hidden -mx-4">
-        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-12 pb-2 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="sm:hidden -mx-4 relative">
+        <div
+          className="flex gap-3 overflow-x-auto snap-x snap-mandatory pl-4 pr-8 pb-3 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollPaddingLeft: "1rem", WebkitOverflowScrolling: "touch" }}
+        >
           {items.map((e, idx) => (
-            <div key={e.id} className="snap-start shrink-0 w-[78vw] max-w-[340px] rounded-xl border border-border/70 bg-card/60 surface overflow-hidden">
+            <div key={e.id} className="snap-start shrink-0 w-[84vw] max-w-[360px] rounded-xl border border-border/60 bg-card/70 overflow-hidden">
               <EpisodeCard e={e} showTopics={showTopics} terms={terms} showEntities={showEntities} searchQuery={searchQuery} searchRank={searchQuery ? idx + 1 : undefined} />
             </div>
           ))}
+          <div aria-hidden className="shrink-0 w-2" />
         </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
+        />
       </div>
       {desktop}
     </>

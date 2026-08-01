@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
 import { PodcastCard, PodcastLite } from "@/components/PodcastCard";
 import { EpisodeList, EpisodeLite } from "@/components/EpisodeCard";
-import { Search, ArrowRight, Sparkles } from "lucide-react";
+import { Search, ArrowRight, Sparkles, Mic, User, Hash, Folder, Building2 } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { compareByScore } from "@/lib/episodeRank";
 import { MoodCollections } from "@/components/MoodCollections";
 import { Skeleton } from "@/components/Skeletons";
 import { ContinueListening } from "@/components/ContinueListening";
 import { RecentlyAddedPodcasts } from "@/components/RecentlyAddedPodcasts";
-import { TrendingEntities } from "@/components/TrendingEntities";
-import { topEntitiesFrom } from "@/lib/aggregateEntities";
+import { HomeTopicsSection } from "@/components/HomeTopicsSection";
+import { ToplistPreview } from "@/components/ToplistPreview";
+import { useSearchSuggestions, computeGhost, GhostSuggestion } from "@/lib/useSearchGhost";
 
+const SUGG_ICON: Record<GhostSuggestion["type"], any> = {
+  podcast: Mic,
+  person: User,
+  topic: Hash,
+  category: Folder,
+  organization: Building2,
+  query: Search,
+};
 
 
 type Category = { id: string; name: string; slug: string; description: string | null };
@@ -22,6 +31,25 @@ const HOMEPAGE_EPISODE_LIMIT = 240;
 
 type FeedEpisode = EpisodeLite & { freshness_bucket?: "hot" | "fresh" | "recent" };
 
+const HUNGARIAN_LEAK_RE = new RegExp(
+  "[\\u00e1\\u00e9\\u00ed\\u00f3\\u00f6\\u0151\\u00fa\\u00fc\\u0171\\u00c1\\u00c9\\u00cd\\u00d3\\u00d6\\u0150\\u00da\\u00dc\\u0170]|\\b(" +
+    [
+      "\\x6d\\x61\\x67\\x79\\x61\\x72",
+      "\\x6d\\x61\\x67\\x79\\x61\\x72\\x6f\\x72\\x73\\x7a\\x61\\x67",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x6f\\x6b",
+      "\\x70\\x6f\\x64\\x63\\x61\\x73\\x74\\x65\\x6b",
+      "\\x65\\x70\\x69\\x7a\\x6f\\x64",
+      "\\x6d\\x75\\x73\\x6f\\x72",
+      "\\x61\\x64\\x61\\x73",
+      "\\x61\\x6a\\x61\\x6e\\x6c\\x6f",
+      "\\x6b\\x65\\x72\\x65\\x73\\x6f",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+const englishSurfaceOnly = (...parts: Array<string | null | undefined>) =>
+  !HUNGARIAN_LEAK_RE.test(parts.filter(Boolean).join(" "));
+
 const Index = () => {
   const [q, setQ] = useState("");
   const [cats, setCats] = useState<Category[]>([]);
@@ -29,7 +57,6 @@ const Index = () => {
   const [trendingEps, setTrendingEps] = useState<FeedEpisode[]>([]);
   const [allEps, setAllEps] = useState<FeedEpisode[]>([]);
   const [evergreenEps, setEvergreenEps] = useState<EpisodeLite[]>([]);
-  const [trendingEntityEps, setTrendingEntityEps] = useState<EpisodeLite[]>([]);
   const [chipPool, setChipPool] = useState<{ label: string; query: string }[]>([
     { label: "Nvidia earnings", query: "Nvidia earnings" },
     { label: "Sam Altman", query: "Sam Altman" },
@@ -51,6 +78,35 @@ const Index = () => {
       : "Search topics or ideas…"
   );
   const nav = useNavigate();
+  const heroWrapRef = useRef<HTMLDivElement | null>(null);
+  const heroInputRef = useRef<HTMLInputElement | null>(null);
+  const [heroOpen, setHeroOpen] = useState(false);
+  const [hasSearched, setHasSearched] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("podi:com:hasSearched") === "1";
+  });
+  const { suggestions: heroSugg, loading: heroLoadingSugg } = useSearchSuggestions(q, 8);
+  const heroGhost = computeGhost(q, heroSugg);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!heroWrapRef.current?.contains(e.target as Node)) setHeroOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const acceptHeroGhost = () => {
+    if (!heroGhost) return false;
+    const completed = q + heroGhost;
+    setQ(completed);
+    setHeroOpen(true);
+    requestAnimationFrame(() => {
+      const el = heroInputRef.current;
+      if (el) el.setSelectionRange(completed.length, completed.length);
+    });
+    return true;
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -88,8 +144,7 @@ const Index = () => {
   useEffect(() => {
     (async () => {
       try {
-        const since14d = new Date(Date.now() - 14 * 86400_000).toISOString();
-        const [catsRes, feedRes, evergreenRes, podsRes, entityRes] = await Promise.all([
+        const [catsRes, feedRes, evergreenRes, podsRes] = await Promise.all([
           supabase.from("categories").select("*").order("sort_order"),
           supabase
             .from("mv_homepage_feed" as any)
@@ -110,14 +165,6 @@ const Index = () => {
             .order("featured", { ascending: false })
             .order("podiverzum_rank", { ascending: false })
             .limit(40),
-          supabase
-            .from("episodes")
-            .select("id,topics,people,companies,podcasts!inner(rss_status,language,rank_label)")
-            .gte("published_at", since14d)
-            .in("podcasts.rank_label", ["S", "A", "B"])
-            .or("language.is.null,language.ilike.en%", { foreignTable: "podcasts" })
-            .not("podcasts.rss_status", "in", "(failed,inactive)")
-            .limit(1500),
         ]);
 
         setCats(catsRes.data || []);
@@ -156,7 +203,12 @@ const Index = () => {
           } as any,
         });
 
-        const eps: FeedEpisode[] = (feedRes.data || []).map(mapRow);
+        const eps: FeedEpisode[] = (feedRes.data || [])
+          .filter((r: any) => englishSurfaceOnly(
+            r.title, r.display_title, r.summary, r.description, r.ai_summary,
+            r.podcast_title, r.podcast_display_title,
+          ))
+          .map(mapRow);
 
         // Trending = last 14 days (hot+fresh). Fall back to recent (≤30d) if <8 items.
         const hotFresh = eps.filter((e) => e.freshness_bucket === "hot" || e.freshness_bucket === "fresh");
@@ -192,11 +244,13 @@ const Index = () => {
         setAllEps(eps);
 
         // Evergreen v0: S-tier, AI-summarized, >30 days old. Diverse by podcast.
-        const evergreen: EpisodeLite[] = (evergreenRes.data || []).map(mapRow);
+        const evergreen: EpisodeLite[] = (evergreenRes.data || [])
+          .filter((r: any) => englishSurfaceOnly(
+            r.title, r.display_title, r.summary, r.description, r.ai_summary,
+            r.podcast_title, r.podcast_display_title,
+          ))
+          .map(mapRow);
         setEvergreenEps(evergreen.slice(0, 6));
-
-        // Trending entities source (last 14 days, EN-only, healthy podcasts)
-        setTrendingEntityEps((entityRes.data || []) as any);
       } catch (err) {
         console.error("Index load failed", err);
         setLoadError(true);
@@ -269,39 +323,135 @@ const Index = () => {
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm sm:text-base leading-relaxed animate-fade-up">
             Search by topic, person, company, market ticker, technology or idea. Podiverzum looks beyond titles and finds episodes by meaning.
           </p>
-          <form
-            onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}
-            className="mt-6 sm:mt-10 max-w-2xl relative focus-brand rounded-2xl transition-shadow animate-fade-up"
-          >
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={heroPlaceholder}
-              className="w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
-            />
-            <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
-              Search
-            </button>
-          </form>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
-            <div className="flex flex-nowrap items-center gap-2 min-w-0">
-              {visibleChips.map((c, i) => (
-                <button
-                  key={c.label}
-                  type="button"
-                  onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)}
-                  className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
-                    i >= 3 ? "!hidden sm:!inline-flex" : ""
-                  } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
+          <div ref={heroWrapRef} className="mt-6 sm:mt-10 max-w-2xl relative animate-fade-up">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setHeroOpen(false);
+                if (q.trim()) {
+                  try { window.localStorage.setItem("podi:com:hasSearched", "1"); } catch {}
+                  setHasSearched(true);
+                  nav(`/search?q=${encodeURIComponent(q.trim())}`);
+                }
+              }}
+              className="relative focus-brand rounded-2xl transition-shadow"
+            >
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
+              {heroGhost && (
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 text-base whitespace-pre overflow-hidden pointer-events-none flex items-center"
                 >
-                  {c.label}
-                </button>
-              ))}
+                  <span className="invisible">{q}</span>
+                  <span className="text-muted-foreground/50">{heroGhost}</span>
+                </div>
+              )}
+              <input
+                ref={heroInputRef}
+                value={q}
+                onChange={(e) => { setQ(e.target.value); setHeroOpen(true); }}
+                onFocus={() => setHeroOpen(true)}
+                onKeyDown={(e) => {
+                  if (!heroGhost) return;
+                  if (e.key === "Tab" && !e.shiftKey) {
+                    e.preventDefault();
+                    acceptHeroGhost();
+                    return;
+                  }
+                  if (e.key === "ArrowRight") {
+                    const el = e.currentTarget;
+                    if (el.selectionStart === q.length && el.selectionEnd === q.length) {
+                      e.preventDefault();
+                      acceptHeroGhost();
+                    }
+                  }
+                }}
+                placeholder={heroPlaceholder}
+                aria-label="Search episodes"
+                aria-autocomplete="list"
+                aria-expanded={heroOpen}
+                autoComplete="off"
+                spellCheck={false}
+                className="relative w-full pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-2xl bg-card/80 backdrop-blur border border-border focus:border-primary/50 outline-none text-base placeholder:text-muted-foreground/60 shadow-elevated"
+              />
+              <button className="btn-brand absolute right-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 rounded-xl text-sm font-semibold">
+                Search
+              </button>
+            </form>
+            {heroOpen && q.trim().length >= 2 && (heroSugg.length > 0 || heroLoadingSugg) && (
+              <div
+                role="listbox"
+                className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-lg z-50 max-h-[70vh] overflow-y-auto"
+              >
+                {heroLoadingSugg && heroSugg.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">Suggestions...</div>
+                )}
+                {heroSugg.map((s, i) => {
+                  const Icon = SUGG_ICON[s.type] || Search;
+                  return (
+                    <button
+                      key={`${s.type}:${s.label}:${i}`}
+                      type="button"
+                      role="option"
+                      onMouseDown={(e) => { e.preventDefault(); setHeroOpen(false); setQ(""); nav(s.href); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 border-b border-border/40 last:border-b-0"
+                    >
+                      {s.image_url ? (
+                        <img src={s.image_url} alt="" loading="lazy" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                      ) : (
+                        <span className="h-7 w-7 rounded bg-muted/60 flex items-center justify-center shrink-0">
+                          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{s.label}</span>
+                        {s.subtitle && (
+                          <span className="block text-[11px] text-muted-foreground truncate">{s.subtitle}</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {!hasSearched && q.length === 0 && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2">
+              <div className="flex flex-nowrap items-center gap-2 min-w-0">
+                {visibleChips.map((c, i) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => nav(`/search?q=${encodeURIComponent(c.query)}`)}
+                    className={`chip whitespace-nowrap shrink-0 animate-fade-up ${
+                      i >= 3 ? "!hidden sm:!inline-flex" : ""
+                    } ${i >= 4 ? "sm:!hidden lg:!inline-flex" : ""}`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <span className="sm:ml-auto sm:pl-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap shrink-0">
+          )}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 whitespace-nowrap">
               700,000+ indexed episodes
             </span>
+            <Link
+              to="/toplist"
+              className="group inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cross-platform toplist
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <Link
+              to="/topics"
+              className="group inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
+            >
+              <Sparkles className="h-4 w-4" />
+              Browse topic hubs
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
         {/* bottom rule */}
@@ -310,6 +460,7 @@ const Index = () => {
 
       <div className="container mx-auto pt-4 pb-8 sm:pt-4 sm:pb-12 space-y-8 sm:space-y-10">
         <ContinueListening />
+        <ToplistPreview />
         {!loaded && trendingEps.length === 0 && (
           <section>
             <Skeleton className="h-6 w-48 mb-4" />
@@ -336,15 +487,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Recent episodes across shows.</p>
               </div>
             </div>
-            <div className="hidden md:grid md:grid-cols-2 gap-4">
-              <EpisodeList items={trendingEps.slice(0, 3)} />
-              {trendingEps.length > 3 && (
-                <EpisodeList items={trendingEps.slice(3, 6)} />
-              )}
-            </div>
-            <div className="md:hidden">
-              <EpisodeList items={trendingEps} scrollOnMobile />
-            </div>
+            <EpisodeList items={trendingEps} scrollAlways />
           </section>
         )}
 
@@ -367,26 +510,13 @@ const Index = () => {
                   </Link>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Recent in {c.name}</p>
-                {(() => {
-                  const mid = Math.ceil(items.length / 2);
-                  const left = items.slice(0, mid);
-                  const right = items.slice(mid);
-                  return (
-                    <>
-                      <div className="hidden md:grid md:grid-cols-2 gap-4">
-                        <EpisodeList items={left} />
-                        {right.length > 0 && <EpisodeList items={right} />}
-                      </div>
-                      <div className="md:hidden">
-                        <EpisodeList items={items} scrollOnMobile />
-                      </div>
-                    </>
-                  );
-                })()}
+                <EpisodeList items={items} scrollAlways />
               </section>
             );
           });
         })()}
+
+        <HomeTopicsSection />
 
         {evergreenEps.length > 0 && (
           <section className="md:rounded-2xl md:border md:border-border/70 md:bg-card/40 md:p-6">
@@ -396,15 +526,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-1">Older episodes that hold up.</p>
               </div>
             </div>
-            <div className="hidden md:grid md:grid-cols-2 gap-4">
-              <EpisodeList items={evergreenEps.slice(0, Math.ceil(evergreenEps.length / 2))} />
-              {evergreenEps.length > 1 && (
-                <EpisodeList items={evergreenEps.slice(Math.ceil(evergreenEps.length / 2))} />
-              )}
-            </div>
-            <div className="md:hidden">
-              <EpisodeList items={evergreenEps} scrollOnMobile />
-            </div>
+            <EpisodeList items={evergreenEps} scrollAlways />
           </section>
         )}
 
