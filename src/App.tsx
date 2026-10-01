@@ -32,6 +32,7 @@ import ContactPage from "./pages/ContactPage.tsx";
 import MethodologyPage from "./pages/MethodologyPage.tsx";
 import NewPodcastsPage from "./pages/NewPodcastsPage.tsx";
 import DailyBriefPage from "./pages/DailyBriefPage.tsx";
+import ToplistPage from "./pages/ToplistPage.tsx";
 import AdminLivePage from "./pages/AdminLivePage.tsx";
 import AdminInsightsPage from "./pages/AdminInsightsPage.tsx";
 import AdminXReplyAssistantPage from "./pages/AdminXReplyAssistantPage.tsx";
@@ -87,6 +88,8 @@ const App = () => (
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/new" element={<NewPodcastsPage />} />
           <Route path="/daily" element={<DailyBriefPage />} />
+          <Route path="/toplist" element={<ToplistPage />} />
+          <Route path="/rankings" element={<ToplistPage />} />
           <Route path="/admin/live" element={<AdminLivePage />} />
           <Route path="/admin/insights" element={<AdminInsightsPage />} />
           <Route path="/admin/x-reply-assistant" element={<AdminXReplyAssistantPage />} />

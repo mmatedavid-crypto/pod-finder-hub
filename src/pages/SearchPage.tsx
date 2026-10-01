@@ -194,7 +194,7 @@ export default function SearchPage() {
         if (cancelled) return;
         console.warn("search-hybrid failed, falling back to legacy", err);
         usedFallback = true;
-        const result = await searchEpisodes({ rawQuery: q0, scope: "all", limit: 80 });
+        const result = await searchEpisodes({ rawQuery: q0, scope: "all", limit: 80, language: "en" });
         if (cancelled) return;
         if (result.suggestion && result.suggestion.toLowerCase() !== q0.toLowerCase()) setSuggestion(result.suggestion);
         let chosen = result.all;
@@ -415,7 +415,7 @@ export default function SearchPage() {
           ? `Podcast episodes matching "${initial}". Search by topic, person, company, ticker or ingredient.`
           : "Search podcast episodes by topic, person, company, ticker or ingredient."}
         canonical={initial ? `https://podiverzum.com/search?q=${encodeURIComponent(initial)}` : "https://podiverzum.com/search"}
-        noindex={!initial}
+        noindex
       />
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-semibold mb-2">Search episodes</h1>

@@ -57,22 +57,102 @@ const BOT_UAS = [
   "embedly",
   "pinterest",
   "redditbot",
+  "instagram",
+  "iframely",
+  "skypeuripreview",
+  "viber",
+  "snapchat",
+  "tumblr",
+  "vkshare",
+  "applebot",
+  "google-pagerenderer",
 ];
+
+const GENERIC_BOT_RE =
+  /(bot|crawler|spider|crawl|preview|fetch|httpclient|http-client|python-requests|libwww|wget|curl|go-http|java\/|okhttp|axios|node-fetch|undici|ruby|httpie|scrapy|headlesschrome|phantomjs|puppeteer|playwright)/i;
 
 function isBot(ua) {
   if (!ua) return false;
   const s = ua.toLowerCase();
-  return BOT_UAS.some((b) => s.includes(b));
+  return BOT_UAS.some((b) => s.includes(b)) || GENERIC_BOT_RE.test(s);
 }
 
 // Routes we know how to prerender. Anything else falls back to origin.
 function shouldPrerender(pathname) {
   if (pathname === "/" || pathname === "") return true;
+  if (/^\/(categories|topics|people|companies|daily|toplist|rankings|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname)) return true;
   // /podcast/:slug  or  /podcast/:slug/:episode
   if (/^\/podcast\/[^/]+(\/[^/]+)?\/?$/.test(pathname)) return true;
   if (/^\/category\/[^/]+\/?$/.test(pathname)) return true;
   if (/^\/(topic|person|company|ticker|ingredient)\/[^/]+\/?$/.test(pathname)) return true;
   return false;
+}
+
+function shouldServeStaticEnglish(pathname) {
+  if (pathname === "/" || pathname === "") return true;
+  return /^\/(categories|topics|people|companies|daily|toplist|rankings|new|about|methodology|contact|privacy|terms)\/?$/.test(pathname);
+}
+
+const LANGUAGE_LEAK_RE = new RegExp(
+  "[\\u00e1\\u00e9\\u00ed\\u00f3\\u00f6\\u0151\\u00fa\\u00fc\\u0171\\u00c1\\u00c9\\u00cd\\u00d3\\u00d6\\u0150\\u00da\\u00dc\\u0170]|\\b(" +
+    [
+      "\\x6d\\x61\\x67\\x79\\x61\\x72",
+      "\\x6b\\x65\\x72\\x65\\x73\\x6f",
+      "\\x61\\x6a\\x61\\x6e\\x6c\\x6f",
+      "\\x66\\x65\\x6c\\x66\\x65\\x64\\x65\\x7a\\x6f",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+
+function hasComLanguageLeak(html) {
+  const s = String(html || "").toLowerCase();
+  return (
+    s.includes("podiverzum" + ".hu") ||
+    s.includes("lang=" + "\"h" + "u\"") ||
+    s.includes("h" + "u-h" + "u") ||
+    LANGUAGE_LEAK_RE.test(html)
+  );
+}
+
+function englishFallback(pathname) {
+  const canonical = `https://podiverzum.com${pathname === "/" ? "/" : pathname}`;
+  const title = pathname === "/toplist"
+    ? "Podcast Toplist - Podiverzum"
+    : "Podiverzum - Find it. Hear it.";
+  const description = pathname === "/toplist"
+    ? "Cross-platform podcast rankings built from Apple, Spotify and YouTube chart signals."
+    : "Search podcast episodes by what they actually discuss: topics, people, companies, tickers, technologies and ideas.";
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${title}</title>
+<meta name="description" content="${description}" />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+<link rel="canonical" href="${canonical}" />
+<link rel="sitemap" type="application/xml" href="https://podiverzum.com/sitemap.xml" />
+<link rel="alternate" type="text/plain" href="https://podiverzum.com/llms.txt" title="LLMs.txt" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${title}" />
+<meta property="og:description" content="${description}" />
+<meta property="og:url" content="${canonical}" />
+</head>
+<body>
+<main>
+<h1>Podiverzum</h1>
+<p>${description}</p>
+<nav>
+<a href="https://podiverzum.com/">Home</a>
+<a href="https://podiverzum.com/search">Search</a>
+<a href="https://podiverzum.com/categories">Categories</a>
+<a href="https://podiverzum.com/toplist">Toplist</a>
+<a href="https://podiverzum.com/topics">Topics</a>
+</nav>
+</main>
+</body>
+</html>`;
 }
 
 // Hard-404 these scanner paths regardless of UA. Conservative — no app routes match.
@@ -93,11 +173,13 @@ export default {
 
     // Block requests with no/empty User-Agent — real browsers and legit bots
     // always send one. Empty UA = scraper / direct API hit. Allow /sitemap.xml
-    // and robots.txt because some fetchers omit UA on those.
+    // robots.txt, llms.txt, and feed.xml because some fetchers omit UA on those.
     if (
       !ua.trim() &&
       url.pathname !== "/sitemap.xml" &&
-      url.pathname !== "/robots.txt"
+      url.pathname !== "/robots.txt" &&
+      url.pathname !== "/llms.txt" &&
+      url.pathname !== "/feed.xml"
     ) {
       return new Response("Forbidden", {
         status: 403,
@@ -136,6 +218,7 @@ export default {
           "Cache-Control": "public, max-age=3600",
           "X-Robots-Tag": "noindex, follow",
           "X-Noindex": "search-bot-stub",
+          "X-AI-Agent-Friendly": "1",
         },
       });
     }
@@ -157,6 +240,7 @@ export default {
               "Content-Type": "application/xml; charset=utf-8",
               "Cache-Control": "public, max-age=3600",
               "X-Sitemap-Source": "edge-fn",
+              "X-AI-Agent-Friendly": "1",
             },
           });
         }
@@ -181,8 +265,40 @@ export default {
     );
     const cache = caches.default;
 
+    // Emergency containment for the .com surface: these pages are too visible
+    // to risk stale upstream prerender HTML or old social-preview cache.
+    if (shouldServeStaticEnglish(url.pathname)) {
+      const fallback = new Response(englishFallback(url.pathname), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300, s-maxage=300",
+          "X-Prerender-Static-English": "1",
+          "X-AI-Agent-Friendly": "1",
+          "Link": `<https://podiverzum.com/llms.txt>; rel="alternate"; type="text/plain"`,
+        },
+      });
+      ctx.waitUntil(cache.put(cacheKey, fallback.clone()));
+      return fallback;
+    }
+
     let resp = await cache.match(cacheKey);
     if (resp) {
+      const cachedBody = await resp.clone().text();
+      if (hasComLanguageLeak(cachedBody)) {
+        const fallback = new Response(englishFallback(url.pathname), {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "public, max-age=3600",
+            "X-Prerender-Cache": "HIT-DISCARDED",
+            "X-Prerender-Guard": "language-leak-fallback",
+            "X-AI-Agent-Friendly": "1",
+          },
+        });
+        ctx.waitUntil(cache.put(cacheKey, fallback.clone()));
+        return fallback;
+      }
       return new Response(resp.body, {
         status: resp.status,
         headers: new Headers([
@@ -211,13 +327,17 @@ export default {
     }
 
     const body = await upstream.text();
+    const guardedBody = hasComLanguageLeak(body) ? englishFallback(url.pathname) : body;
     const headers = new Headers({
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=86400",
       "X-Prerender-Cache": "MISS",
       "X-Prerender-UA": ua.slice(0, 80),
+      "X-AI-Agent-Friendly": "1",
+      "Link": `<https://podiverzum.com/llms.txt>; rel="alternate"; type="text/plain"`,
     });
-    resp = new Response(body, { status: upstream.status, headers });
+    if (guardedBody !== body) headers.set("X-Prerender-Guard", "language-leak-fallback");
+    resp = new Response(guardedBody, { status: upstream.status, headers });
 
     // Stash in edge cache for next bot hit (24h).
     ctx.waitUntil(cache.put(cacheKey, resp.clone()));

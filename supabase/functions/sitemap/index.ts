@@ -76,7 +76,11 @@ async function listMonths(supabase: ReturnType<typeof createClient>): Promise<Mo
 }
 
 async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
+  // Reads the precomputed sitemap_month_cache (refreshed by cron). An empty
+  // cache means it has never been filled — fail loudly instead of publishing
+  // an index with no episode sitemaps.
   const months = await listMonths(supabase);
+  if (!months.length) throw new Error("sitemap month cache empty");
   const fallbackLastmod = new Date().toISOString();
   const entries: string[] = [
     `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${fallbackLastmod}</lastmod></sitemap>`,
@@ -99,18 +103,27 @@ async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
 }
 
 async function buildCore(supabase: ReturnType<typeof createClient>) {
-  const { data: cats } = await supabase.from("categories").select("slug,created_at");
+  const [{ data: cats }, { data: hubs }] = await Promise.all([
+    supabase.from("categories").select("slug,created_at"),
+    supabase.from("topic_hubs").select("slug,updated_at,generated_at").eq("active", true).order("sort_order"),
+  ]);
   const urls: string[] = [
     urlTag(`${SITE}/`, null, "daily", "1.0"),
     urlTag(`${SITE}/categories`, null, "daily", "0.7"),
     urlTag(`${SITE}/topics`, null, "daily", "0.8"),
     urlTag(`${SITE}/people`, null, "daily", "0.8"),
     urlTag(`${SITE}/companies`, null, "daily", "0.8"),
+    urlTag(`${SITE}/daily`, null, "daily", "0.7"),
+    urlTag(`${SITE}/toplist`, null, "daily", "0.7"),
+    urlTag(`${SITE}/new`, null, "daily", "0.6"),
     urlTag(`${SITE}/about`, null, "monthly", "0.4"),
     urlTag(`${SITE}/methodology`, null, "monthly", "0.4"),
-    urlTag(`${SITE}/new-podcasts`, null, "daily", "0.6"),
+    urlTag(`${SITE}/contact`, null, "monthly", "0.3"),
+    urlTag(`${SITE}/privacy`, null, "yearly", "0.2"),
+    urlTag(`${SITE}/terms`, null, "yearly", "0.2"),
   ];
   (cats || []).forEach((c: any) => urls.push(urlTag(`${SITE}/category/${esc(c.slug)}`, c.created_at, "daily", "0.8")));
+  (hubs || []).forEach((h: any) => urls.push(urlTag(`${SITE}/topic/${esc(h.slug)}`, maxDate(h.updated_at, h.generated_at), "weekly", "0.8")));
   return wrapUrlset(urls);
 }
 
@@ -242,6 +255,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? `${e.name}: ${e.message}` : JSON.stringify(e);
     console.error("sitemap error:", msg);
-    return new Response(`<!-- sitemap error: ${msg} -->`, { status: 500, headers: xmlHeaders });
+    // Never let caches keep an error body.
+    return new Response(`<!-- sitemap error -->`, { status: 503, headers: { ...xmlHeaders, "Cache-Control": "no-store", "Retry-After": "300" } });
   }
 });

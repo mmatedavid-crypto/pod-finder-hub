@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       const { data: p } = await supabase.from("podcasts").select("*").eq("id", id).single();
       if (!p) throw new Error("podcast not found");
       const langCode = (p.language || "").toLowerCase().split(/[-_]/)[0] || "en";
-      const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
+      const langName = langCode === "hu" ? "Hungarian" : langCode === "en" ? "English" : langCode;
       const j = await callAI([
         { role: "system", content: `You write concise 2-sentence podcast summaries (max 280 chars). No marketing fluff. Write the summary in ${langName} (${langCode}) — match the source language; never translate.` },
         { role: "user", content: `Podcast: ${p.title}\n\nDescription: ${p.description || "(none)"}\n\nWrite a clear neutral summary in ${langName}.` },
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       if (!ep) throw new Error("episode not found");
       const langRaw = ((ep as any).podcasts?.language) || "en";
       const langCode = String(langRaw).toLowerCase().split(/[-_]/)[0] || "en";
-      const langName = langCode === "hu" ? "Hungarian (magyar)" : langCode === "en" ? "English" : langCode;
+      const langName = langCode === "hu" ? "Hungarian" : langCode === "en" ? "English" : langCode;
       const tools = [{
         type: "function",
         function: {

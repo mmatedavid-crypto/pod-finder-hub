@@ -9,7 +9,9 @@
     <meta name="msvalidate.01" content="F326C7A656BA08CDB600E7DDF280E128" />
     <meta name="google-site-verification" content="Ef-OFwqPFRGCiJ2riaIrhCIzI6kHafDcPBiL3XmPwZM" />
 
-    <link rel="canonical" href="https://podiverzum.com/" />
+    <link rel="sitemap" type="application/xml" href="https://podiverzum.com/sitemap.xml" />
+    <link rel="alternate" type="text/plain" href="https://podiverzum.com/llms.txt" title="LLMs.txt" />
+    <link rel="alternate" type="application/rss+xml" href="https://podiverzum.com/feed.xml" title="Podiverzum recent episodes" />
 
 
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -41,7 +43,6 @@
     <meta property="og:site_name" content="Podiverzum" />
     <meta property="og:title" content="Podiverzum — Find it. Hear it." />
     <meta property="og:description" content="Search podcast episodes by what they actually discuss." />
-    <meta property="og:url" content="https://podiverzum.com/" />
     <meta property="og:image" content="https://podiverzum.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -67,7 +68,21 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main>
+        <h1>Podiverzum</h1>
+        <p>Search podcast episodes by what they actually discuss: topics, people, companies, tickers, technologies and ideas.</p>
+        <nav aria-label="Primary">
+          <a href="/search">Search</a>
+          <a href="/categories">Categories</a>
+          <a href="/topics">Topics</a>
+          <a href="/toplist">Toplist</a>
+          <a href="/daily">Daily Brief</a>
+          <a href="/new">New podcasts</a>
+          <a href="/about">About</a>
+        </nav>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

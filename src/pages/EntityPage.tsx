@@ -11,6 +11,8 @@ import { ENTITY_COLUMN, ENTITY_LABEL, EntityKind, matchesEntitySlug, classifyEnt
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { compareByScore, episodeScore } from "@/lib/episodeRank";
+import TemporarilyUnavailable from "@/components/TemporarilyUnavailable";
+import { ENTITY_EP_SELECT, isVisibleEpisode, loadEntityEpisodes } from "@/lib/entityEpisodes";
 
 const NOINDEX_BELOW = 5;
 const RICH_AT = 20;
@@ -34,41 +36,75 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
   const [displayName, setDisplayName] = useState<string>(decoded);
   const [related, setRelated] = useState<{ kind: EntityKind; v: string; n: number }[]>([]);
   const [profile, setProfile] = useState<EntityProfile | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
+    setEps([]);
+    setPods([]);
+    setRelated([]);
+    setDisplayName(decoded);
+    setFailed(false);
+    setLoading(true);
     (async () => {
-      setLoading(true);
       const col = ENTITY_COLUMN[kind];
-      // Server-side entity match (handles diacritics/casing). Then fetch joined podcast data.
-      const { data: rpcRows } = await supabase.rpc("episodes_by_entity" as any, {
-        p_kind: kind, p_slug: decoded, p_limit: 200,
-      });
-      const baseEps: any[] = Array.isArray(rpcRows) ? rpcRows : [];
-      const podIdsAll = Array.from(new Set(baseEps.map((e: any) => e.podcast_id))).filter(Boolean);
-      let podMap2 = new Map<string, any>();
-      if (podIdsAll.length) {
-        const { data: ps } = await supabase
-          .from("podcasts")
-          .select("id,slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured")
-          .in("id", podIdsAll);
-        (ps || []).forEach((p: any) => podMap2.set(p.id, p));
-      }
-      const matches: any[] = [];
+      // 1) Cached episode_ids from entity_profiles (bounded, fast).
+      const { data: prof } = await supabase
+        .from("entity_profiles")
+        .select("display_name,episode_ids")
+        .eq("kind", kind)
+        .eq("slug", decoded.toLowerCase())
+        .maybeSingle();
+      if (cancelled) return;
+      const cachedIds: string[] = (prof as any)?.episode_ids || [];
+
+      // 2) Live lookup. `people` has a GIN index, so persons use an indexed overlap
+      //    on likely stored spellings; other kinds keep the server-side slug match RPC.
+      const fromSlug = decoded.replace(/-/g, " ").trim();
+      const variants = Array.from(new Set([
+        (prof as any)?.display_name, fromSlug, fromSlug.toLowerCase(),
+        fromSlug.replace(/\b\w/g, (c) => c.toUpperCase()),
+      ].filter(Boolean))) as string[];
+      const live = kind === "person"
+        ? () => supabase
+            .from("episodes")
+            .select(ENTITY_EP_SELECT)
+            .overlaps(col, variants)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(200)
+        : async () => {
+            const r = await supabase.rpc("episodes_by_entity" as any, { p_kind: kind, p_slug: decoded, p_limit: 200 });
+            if (r.error) return { data: null, error: r.error };
+            const base: any[] = Array.isArray(r.data) ? r.data : [];
+            const pids = Array.from(new Set(base.map((e: any) => e.podcast_id))).filter(Boolean);
+            if (!pids.length) return { data: [], error: null };
+            const pr = await supabase
+              .from("podcasts")
+              .select("id,slug,title,display_title,image_url,category,podiverzum_rank,rank_label,rss_status,featured,language")
+              .in("id", pids);
+            if (pr.error) return { data: null, error: pr.error };
+            const pm = new Map((pr.data || []).map((p: any) => [p.id, p]));
+            return { data: base.map((e: any) => ({ ...e, podcasts: pm.get(e.podcast_id) })), error: null };
+          };
+
+      // The live lookup is expensive on large entities, so it only runs when no
+      // cached list exists; entity-profile-generate / the daily profile runner
+      // refresh episode_ids (pages older than 30 days also trigger a regen).
+      const { rows, failed: loadFailed } = await loadEntityEpisodes({ cachedIds, live: cachedIds.length ? undefined : live });
+      if (cancelled) return;
+      if (loadFailed) { setFailed(true); setLoading(false); return; }
+
       let exemplar = decoded;
-      baseEps.forEach((e: any) => {
-        const podcasts = podMap2.get(e.podcast_id);
-        if (!podcasts) return;
+      rows.forEach((e: any) => {
+        if (exemplar !== decoded) return;
         const arr: string[] = e[col] || [];
         const hit = arr.find((v) => matchesEntitySlug(kind, v, decoded));
-        if (exemplar === decoded && hit) exemplar = hit;
-        matches.push({ ...e, podcasts });
+        if (hit) exemplar = hit;
       });
-      // Filter out broken parent feeds
-      const visible = matches.filter((e) => {
-        const ps = e.podcasts;
-        return ps && ps.rss_status !== "failed" && ps.rss_status !== "inactive";
-      });
+      // Healthy, English parent feeds only
+      const visible = rows.filter(isVisibleEpisode);
       setDisplayName(exemplar);
 
       // Composite tier+freshness sort; latest first secondary
@@ -84,6 +120,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
           .from("podcasts")
           .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
           .in("id", podIds);
+        if (cancelled) return;
         const sortedPods = (ps || [])
           .filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"))
           .sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0))
@@ -112,12 +149,14 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
 
       setLoading(false);
     })();
-  }, [kind, slug, decoded]);
+    return () => { cancelled = true; };
+  }, [kind, slug, decoded, reloadKey]);
 
   // Fetch (or trigger generation of) the AI bio + episode summary.
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
+    setProfile(null);
     (async () => {
       const { data } = await supabase
         .from("entity_profiles")
@@ -241,6 +280,7 @@ export default function EntityPage({ kind }: { kind: EntityKind }) {
     [kind, eps, strengthById],
   );
 
+  if (failed) return <TemporarilyUnavailable label={displayName} onRetry={() => setReloadKey((k) => k + 1)} />;
   if (loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
 
   if (!eps.length) return (

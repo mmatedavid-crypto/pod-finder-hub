@@ -56,16 +56,16 @@ function langCode(l?: string | null): string | null {
 }
 function langName(code: string | null): string {
   switch (code) {
-    case "hu": return "Hungarian (magyar)";
+    case "hu": return "Hungarian";
     case "en": return "English";
-    case "de": return "German (Deutsch)";
-    case "es": return "Spanish (español)";
-    case "fr": return "French (français)";
-    case "it": return "Italian (italiano)";
-    case "pt": return "Portuguese (português)";
-    case "pl": return "Polish (polski)";
-    case "ro": return "Romanian (română)";
-    case "sk": return "Slovak (slovenčina)";
+    case "de": return "German";
+    case "es": return "Spanish";
+    case "fr": return "French";
+    case "it": return "Italian";
+    case "pt": return "Portuguese";
+    case "pl": return "Polish";
+    case "ro": return "Romanian";
+    case "sk": return "Slovak";
     default: return code || "the source language";
   }
 }

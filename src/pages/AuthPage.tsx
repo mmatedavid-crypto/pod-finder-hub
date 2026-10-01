@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/Layout";
+import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import { trackLandingEvent } from "@/lib/landingEvents";
 
@@ -14,9 +15,6 @@ export default function AuthPage() {
 
   useEffect(() => {
     document.title = "Sign in — Podiverzum";
-    let robots = document.head.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-    if (!robots) { robots = document.createElement("meta"); robots.name = "robots"; document.head.appendChild(robots); }
-    robots.content = "noindex, nofollow";
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav("/");
     });
@@ -53,6 +51,7 @@ export default function AuthPage() {
 
   return (
     <Layout>
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
       <div className="container mx-auto max-w-sm py-16">
         <h1 className="text-2xl font-semibold">{mode === "signin" ? "Sign in" : "Create account"}</h1>
         <p className="text-sm text-muted-foreground mt-1">Save your Podiverzum across devices.</p>

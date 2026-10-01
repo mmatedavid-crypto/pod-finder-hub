@@ -12,6 +12,8 @@ import { classifyEntityMatch } from "@/lib/entity";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import EntityPage from "./EntityPage";
+import TemporarilyUnavailable from "@/components/TemporarilyUnavailable";
+import { ENTITY_EP_SELECT, isVisibleEpisode, loadEntityEpisodes } from "@/lib/entityEpisodes";
 
 type TopicHub = {
   id: string;
@@ -36,39 +38,58 @@ export default function TopicHubPage() {
   const [pods, setPods] = useState<PodcastLite[]>([]);
   const [related, setRelated] = useState<{ kind: string; v: string; n: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Step 1: try to find a curated hub by slug.
+  // Step 1: try to find a curated hub by slug. Reset everything on route change.
   useEffect(() => {
+    let cancelled = false;
+    setHub(null);
+    setEps([]);
+    setPods([]);
+    setRelated([]);
+    setFailed(false);
+    setLoading(true);
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("topic_hubs")
         .select("*")
         .eq("slug", decoded)
         .eq("active", true)
         .maybeSingle();
+      if (cancelled) return;
+      if (error) { setFailed(true); setLoading(false); return; }
       setHub((data as TopicHub) || "missing");
     })();
-  }, [decoded]);
+    return () => { cancelled = true; };
+  }, [decoded, reloadKey]);
 
-  // Step 2: when hub is found, load matching episodes via aliases overlap.
+  // Step 2: when hub is found, load episodes: cached hub.episode_ids + live alias overlap.
   useEffect(() => {
     if (!hub || hub === "missing") return;
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("episodes")
-        .select("id,title,display_title,description,summary,ai_summary,published_at,audio_url,episode_url,image_url,slug,podcast_id,episode_rank,episode_rank_label,topics,people,companies,tickers,podcasts!inner(id,title,display_title,slug,image_url,category,podiverzum_rank,rank_label,rss_status,featured,language)")
-        .overlaps("topics", hub.aliases)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .limit(400);
-      const visible = (data || []).filter((e: any) => {
-        const ps = e.podcasts;
-        if (!ps) return false;
-        if (ps.rss_status === "failed" || ps.rss_status === "inactive") return false;
-        const lang = (ps.language || "").toLowerCase();
-        if (lang && !lang.startsWith("en")) return false;
-        return true;
+      setFailed(false);
+      const aliases = hub.aliases || [];
+      const cachedIds: string[] = (hub as any).episode_ids || [];
+      // Live alias scan is unindexed on episodes.topics, so it only runs when the
+      // hub has no cached episode_ids. Freshness comes from topic-hub-generate
+      // (re-run when the hub is >30 days old, triggered below).
+      const { rows, failed: loadFailed } = await loadEntityEpisodes({
+        cachedIds,
+        live: aliases.length && !cachedIds.length
+          ? () => supabase
+              .from("episodes")
+              .select(ENTITY_EP_SELECT)
+              .overlaps("topics", aliases)
+              .order("published_at", { ascending: false, nullsFirst: false })
+              .limit(400)
+          : undefined,
       });
+      if (cancelled) return;
+      if (loadFailed) { setFailed(true); setLoading(false); return; }
+      const visible = rows.filter(isVisibleEpisode);
       const sorted = visible.slice().sort(compareByScore);
       setEps(sorted.slice(0, 60) as any);
 
@@ -81,6 +102,7 @@ export default function TopicHubPage() {
           .from("podcasts")
           .select("id,title,display_title,slug,summary,description,image_url,category,apple_url,spotify_url,youtube_url,website_url,featured,rss_status,podiverzum_rank")
           .in("id", podIds);
+        if (cancelled) return;
         const sortedPods = (ps || [])
           .filter((p: any) => p.featured || (p.rss_status !== "failed" && p.rss_status !== "inactive"))
           .sort((a: any, b: any) => (b.podiverzum_rank || 0) - (a.podiverzum_rank || 0))
@@ -90,7 +112,7 @@ export default function TopicHubPage() {
 
       // Related entities (people, companies, tickers, other topics)
       const tally = new Map<string, { kind: string; v: string; n: number }>();
-      const aliasSet = new Set(hub.aliases.map((a) => a.toLowerCase()));
+      const aliasSet = new Set(aliases.map((a) => a.toLowerCase()));
       visible.forEach((e: any) => {
         ["people", "companies", "tickers", "topics"].forEach((col) => {
           const k = col === "people" ? "person" : col === "companies" ? "company" : col === "tickers" ? "ticker" : "topic";
@@ -108,14 +130,16 @@ export default function TopicHubPage() {
 
       setLoading(false);
 
-      // Trigger AI generation if missing/stale
+      // Trigger AI generation if missing/stale (also refreshes cached episode_ids)
       const stale = !hub.generated_at || (Date.now() - new Date(hub.generated_at).getTime()) / 86400_000 > 30;
       if (stale) {
         supabase.functions.invoke("topic-hub-generate", { body: { slug: hub.slug } }).catch(() => {});
       }
     })();
+    return () => { cancelled = true; };
   }, [hub]);
 
+  if (failed) return <TemporarilyUnavailable label="This topic" onRetry={() => setReloadKey((k) => k + 1)} />;
   // Fall back to plain EntityPage if no curated hub for this slug.
   if (hub === "missing") return <EntityPage kind="topic" />;
   if (!hub || loading) return <Layout><div className="container mx-auto py-20 text-muted-foreground">Loading…</div></Layout>;
