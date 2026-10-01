@@ -76,7 +76,11 @@ async function listMonths(supabase: ReturnType<typeof createClient>): Promise<Mo
 }
 
 async function buildSitemapIndex(supabase: ReturnType<typeof createClient>) {
+  // Reads the precomputed sitemap_month_cache (refreshed by cron). An empty
+  // cache means it has never been filled — fail loudly instead of publishing
+  // an index with no episode sitemaps.
   const months = await listMonths(supabase);
+  if (!months.length) throw new Error("sitemap month cache empty");
   const fallbackLastmod = new Date().toISOString();
   const entries: string[] = [
     `<sitemap><loc>${FN_BASE}?type=core</loc><lastmod>${fallbackLastmod}</lastmod></sitemap>`,
@@ -251,6 +255,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? `${e.name}: ${e.message}` : JSON.stringify(e);
     console.error("sitemap error:", msg);
-    return new Response(`<!-- sitemap error: ${msg} -->`, { status: 500, headers: xmlHeaders });
+    // Never let caches keep an error body.
+    return new Response(`<!-- sitemap error -->`, { status: 503, headers: { ...xmlHeaders, "Cache-Control": "no-store", "Retry-After": "300" } });
   }
 });

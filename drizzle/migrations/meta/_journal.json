@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790843801497,
+      "tag": "0000_sitemap_month_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790845082229,
+      "tag": "0001_sitemap_month_cache_incremental",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790845454838,
+      "tag": "0002_sitemap_month_cache_procedure",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790845756362,
+      "tag": "0003_sitemap_month_cache_procedure_commit_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790846886908,
+      "tag": "0004_sitemap_day_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790846964317,
+      "tag": "0005_sitemap_day_cache_recent_window",
+      "breakpoints": true
+    }
+  ]
+}

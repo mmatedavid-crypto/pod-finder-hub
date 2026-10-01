@@ -1850,6 +1850,48 @@ export type Database = {
         }
         Relationships: []
       }
+      sitemap_day_cache: {
+        Row: {
+          d: string
+          max_updated_at: string | null
+          n: number
+          refreshed_at: string
+        }
+        Insert: {
+          d: string
+          max_updated_at?: string | null
+          n: number
+          refreshed_at?: string
+        }
+        Update: {
+          d?: string
+          max_updated_at?: string | null
+          n?: number
+          refreshed_at?: string
+        }
+        Relationships: []
+      }
+      sitemap_month_cache: {
+        Row: {
+          max_updated_at: string | null
+          n: number
+          refreshed_at: string
+          ym: string
+        }
+        Insert: {
+          max_updated_at?: string | null
+          n: number
+          refreshed_at?: string
+          ym: string
+        }
+        Update: {
+          max_updated_at?: string | null
+          n?: number
+          refreshed_at?: string
+          ym?: string
+        }
+        Relationships: []
+      }
       social_posts: {
         Row: {
           ai_model: string | null
