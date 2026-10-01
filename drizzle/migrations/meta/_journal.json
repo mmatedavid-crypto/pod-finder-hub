@@ -43,6 +43,13 @@
       "when": 1790846964317,
       "tag": "0005_sitemap_day_cache_recent_window",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790847285376,
+      "tag": "0006_sitemap_month_counts_require_complete",
+      "breakpoints": true
     }
   ]
 }
