@@ -29,6 +29,13 @@
       "when": 1790845756362,
       "tag": "0003_sitemap_month_cache_procedure_commit_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790846886908,
+      "tag": "0004_sitemap_day_cache",
+      "breakpoints": true
     }
   ]
 }
