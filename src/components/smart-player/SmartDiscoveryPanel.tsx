@@ -19,7 +19,7 @@ export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Pr
   // and expanded variants slice from the same cached result.
   const { data, isLoading, isError } = useSimilarEpisodes(episodeId);
   const items = useMemo(
-    () => (data ?? []).filter((r) => r.audio_url).slice(0, isCompact ? 4 : 8),
+    () => (data ?? []).slice(0, isCompact ? 4 : 8).filter((r) => r.audio_url),
     [data, isCompact],
   );
   const loading = isLoading;

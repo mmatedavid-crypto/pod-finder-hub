@@ -56,26 +56,29 @@ export type SimilarEpisodeRow = {
   rank_label: string | null;
 };
 
-const isBusy = (e: unknown) =>
+export const isBusy = (e: unknown) =>
   String((e as { message?: string })?.message ?? e).includes("recommendations_busy");
 
-const shared = {
+export const similarQueryOptions = {
   staleTime: 5 * 60_000,
   gcTime: 30 * 60_000,
   retry: (count: number, err: unknown) => isBusy(err) && count < 1,
   retryDelay: 2500,
+  // Optional cached recommendations: never refetch just because the tab regained focus/network.
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
 } as const;
 
 export function useSimilarPodcasts(podcastId?: string) {
   return useQuery({
-    ...shared,
+    ...similarQueryOptions,
     queryKey: ["similar-podcasts", podcastId],
     enabled: !!podcastId,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase.rpc("similar_podcasts" as any, {
         p_podcast_id: podcastId,
         p_limit: SIMILAR_MAX,
-      });
+      }).abortSignal(signal);
       if (error) throw error;
       return (Array.isArray(data) ? data : []) as SimilarPodcastRow[];
     },
@@ -84,14 +87,14 @@ export function useSimilarPodcasts(podcastId?: string) {
 
 export function useSimilarEpisodes(episodeId?: string) {
   return useQuery({
-    ...shared,
+    ...similarQueryOptions,
     queryKey: ["similar-episodes", episodeId],
     enabled: !!episodeId,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const { data, error } = await supabase.rpc("similar_episodes" as any, {
         p_episode_id: episodeId,
         p_limit: SIMILAR_MAX,
-      });
+      }).abortSignal(signal);
       if (error) throw error;
       return (Array.isArray(data) ? data : []) as SimilarEpisodeRow[];
     },
