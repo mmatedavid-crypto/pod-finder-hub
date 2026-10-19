@@ -1685,6 +1685,27 @@ export type Database = {
         }
         Relationships: []
       }
+      recommendation_cache: {
+        Row: {
+          candidates: Json
+          computed_at: string
+          kind: string
+          source_id: string
+        }
+        Insert: {
+          candidates: Json
+          computed_at?: string
+          kind: string
+          source_id: string
+        }
+        Update: {
+          candidates?: Json
+          computed_at?: string
+          kind?: string
+          source_id?: string
+        }
+        Relationships: []
+      }
       rss_url_history: {
         Row: {
           changed_at: string

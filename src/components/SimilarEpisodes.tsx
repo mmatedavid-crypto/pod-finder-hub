@@ -1,31 +1,8 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { EpisodeList, EpisodeLite } from "./EpisodeCard";
 import { Sparkles } from "lucide-react";
+import { useSimilarEpisodes, type SimilarEpisodeRow } from "@/lib/useSimilar";
 
-type Row = {
-  episode_id: string;
-  podcast_id: string;
-  similarity: number;
-  title: string;
-  display_title: string | null;
-  slug: string;
-  ai_summary: string | null;
-  summary: string | null;
-  description: string | null;
-  published_at: string | null;
-  audio_url: string | null;
-  topics: string[] | null;
-  podcast_slug: string;
-  podcast_title: string;
-  podcast_display_title: string | null;
-  podcast_image_url: string | null;
-  podcast_category: string | null;
-  podiverzum_rank: number | null;
-  rank_label: string | null;
-};
-
-function rowToEpisode(r: Row): EpisodeLite {
+function rowToEpisode(r: SimilarEpisodeRow): EpisodeLite {
   return {
     id: r.episode_id,
     title: r.title,
@@ -49,26 +26,10 @@ function rowToEpisode(r: Row): EpisodeLite {
 }
 
 export function SimilarEpisodes({ episodeId, limit = 6 }: { episodeId: string; limit?: number }) {
-  const [items, setItems] = useState<EpisodeLite[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    supabase
-      .rpc("similar_episodes" as any, { p_episode_id: episodeId, p_limit: limit })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !Array.isArray(data)) {
-          setItems([]);
-        } else {
-          setItems((data as Row[]).map(rowToEpisode));
-        }
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [episodeId, limit]);
+  const { data, isLoading } = useSimilarEpisodes(episodeId);
+  const items = (data ?? []).slice(0, limit).map(rowToEpisode);
 
-  if (loading || items.length === 0) return null;
+  if (isLoading || items.length === 0) return null;
   return (
     <section id="similar" className="mt-10 scroll-mt-24">
       <div className="flex items-center gap-2 mb-3">
