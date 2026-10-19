@@ -1,28 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Radio, Sparkles } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useSimilarEpisodes, type SimilarEpisodeRow } from "@/lib/useSimilar";
 import { useSmartPlayer, type SmartPlayerEpisode } from "./SmartPlayerProvider";
 
-type Row = {
-  episode_id: string;
-  podcast_id: string;
-  similarity: number;
-  title: string;
-  display_title: string | null;
-  slug: string;
-  ai_summary: string | null;
-  summary: string | null;
-  description: string | null;
-  published_at: string | null;
-  audio_url: string | null;
-  topics: string[] | null;
-  podcast_slug: string;
-  podcast_title: string;
-  podcast_display_title: string | null;
-  podcast_image_url: string | null;
-  podcast_category: string | null;
-};
+type Row = SimilarEpisodeRow;
 
 type Props = {
   episodeIdOverride?: string;
@@ -32,35 +14,16 @@ type Props = {
 export function SmartDiscoveryPanel({ episodeIdOverride, variant = "panel" }: Props = {}) {
   const { currentEpisode, play, setExpanded } = useSmartPlayer();
   const episodeId = episodeIdOverride ?? currentEpisode?.id;
-  const [items, setItems] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
   const isCompact = variant === "compact";
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!episodeId) {
-      setItems([]);
-      return;
-    }
-    setLoading(true);
-    setFailed(false);
-    supabase
-      .rpc("similar_episodes" as any, { p_episode_id: episodeId, p_limit: isCompact ? 4 : 8 })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !Array.isArray(data)) {
-          setItems([]);
-          setFailed(true);
-        } else {
-          setItems((data as Row[]).filter((r) => r.audio_url));
-        }
-        if (!cancelled) setLoading(false);
-      }, () => {
-        if (!cancelled) { setItems([]); setFailed(true); setLoading(false); }
-      });
-    return () => { cancelled = true; };
-  }, [episodeId, isCompact]);
+  // Shared source-level query (always fetches the bounded max of 8); compact
+  // and expanded variants slice from the same cached result.
+  const { data, isLoading, isError } = useSimilarEpisodes(episodeId);
+  const items = useMemo(
+    () => (data ?? []).filter((r) => r.audio_url).slice(0, isCompact ? 4 : 8),
+    [data, isCompact],
+  );
+  const loading = isLoading;
+  const failed = isError;
 
   const podcastCount = useMemo(() => {
     const s = new Set<string>();
