@@ -11,9 +11,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SITE = Deno.env.get("PUBLIC_SITE_URL") || "https://podiverzum.com";
-// Sub-sitemap URLs are emitted on the public domain so Cloudflare worker can
-// proxy them and Google sees same-host children (best practice).
-const FN_BASE = `${SITE}/sitemap.xml`;
+// Sub-sitemap URLs live on this function's own host: no Cloudflare worker route
+// is bound for /sitemap.xml, so public-domain child URLs would serve the stale
+// static file. podiverzum.com/robots.txt references this endpoint via a Sitemap:
+// directive, which authorizes the cross-host episode URLs inside the children.
+const FN_BASE = `${Deno.env.get("SUPABASE_URL")}/functions/v1/sitemap`;
 
 const xmlHeaders = {
   "Access-Control-Allow-Origin": "*",
